@@ -1,0 +1,16 @@
+{
+	"/": [
+		"src/routes/+page.server.ts",
+		"src/routes/+layout.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/api/assets": [
+		"src/routes/api/assets/+server.ts"
+	],
+	"/api/search": [
+		"src/routes/api/search/+server.ts"
+	],
+	"/api/update": [
+		"src/routes/api/update/+server.ts"
+	]
+}
