@@ -26,3 +26,8 @@ vite.config.ts.timestamp-*
 Dockerfile
 .dockerignore
 docker-compose.yml
+
+# Other
+.github
+metadata
+

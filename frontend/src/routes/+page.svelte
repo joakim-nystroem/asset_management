@@ -41,18 +41,15 @@
   let locations: Record<string, any>[] = $state(data.locations || []);
 
   let keys = $derived(assets.length > 0 ? Object.keys(assets[0]) : []);
-  // [NEW] Realtime Update Handler
-  const handleRealtimeUpdate = (payload: { id: number; key: string; value: any }) => {
-    // Update View
-    const index = assets.findIndex(a => a.id === payload.id);
+  const updateAssetInList = (list: Record<string, any>[], payload: { id: number; key: string; value: any }) => {
+    const index = list.findIndex(a => a.id === payload.id);
     if (index !== -1) {
-      assets[index][payload.key] = payload.value;
+      list[index][payload.key] = payload.value;
     }
-    // Update Base
-    const baseIndex = baseAssets.findIndex(a => a.id === payload.id);
-    if (baseIndex !== -1) {
-       baseAssets[baseIndex][payload.key] = payload.value;
-    }
+  };
+  const handleRealtimeUpdate = (payload: { id: number; key: string; value: any }) => {
+    updateAssetInList(assets, payload);
+    updateAssetInList(baseAssets, payload);
   };
   const realtime = new RealtimeManager(handleRealtimeUpdate);
 
