@@ -4,7 +4,7 @@
 
 This file outlines the major features and functionality to be added to the application.
 
-### 1. Real-time User Position Sharing
+### 1. Real-time User Position Sharing (Complete)
 
 **Goal:** Implement functionality where if a user selects a cell in the grid, their position (i.e., the selected cell) is broadcasted and visible to all other users currently accessing the application.
 

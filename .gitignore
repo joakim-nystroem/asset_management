@@ -32,4 +32,5 @@ docker-compose.yml
 metadata
 frontend/build
 frontend/metadata
+.md
 
