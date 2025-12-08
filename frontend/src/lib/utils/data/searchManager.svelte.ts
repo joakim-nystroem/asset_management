@@ -42,7 +42,7 @@ export class SearchManager {
       }
 
       // DIRECT CALL: Browser -> Go API
-      const response = await fetch(`/api/search?${params.toString()}`);
+      const response = await fetch(`./api/search?${params.toString()}`);
       
       
       if (!response.ok) {
