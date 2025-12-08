@@ -39,6 +39,8 @@
   let baseAssets: Record<string, any>[] = $state(data.assets);
   let assets: Record<string, any>[] = $state(data.assets);
   let locations: Record<string, any>[] = $state(data.locations || []);
+  let otherUserSelections: Record<string, { row: number; col: number }> = $state({});
+  let clientId: string | null = $state(null);
 
   let keys = $derived(assets.length > 0 ? Object.keys(assets[0]) : []);
   const updateAssetInList = (list: Record<string, any>[], payload: { id: number; key: string; value: any }) => {
@@ -51,7 +53,42 @@
     updateAssetInList(assets, payload);
     updateAssetInList(baseAssets, payload);
   };
-  const realtime = new RealtimeManager(handleRealtimeUpdate);
+  const handleUserPositionUpdate = (payload: { clientId: string; row: number; col: number }) => {
+    if (payload.clientId === clientId) return;
+    otherUserSelections = { ...otherUserSelections, [payload.clientId]: { row: payload.row, col: payload.col } };
+  };
+  const handleUserLeft = (payload: { clientId: string }) => {
+    if (payload.clientId === clientId) return;
+    const newSelections = { ...otherUserSelections };
+    delete newSelections[payload.clientId];
+    otherUserSelections = newSelections;
+  };
+
+  const handleExistingUsers = (users: Record<string, { row: number; col: number }>) => {
+    const newSelections = { ...users };
+    if (clientId) {
+      delete newSelections[clientId];
+    }
+    otherUserSelections = newSelections;
+  };
+
+  const handleWelcome = (payload: { clientId: string }) => {
+    clientId = payload.clientId;
+    // Re-filter existing users in case welcome arrived after
+    if (otherUserSelections[clientId]) {
+      const newSelections = { ...otherUserSelections };
+      delete newSelections[clientId];
+      otherUserSelections = newSelections;
+    }
+  };
+
+  const realtime = new RealtimeManager(
+    handleRealtimeUpdate,
+    handleUserPositionUpdate,
+    handleUserLeft,
+    handleExistingUsers,
+    handleWelcome
+  );
 
   let scrollContainer: HTMLDivElement | null = $state(null);
   let textareaRef: HTMLTextAreaElement | null = $state(null);
@@ -78,9 +115,15 @@
         if (editManager.isEditing) {
           editManager.cancel(columnManager, rowManager);
           return;
-      
         }
-        selection.resetAll();
+
+        // Only reset the selection if one actually exists.
+        // This prevents sending a (-1,-1) update if nothing is selected.
+        if (selection.hasSelection()) {
+          selection.resetAll();
+        }
+
+        // Always clear other UI states like menus or copy overlays.
         clipboard.clear();
         if (contextMenu.visible) contextMenu.close();
         headerMenu.close();
@@ -229,6 +272,22 @@
     search.cleanupFilterCache();
     sort.invalidateCache();
   });
+
+  let updatePositionTimeout: NodeJS.Timeout | null = null;
+  $effect(() => {
+    if (selection.start) {
+      if (updatePositionTimeout) {
+        clearTimeout(updatePositionTimeout);
+      }
+      updatePositionTimeout = setTimeout(() => {
+        if (selection.start.row === -1) {
+          realtime.sendDeselect();
+        } else {
+          realtime.sendPositionUpdate(selection.start.row, selection.start.col);
+        }
+      }, 100);
+    }
+  });
 </script>
 
 <div class="flex flex-col gap-2 mb-3">
@@ -320,6 +379,36 @@ columnManager.resetWidth(key);
       </div>
 
       <div class="absolute top-8 w-full" style="transform: translateY({virtualScroll.getOffsetY(rowManager)}px);">
+        {#each Object.entries(otherUserSelections) as [clientId, position]}
+          {@const otherUserOverlay = selection.computeVisualOverlay(
+            position,
+            position,
+            virtualScroll.visibleRange,
+            keys,
+            columnManager,
+            virtualScroll.rowHeight
+          )}
+          {#if otherUserOverlay}
+            <div
+              class="absolute pointer-events-none z-5"
+              style="
+                top: {otherUserOverlay.top}px;
+                left: {otherUserOverlay.left}px;
+                width: {otherUserOverlay.width}px;
+                height: {otherUserOverlay.height}px;
+                border: 1px solid #ef4444; 
+                box-sizing: border-box;
+              "
+            >
+              <div
+                class="absolute -top-5 left-0 text-xs bg-red-500 text-white px-1 rounded whitespace-nowrap"
+              >
+                User {clientId}
+              </div>
+            </div>
+          {/if}
+        {/each}
+
         {#if copyOverlay}
             <div
                class="absolute pointer-events-none z-20 border-blue-600 dark:border-blue-500"

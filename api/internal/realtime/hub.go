@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -19,6 +18,13 @@ const (
 	writeWait  = 10 * time.Second
 	pongWait   = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10
+	
+	// Connection health check
+	healthCheckInterval = 30 * time.Second
+	
+	// Buffer sizes
+	clientSendBuffer = 256
+	hubChannelBuffer = 100
 )
 
 var upgrader = websocket.Upgrader{
@@ -41,6 +47,10 @@ type Client struct {
 	conn *websocket.Conn
 	send chan []byte
 	id   string
+	
+	// Track last activity for health checks
+	lastPong time.Time
+	mu       sync.Mutex
 }
 
 type Hub struct {
@@ -51,29 +61,66 @@ type Hub struct {
 	rdb        *redis.Client
 	ctx        context.Context
 	mutex      sync.RWMutex
+	
+	// Track active client IDs and their positions
+	activeClientIDs map[string]*Client
+	userPositions   map[string]json.RawMessage // Cache of positions
+	positionsMutex  sync.RWMutex
+	
+	// Graceful shutdown
+	shutdown chan struct{}
+	wg       sync.WaitGroup
 }
 
-func NewHub() *Hub {
-	// Use the environment variables you set in .env
-	addr := os.Getenv("VALKEY_HOST") + ":" + os.Getenv("VALKEY_PORT")
+func NewHub(rdb *redis.Client) *Hub {
+	ctx := context.Background()
 
-	// Fallback for local testing if env vars are missing
-	if addr == ":" {
-		addr = "localhost:6379"
-	}
-
-	rdb := redis.NewClient(&redis.Options{
-		Addr: addr,
-	})
+	// Clear all existing user positions on startup
+	go func() {
+		if err := clearStalePositions(ctx, rdb); err != nil {
+			log.Printf("Error clearing stale positions: %v", err)
+		}
+	}()
 
 	return &Hub{
-		broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[*Client]bool),
-		rdb:        rdb,
-		ctx:        context.Background(),
+		broadcast:       make(chan []byte, hubChannelBuffer),
+		register:        make(chan *Client, hubChannelBuffer),
+		unregister:      make(chan *Client, hubChannelBuffer),
+		clients:         make(map[*Client]bool),
+		activeClientIDs: make(map[string]*Client),
+		userPositions:   make(map[string]json.RawMessage),
+		rdb:             rdb,
+		ctx:             ctx,
+		shutdown:        make(chan struct{}),
 	}
+}
+
+func clearStalePositions(ctx context.Context, rdb *redis.Client) error {
+	var cursor uint64
+	var allKeys []string
+	
+	for {
+		keys, nextCursor, err := rdb.Scan(ctx, cursor, "user_position:*", 100).Result()
+		if err != nil {
+			return err
+		}
+		
+		allKeys = append(allKeys, keys...)
+		cursor = nextCursor
+		
+		if cursor == 0 {
+			break
+		}
+	}
+	
+	if len(allKeys) > 0 {
+		if err := rdb.Del(ctx, allKeys...).Err(); err != nil {
+			return err
+		}
+		log.Printf("Cleared %d stale user positions", len(allKeys))
+	}
+	
+	return nil
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -82,36 +129,87 @@ func (c *Client) readPump() {
 		c.hub.unregister <- c
 		c.conn.Close()
 	}()
+	
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	c.conn.SetPongHandler(func(string) error {
+		c.mu.Lock()
+		c.lastPong = time.Now()
+		c.mu.Unlock()
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+	
+	// Set initial lastPong
+	c.mu.Lock()
+	c.lastPong = time.Now()
+	c.mu.Unlock()
+	
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				log.Printf("WS unexpected close for client %s: %v", c.id, err)
 			}
 			break
 		}
 
 		var msg Message
 		if err := json.Unmarshal(message, &msg); err != nil {
-			log.Printf("Could not decode message: %v", err)
+			log.Printf("Could not decode message from client %s: %v", c.id, err)
 			continue
 		}
 
-		// Handle messages from client, e.g., cursor position
-		if msg.Type == "USER_POSITION_UPDATE" {
-			// Add client ID to payload so frontend knows who it is
-			if payload, ok := msg.Payload.(map[string]interface{}); ok {
-				payload["clientId"] = c.id
-				msg.Payload = payload
-				if updatedMsg, err := json.Marshal(msg); err == nil {
-					// Broadcast to all clients including the sender
-					c.hub.broadcast <- updatedMsg
-				}
-			}
+		// Handle messages from client
+		switch msg.Type {
+		case "USER_POSITION_UPDATE":
+			c.handlePositionUpdate(msg.Payload)
 		}
+		// Note: USER_DESELECTED is not needed - disconnection handles cleanup
 	}
+}
+
+func (c *Client) handlePositionUpdate(payload interface{}) {
+	payloadMap, ok := payload.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	// Validate position
+	row, rowOk := payloadMap["row"].(float64)
+	col, colOk := payloadMap["col"].(float64)
+	
+	if !rowOk || !colOk || row < 0 || col < 0 {
+		return
+	}
+
+	// Add client ID to payload
+	payloadMap["clientId"] = c.id
+
+	// Store position in Redis
+	userKey := "user_position:" + c.id
+	positionData := map[string]interface{}{
+		"row": row,
+		"col": col,
+	}
+	
+	positionJSON, err := json.Marshal(positionData)
+	if err != nil {
+		log.Printf("Failed to marshal position for client %s: %v", c.id, err)
+		return
+	}
+
+	if err := c.hub.rdb.Set(c.hub.ctx, userKey, positionJSON, 0).Err(); err != nil {
+		log.Printf("Failed to store position in Redis for client %s: %v", c.id, err)
+		return
+	}
+
+	// Update in-memory cache
+	c.hub.positionsMutex.Lock()
+	c.hub.userPositions[c.id] = positionJSON
+	c.hub.positionsMutex.Unlock()
+
+	// Broadcast to other clients
+	c.hub.PublishUpdate("USER_POSITION_UPDATE", payloadMap)
 }
 
 // writePump pumps messages from the hub to the websocket connection.
@@ -121,6 +219,7 @@ func (c *Client) writePump() {
 		ticker.Stop()
 		c.conn.Close()
 	}()
+	
 	for {
 		select {
 		case message, ok := <-c.send:
@@ -129,7 +228,11 @@ func (c *Client) writePump() {
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
-			c.conn.WriteMessage(websocket.TextMessage, message)
+			
+			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				return
+			}
+			
 		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -140,53 +243,211 @@ func (c *Client) writePump() {
 }
 
 func (h *Hub) Run() {
-	// 1. Subscribe to Redis to hear updates from other API instances
+	// Subscribe to Redis
 	pubsub := h.rdb.Subscribe(h.ctx, "asset_updates")
+	defer pubsub.Close()
+	
 	ch := pubsub.Channel()
 
-	// 2. Listen for Redis messages in the background
+	// Listen for Redis messages
+	h.wg.Add(1)
 	go func() {
-		for msg := range ch {
-			h.broadcast <- []byte(msg.Payload)
+		defer h.wg.Done()
+		for {
+			select {
+			case msg := <-ch:
+				h.broadcast <- []byte(msg.Payload)
+			case <-h.shutdown:
+				return
+			}
 		}
 	}()
 
-	// 3. Main Event Loop
+	// Periodic health check for stale connections
+	healthTicker := time.NewTicker(healthCheckInterval)
+	defer healthTicker.Stop()
+
+	// Main event loop
 	for {
 		select {
 		case client := <-h.register:
-			h.mutex.Lock() // Use write lock for modification
-			h.clients[client] = true
-			h.mutex.Unlock()
+			h.registerClient(client)
 
 		case client := <-h.unregister:
-			h.mutex.Lock() // Use write lock for modification
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
-				close(client.send)
-			}
-			h.mutex.Unlock()
-			log.Println("WS Client Disconnected")
+			h.unregisterClient(client)
 
 		case message := <-h.broadcast:
-			h.mutex.RLock() // Use read lock for iteration
-			for client := range h.clients {
-				// non-blocking send to client's channel
-				select {
-				case client.send <- message:
-				default:
-					// If the send buffer is full, we assume the client is lagging
-					// and we close the connection to prevent the hub from blocking.
-					close(client.send)
-					delete(h.clients, client)
-				}
-			}
-			h.mutex.RUnlock()
+			h.broadcastMessage(message)
+		
+		case <-healthTicker.C:
+			h.checkStaleConnections()
+			
+		case <-h.shutdown:
+			log.Println("Hub shutting down...")
+			return
 		}
 	}
 }
 
-// PublishUpdate sends a message to Redis (which then comes back to us via Run())
+func (h *Hub) registerClient(client *Client) {
+	h.mutex.Lock()
+	
+	// Check if there's an existing connection with this ID
+	if existingClient, exists := h.activeClientIDs[client.id]; exists {
+		log.Printf("Duplicate client ID %s detected, closing old connection", client.id)
+		delete(h.clients, existingClient)
+		close(existingClient.send)
+	}
+	
+	h.clients[client] = true
+	h.activeClientIDs[client.id] = client
+	clientCount := len(h.clients)
+	h.mutex.Unlock()
+
+	log.Printf("Client %s connected (total: %d)", client.id, clientCount)
+
+	// Send existing user positions in background
+	h.wg.Add(1)
+	go func() {
+		defer h.wg.Done()
+		h.sendExistingUsers(client)
+	}()
+}
+
+func (h *Hub) sendExistingUsers(client *Client) {
+	// Use in-memory cache instead of scanning Redis
+	h.positionsMutex.RLock()
+	existingUsers := make(map[string]json.RawMessage)
+	for userID, position := range h.userPositions {
+		// Don't send client their own position
+		if userID != client.id {
+			existingUsers[userID] = position
+		}
+	}
+	h.positionsMutex.RUnlock()
+
+	msg := Message{Type: "EXISTING_USERS", Payload: existingUsers}
+	jsonMsg, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal existing users for client %s: %v", client.id, err)
+		return
+	}
+
+	// Non-blocking send
+	select {
+	case client.send <- jsonMsg:
+	default:
+		log.Printf("Failed to send existing users to client %s (buffer full)", client.id)
+	}
+}
+
+func (h *Hub) unregisterClient(client *Client) {
+	h.mutex.Lock()
+	if _, exists := h.clients[client]; exists {
+		delete(h.clients, client)
+		delete(h.activeClientIDs, client.id)
+		close(client.send)
+		
+		clientCount := len(h.clients)
+		h.mutex.Unlock()
+		
+		log.Printf("Client %s disconnected (remaining: %d)", client.id, clientCount)
+		
+		// Clean up Redis and notify others - do this synchronously but quickly
+		h.wg.Add(1)
+		go func() {
+			defer h.wg.Done()
+			h.cleanupClient(client)
+		}()
+	} else {
+		h.mutex.Unlock()
+	}
+}
+
+func (h *Hub) cleanupClient(client *Client) {
+	userKey := "user_position:" + client.id
+
+	// Check in-memory cache first
+	h.positionsMutex.Lock()
+	_, hadPosition := h.userPositions[client.id]
+	delete(h.userPositions, client.id)
+	h.positionsMutex.Unlock()
+
+	// Only notify if user had a position
+	if hadPosition {
+		// Delete from Redis
+		if err := h.rdb.Del(h.ctx, userKey).Err(); err != nil {
+			log.Printf("Failed to delete position for client %s: %v", client.id, err)
+		}
+
+		// Notify other clients
+		payload := map[string]interface{}{"clientId": client.id}
+		h.PublishUpdate("USER_LEFT", payload)
+	}
+}
+
+func (h *Hub) broadcastMessage(message []byte) {
+	var msgData Message
+	if err := json.Unmarshal(message, &msgData); err != nil {
+		log.Printf("Error unmarshalling broadcast message: %v", err)
+		return
+	}
+
+	// Extract sender ID for position updates
+	senderID := ""
+	if msgData.Type == "USER_POSITION_UPDATE" {
+		if payload, ok := msgData.Payload.(map[string]interface{}); ok {
+			if id, ok := payload["clientId"].(string); ok {
+				senderID = id
+			}
+		}
+	}
+
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+
+	for client := range h.clients {
+		// Don't echo position updates back to sender
+		if senderID != "" && client.id == senderID {
+			continue
+		}
+
+		// Non-blocking send
+		select {
+		case client.send <- message:
+		default:
+			log.Printf("Client %s send buffer full, skipping message", client.id)
+		}
+	}
+}
+
+func (h *Hub) checkStaleConnections() {
+	now := time.Now()
+	staleThreshold := pongWait + (10 * time.Second) // Grace period
+	
+	h.mutex.RLock()
+	var staleClients []*Client
+	for client := range h.clients {
+		client.mu.Lock()
+		lastPong := client.lastPong
+		client.mu.Unlock()
+		
+		if now.Sub(lastPong) > staleThreshold {
+			staleClients = append(staleClients, client)
+		}
+	}
+	h.mutex.RUnlock()
+	
+	// Clean up stale connections
+	if len(staleClients) > 0 {
+		log.Printf("Cleaning up %d stale connections", len(staleClients))
+		for _, client := range staleClients {
+			client.conn.Close() // This will trigger readPump's defer -> unregister
+		}
+	}
+}
+
+// PublishUpdate sends a message to Redis
 func (h *Hub) PublishUpdate(msgType string, data interface{}) {
 	msg := Message{
 		Type:    msgType,
@@ -199,8 +460,7 @@ func (h *Hub) PublishUpdate(msgType string, data interface{}) {
 		return
 	}
 
-	err = h.rdb.Publish(h.ctx, "asset_updates", jsonMsg).Err()
-	if err != nil {
+	if err := h.rdb.Publish(h.ctx, "asset_updates", jsonMsg).Err(); err != nil {
 		log.Printf("Redis Publish error: %v", err)
 	}
 }
@@ -208,22 +468,44 @@ func (h *Hub) PublishUpdate(msgType string, data interface{}) {
 func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("Upgrade error:", err)
+		log.Printf("WebSocket upgrade error: %v", err)
 		return
 	}
 
-	// Atomically increment and get a unique ID for the client
+	// Generate unique client ID
 	newID := atomic.AddInt64(&clientIDCounter, 1)
 
 	client := &Client{
-		hub:  h,
-		conn: conn,
-		send: make(chan []byte, 256),
-		id:   strconv.FormatInt(newID, 10),
+		hub:      h,
+		conn:     conn,
+		send:     make(chan []byte, clientSendBuffer),
+		id:       strconv.FormatInt(newID, 10),
+		lastPong: time.Now(),
 	}
-	client.hub.register <- client
 
-	// Allow collection of memory referenced by the caller by executing all work in new goroutines.
+	h.register <- client
+
+	// Send welcome message
+	welcomeMsg := Message{
+		Type:    "WELCOME",
+		Payload: map[string]string{"clientId": client.id},
+	}
+	
+	if jsonMsg, err := json.Marshal(welcomeMsg); err == nil {
+		select {
+		case client.send <- jsonMsg:
+		default:
+			log.Printf("Failed to send welcome to client %s", client.id)
+		}
+	}
+
+	// Start client goroutines
 	go client.writePump()
 	go client.readPump()
+}
+
+// Shutdown gracefully closes the hub
+func (h *Hub) Shutdown() {
+	close(h.shutdown)
+	h.wg.Wait()
 }

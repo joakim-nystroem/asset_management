@@ -6,7 +6,7 @@ node_modules
 .netlify
 .wrangler
 /.svelte-kit
-/build
+
 
 # OS
 .DS_Store
@@ -30,4 +30,6 @@ docker-compose.yml
 # Other
 .github
 metadata
+frontend/build
+frontend/metadata
 
