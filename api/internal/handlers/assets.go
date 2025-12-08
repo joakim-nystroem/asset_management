@@ -75,13 +75,12 @@ func UpdateAsset(db *sql.DB, hub *realtime.Hub) http.HandlerFunc {
 			return
 		}
 
-		// --- BROADCAST UPDATE ---
-		hub.PublishUpdate("asset_update", map[string]interface{}{
+		// Broadcast update to all connected WebSocket clients
+		hub.BroadcastMessage("asset_update", map[string]interface{}{
 			"id":    body.ID,
 			"key":   body.Key,
 			"value": body.Value,
 		})
-		// ------------------------
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{

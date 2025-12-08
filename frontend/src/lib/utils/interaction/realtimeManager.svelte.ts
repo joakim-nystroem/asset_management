@@ -109,12 +109,14 @@ export class RealtimeManager {
     this._sendMessage('USER_POSITION_UPDATE', { row, col });
   }
 
-  // No longer needed - WS disconnect handles cleanup automatically
-  // But keep for backwards compatibility if needed
   sendDeselect() {
-    // Optional: could just do nothing since disconnect handles it
-    // Or explicitly clear the position
+    // Only send if we actually had a position
+    if (this.lastSentPosition === null) {
+      return;
+    }
+
     this.lastSentPosition = null;
+    this._sendMessage('USER_DESELECTED', {});
   }
 
   disconnect() {

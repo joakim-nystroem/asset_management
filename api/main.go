@@ -1,21 +1,17 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net/http"
-	"os"
 	"time"
 
 	"asset-api/internal/database"
 	"asset-api/internal/handlers"
-	"asset-api/internal/realtime" 
+	"asset-api/internal/realtime"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
-
-	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -43,26 +39,9 @@ func main() {
 	}
 	log.Println("✅ Successfully connected to database")
 
-	// Realtime WebSocket Hub (Redis-backed)
+	// Realtime WebSocket Hub (in-memory)
 	log.Println("🔌 Initializing WebSocket hub...")
-
-	// Setup Redis client
-	redisAddr := os.Getenv("REDIS_ADDR")
-	if redisAddr == "" {
-		redisAddr = "localhost:6379"
-	}
-	rdb := redis.NewClient(&redis.Options{
-		Addr: redisAddr,
-	})
-
-	// Try a ping to verify connection (non-fatal)
-	if err := rdb.Ping(context.Background()).Err(); err != nil {
-		log.Printf("⚠️ Redis ping failed: %v", err)
-	} else {
-		log.Println("✅ Connected to Redis")
-	}
-
-	hub := realtime.NewHub(rdb)
+	hub := realtime.NewHub()
 	go hub.Run()
 	log.Println("✅ WebSocket hub running")
 
@@ -105,7 +84,7 @@ func main() {
 	log.Println("📍 Listening on: http://localhost:8080")
 	log.Println("🔌 WebSocket endpoint: ws://localhost:8080/api/ws")
 	log.Println("========================================")
-	
+
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("❌ Server failed: %v", err)
 	}

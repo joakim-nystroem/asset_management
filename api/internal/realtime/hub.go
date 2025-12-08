@@ -1,7 +1,6 @@
 package realtime
 
 import (
-	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
-	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -39,6 +37,88 @@ type Message struct {
 	Payload interface{} `json:"payload"`
 }
 
+// UserPosition represents a user's current position in the grid
+type UserPosition struct {
+	Row int `json:"row"`
+	Col int `json:"col"`
+}
+
+// UserPresence tracks all active users and their positions
+type UserPresence struct {
+	positions map[string]*UserPosition
+	mutex     sync.RWMutex
+}
+
+func NewUserPresence() *UserPresence {
+	return &UserPresence{
+		positions: make(map[string]*UserPosition),
+	}
+}
+
+func (up *UserPresence) Set(clientID string, row, col int) {
+	up.mutex.Lock()
+	defer up.mutex.Unlock()
+	
+	up.positions[clientID] = &UserPosition{
+		Row: row,
+		Col: col,
+	}
+}
+
+func (up *UserPresence) Get(clientID string) (*UserPosition, bool) {
+	up.mutex.RLock()
+	defer up.mutex.RUnlock()
+	
+	pos, exists := up.positions[clientID]
+	return pos, exists
+}
+
+func (up *UserPresence) Remove(clientID string) bool {
+	up.mutex.Lock()
+	defer up.mutex.Unlock()
+	
+	_, existed := up.positions[clientID]
+	delete(up.positions, clientID)
+	return existed
+}
+
+func (up *UserPresence) GetAll() map[string]*UserPosition {
+	up.mutex.RLock()
+	defer up.mutex.RUnlock()
+	
+	// Return a copy to avoid race conditions
+	snapshot := make(map[string]*UserPosition, len(up.positions))
+	for id, pos := range up.positions {
+		snapshot[id] = &UserPosition{
+			Row: pos.Row,
+			Col: pos.Col,
+		}
+	}
+	return snapshot
+}
+
+func (up *UserPresence) GetAllExcept(excludeID string) map[string]*UserPosition {
+	up.mutex.RLock()
+	defer up.mutex.RUnlock()
+	
+	snapshot := make(map[string]*UserPosition)
+	for id, pos := range up.positions {
+		if id != excludeID {
+			snapshot[id] = &UserPosition{
+				Row: pos.Row,
+				Col: pos.Col,
+			}
+		}
+	}
+	return snapshot
+}
+
+func (up *UserPresence) Count() int {
+	up.mutex.RLock()
+	defer up.mutex.RUnlock()
+	return len(up.positions)
+}
+
 var clientIDCounter int64
 
 // Client is a middleman between the websocket connection and the hub.
@@ -58,69 +138,29 @@ type Hub struct {
 	broadcast  chan []byte
 	register   chan *Client
 	unregister chan *Client
-	rdb        *redis.Client
-	ctx        context.Context
 	mutex      sync.RWMutex
 	
-	// Track active client IDs and their positions
+	// Track active client IDs
 	activeClientIDs map[string]*Client
-	userPositions   map[string]json.RawMessage // Cache of positions
-	positionsMutex  sync.RWMutex
+	
+	// User presence tracking
+	presence *UserPresence
 	
 	// Graceful shutdown
 	shutdown chan struct{}
 	wg       sync.WaitGroup
 }
 
-func NewHub(rdb *redis.Client) *Hub {
-	ctx := context.Background()
-
-	// Clear all existing user positions on startup
-	go func() {
-		if err := clearStalePositions(ctx, rdb); err != nil {
-			log.Printf("Error clearing stale positions: %v", err)
-		}
-	}()
-
+func NewHub() *Hub {
 	return &Hub{
 		broadcast:       make(chan []byte, hubChannelBuffer),
 		register:        make(chan *Client, hubChannelBuffer),
 		unregister:      make(chan *Client, hubChannelBuffer),
 		clients:         make(map[*Client]bool),
 		activeClientIDs: make(map[string]*Client),
-		userPositions:   make(map[string]json.RawMessage),
-		rdb:             rdb,
-		ctx:             ctx,
+		presence:        NewUserPresence(),
 		shutdown:        make(chan struct{}),
 	}
-}
-
-func clearStalePositions(ctx context.Context, rdb *redis.Client) error {
-	var cursor uint64
-	var allKeys []string
-	
-	for {
-		keys, nextCursor, err := rdb.Scan(ctx, cursor, "user_position:*", 100).Result()
-		if err != nil {
-			return err
-		}
-		
-		allKeys = append(allKeys, keys...)
-		cursor = nextCursor
-		
-		if cursor == 0 {
-			break
-		}
-	}
-	
-	if len(allKeys) > 0 {
-		if err := rdb.Del(ctx, allKeys...).Err(); err != nil {
-			return err
-		}
-		log.Printf("Cleared %d stale user positions", len(allKeys))
-	}
-	
-	return nil
 }
 
 // readPump pumps messages from the websocket connection to the hub.
@@ -163,8 +203,10 @@ func (c *Client) readPump() {
 		switch msg.Type {
 		case "USER_POSITION_UPDATE":
 			c.handlePositionUpdate(msg.Payload)
+			
+		case "USER_DESELECTED":
+			c.handleDeselect()
 		}
-		// Note: USER_DESELECTED is not needed - disconnection handles cleanup
 	}
 }
 
@@ -182,34 +224,29 @@ func (c *Client) handlePositionUpdate(payload interface{}) {
 		return
 	}
 
-	// Add client ID to payload
+	// Update presence
+	c.hub.presence.Set(c.id, int(row), int(col))
+
+	// DEBUG: Log the selection
+	log.Printf("[DEBUG] User %s selected cell -> Row: %d, Col: %d", c.id, int(row), int(col))
+
+	// Add client ID to payload for broadcast
 	payloadMap["clientId"] = c.id
 
-	// Store position in Redis
-	userKey := "user_position:" + c.id
-	positionData := map[string]interface{}{
-		"row": row,
-		"col": col,
-	}
-	
-	positionJSON, err := json.Marshal(positionData)
-	if err != nil {
-		log.Printf("Failed to marshal position for client %s: %v", c.id, err)
-		return
-	}
-
-	if err := c.hub.rdb.Set(c.hub.ctx, userKey, positionJSON, 0).Err(); err != nil {
-		log.Printf("Failed to store position in Redis for client %s: %v", c.id, err)
-		return
-	}
-
-	// Update in-memory cache
-	c.hub.positionsMutex.Lock()
-	c.hub.userPositions[c.id] = positionJSON
-	c.hub.positionsMutex.Unlock()
-
 	// Broadcast to other clients
-	c.hub.PublishUpdate("USER_POSITION_UPDATE", payloadMap)
+	c.hub.BroadcastMessage("USER_POSITION_UPDATE", payloadMap)
+}
+
+func (c *Client) handleDeselect() {
+	// Remove from presence and check if they had a position
+	hadPosition := c.hub.presence.Remove(c.id)
+
+	// Only notify if user actually had a position
+	if hadPosition {
+		payload := map[string]interface{}{"clientId": c.id}
+		c.hub.BroadcastMessage("USER_LEFT", payload)
+		log.Printf("Client %s deselected", c.id)
+	}
 }
 
 // writePump pumps messages from the hub to the websocket connection.
@@ -243,29 +280,11 @@ func (c *Client) writePump() {
 }
 
 func (h *Hub) Run() {
-	// Subscribe to Redis
-	pubsub := h.rdb.Subscribe(h.ctx, "asset_updates")
-	defer pubsub.Close()
-	
-	ch := pubsub.Channel()
-
-	// Listen for Redis messages
-	h.wg.Add(1)
-	go func() {
-		defer h.wg.Done()
-		for {
-			select {
-			case msg := <-ch:
-				h.broadcast <- []byte(msg.Payload)
-			case <-h.shutdown:
-				return
-			}
-		}
-	}()
-
 	// Periodic health check for stale connections
 	healthTicker := time.NewTicker(healthCheckInterval)
 	defer healthTicker.Stop()
+
+	log.Println("Hub started - ready for WebSocket connections")
 
 	// Main event loop
 	for {
@@ -277,7 +296,7 @@ func (h *Hub) Run() {
 			h.unregisterClient(client)
 
 		case message := <-h.broadcast:
-			h.broadcastMessage(message)
+			h.sendToClients(message)
 		
 		case <-healthTicker.C:
 			h.checkStaleConnections()
@@ -315,16 +334,8 @@ func (h *Hub) registerClient(client *Client) {
 }
 
 func (h *Hub) sendExistingUsers(client *Client) {
-	// Use in-memory cache instead of scanning Redis
-	h.positionsMutex.RLock()
-	existingUsers := make(map[string]json.RawMessage)
-	for userID, position := range h.userPositions {
-		// Don't send client their own position
-		if userID != client.id {
-			existingUsers[userID] = position
-		}
-	}
-	h.positionsMutex.RUnlock()
+	// Get all positions except the connecting client's
+	existingUsers := h.presence.GetAllExcept(client.id)
 
 	msg := Message{Type: "EXISTING_USERS", Payload: existingUsers}
 	jsonMsg, err := json.Marshal(msg)
@@ -336,6 +347,9 @@ func (h *Hub) sendExistingUsers(client *Client) {
 	// Non-blocking send
 	select {
 	case client.send <- jsonMsg:
+		if len(existingUsers) > 0 {
+			log.Printf("Sent %d existing user positions to client %s", len(existingUsers), client.id)
+		}
 	default:
 		log.Printf("Failed to send existing users to client %s (buffer full)", client.id)
 	}
@@ -353,7 +367,7 @@ func (h *Hub) unregisterClient(client *Client) {
 		
 		log.Printf("Client %s disconnected (remaining: %d)", client.id, clientCount)
 		
-		// Clean up Redis and notify others - do this synchronously but quickly
+		// Clean up position if client had one
 		h.wg.Add(1)
 		go func() {
 			defer h.wg.Done()
@@ -365,35 +379,43 @@ func (h *Hub) unregisterClient(client *Client) {
 }
 
 func (h *Hub) cleanupClient(client *Client) {
-	userKey := "user_position:" + client.id
-
-	// Check in-memory cache first
-	h.positionsMutex.Lock()
-	_, hadPosition := h.userPositions[client.id]
-	delete(h.userPositions, client.id)
-	h.positionsMutex.Unlock()
+	// Remove from presence - this is the single source of truth
+	hadPosition := h.presence.Remove(client.id)
 
 	// Only notify if user had a position
 	if hadPosition {
-		// Delete from Redis
-		if err := h.rdb.Del(h.ctx, userKey).Err(); err != nil {
-			log.Printf("Failed to delete position for client %s: %v", client.id, err)
-		}
-
-		// Notify other clients
 		payload := map[string]interface{}{"clientId": client.id}
-		h.PublishUpdate("USER_LEFT", payload)
+		h.BroadcastMessage("USER_LEFT", payload)
+		
+		log.Printf("Cleaned up position for client %s (remaining users with positions: %d)", 
+			client.id, h.presence.Count())
 	}
 }
 
-func (h *Hub) broadcastMessage(message []byte) {
+// BroadcastMessage sends a message to all connected clients (public method for handlers)
+func (h *Hub) BroadcastMessage(msgType string, data interface{}) {
+	msg := Message{
+		Type:    msgType,
+		Payload: data,
+	}
+
+	jsonMsg, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("JSON Marshal error: %v", err)
+		return
+	}
+
+	h.broadcast <- jsonMsg
+}
+
+func (h *Hub) sendToClients(message []byte) {
 	var msgData Message
 	if err := json.Unmarshal(message, &msgData); err != nil {
 		log.Printf("Error unmarshalling broadcast message: %v", err)
 		return
 	}
 
-	// Extract sender ID for position updates
+	// Extract sender ID for position updates (don't echo back to sender)
 	senderID := ""
 	if msgData.Type == "USER_POSITION_UPDATE" {
 		if payload, ok := msgData.Payload.(map[string]interface{}); ok {
@@ -440,28 +462,10 @@ func (h *Hub) checkStaleConnections() {
 	
 	// Clean up stale connections
 	if len(staleClients) > 0 {
-		log.Printf("Cleaning up %d stale connections", len(staleClients))
+		log.Printf("Health check: Cleaning up %d stale connections", len(staleClients))
 		for _, client := range staleClients {
 			client.conn.Close() // This will trigger readPump's defer -> unregister
 		}
-	}
-}
-
-// PublishUpdate sends a message to Redis
-func (h *Hub) PublishUpdate(msgType string, data interface{}) {
-	msg := Message{
-		Type:    msgType,
-		Payload: data,
-	}
-
-	jsonMsg, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("JSON Marshal error: %v", err)
-		return
-	}
-
-	if err := h.rdb.Publish(h.ctx, "asset_updates", jsonMsg).Err(); err != nil {
-		log.Printf("Redis Publish error: %v", err)
 	}
 }
 
@@ -508,4 +512,50 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 func (h *Hub) Shutdown() {
 	close(h.shutdown)
 	h.wg.Wait()
+}
+
+// ============================================================================
+// DEBUG FUNCTIONS - Can be removed in production
+// ============================================================================
+
+// DebugPrintPresence logs all current user positions (for debugging)
+func (h *Hub) DebugPrintPresence() {
+	positions := h.presence.GetAll()
+	
+	if len(positions) == 0 {
+		log.Println("[DEBUG] No users have active positions")
+		return
+	}
+	
+	log.Println("========================================")
+	log.Println("[DEBUG] Current User Positions:")
+	log.Println("========================================")
+	for clientID, pos := range positions {
+		log.Printf("[DEBUG] User %s -> Row: %d, Col: %d", clientID, pos.Row, pos.Col)
+	}
+	log.Println("========================================")
+}
+
+// StartDebugLogger starts a goroutine that periodically logs presence (for debugging)
+// Returns a channel that can be closed to stop the logger
+func (h *Hub) StartDebugLogger(interval time.Duration) chan struct{} {
+	stop := make(chan struct{})
+	
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		
+		for {
+			select {
+			case <-ticker.C:
+				h.DebugPrintPresence()
+			case <-stop:
+				log.Println("[DEBUG] Stopped debug logger")
+				return
+			}
+		}
+	}()
+	
+	log.Printf("[DEBUG] Started debug logger (interval: %v)", interval)
+	return stop
 }
