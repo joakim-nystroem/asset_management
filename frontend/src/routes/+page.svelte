@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   // --- COMPONENTS ---
   import ContextMenu from '$lib/utils/ui/contextMenu/contextMenu.svelte';
   import HeaderMenu from '$lib/utils/ui/headerMenu/headerMenu.svelte';

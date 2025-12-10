@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ fetch }) => {
   
   try {
     // Fetch assets from Go API
-    const assetsResponse = await fetch(`http://${PRIVATE_API_URL}/api/assets`)
+    const assetsResponse = await fetch(`http://${PRIVATE_API_URL}/api/v1/assets`)
     
     if (!assetsResponse.ok) {
       throw new Error(`Failed to fetch assets: ${assetsResponse.statusText}`);

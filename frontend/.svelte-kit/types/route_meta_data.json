@@ -4,6 +4,10 @@
 		"src/routes/+layout.server.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/admin": [
+		"src/routes/admin/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/api/assets": [
 		"src/routes/api/assets/+server.ts"
 	],

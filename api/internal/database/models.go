@@ -6,7 +6,7 @@ type Asset struct {
 	ID                    int     `json:"id"`
 	BuEstate              string  `json:"bu_estate"`
 	Department            string  `json:"department"`
-	Location              string  `json:"location"`
+	Location              *string  `json:"location"`
 	ShelfCabinetTable     *string `json:"shelf_cabinet_table"`
 	Node                  string  `json:"node"`
 	AssetType             string  `json:"asset_type"`
@@ -15,8 +15,8 @@ type Asset struct {
 	Model                 string  `json:"model"`
 	WbdTag                string  `json:"wbd_tag"`
 	SerialNumber          string  `json:"serial_number"`
-	Status                string  `json:"status"`
-	Condition             string  `json:"condition"`
+	Status                *string  `json:"status"`
+	Condition             *string  `json:"condition"`
 	Comment               *string `json:"comment"`
 	UnderWarrantyUntil    *string `json:"under_warranty_until"`
 	WarrantyDetails       *string `json:"warranty_details"`
@@ -35,3 +35,16 @@ type Location struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
 }
+
+// Status represents an asset status for dropdowns/validation
+type Status struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+// Condition represents an asset condition for dropdowns/validation
+type Condition struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+

@@ -12,7 +12,7 @@ export const PUT: RequestHandler = async ({ request, fetch }) => {
       throw svelteError(400, 'Asset ID and key are required for updates.');
     }
 
-    const response = await fetch(`http://${PRIVATE_API_URL}/api/update`, {
+    const response = await fetch(`http://${PRIVATE_API_URL}/api/v1/assets/update`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

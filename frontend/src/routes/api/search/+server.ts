@@ -14,7 +14,7 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
     filters.forEach(f => params.append('filter', f));
    
     // Forward to Go Search endpoint
-    const response = await fetch(`http://${PRIVATE_API_URL}/api/search?${params.toString()}`);
+    const response = await fetch(`http://${PRIVATE_API_URL}/api/v1/assets/search?${params.toString()}`);
 
     if (!response.ok) {
       throw new Error(`Go API Search error: ${response.status} ${response.statusText}`);

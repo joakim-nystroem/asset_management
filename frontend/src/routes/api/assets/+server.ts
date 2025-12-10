@@ -6,7 +6,7 @@ import { PRIVATE_API_URL } from '$env/static/private';
 export const GET: RequestHandler = async ({ fetch }) => {
 
   try {
-    const response = await fetch(`http://${PRIVATE_API_URL}/api/assets`);
+    const response = await fetch(`http://${PRIVATE_API_URL}/api/v1/assets`);
 
     if (!response.ok) {
       throw new Error(`Go API Assets error: ${response.status} ${response.statusText}`);
