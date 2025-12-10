@@ -5,16 +5,41 @@
 		"src/routes/+layout.server.ts"
 	],
 	"/admin": [
-		"src/routes/admin/+page.server.ts",
+		"src/routes/admin/+layout.server.ts",
+		"src/routes/+layout.server.ts",
+		"src/routes/admin/+layout.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/admin/[slug]": [
+		"src/routes/admin/[slug]/+page.server.ts",
+		"src/routes/admin/+layout.server.ts",
 		"src/routes/+layout.server.ts"
 	],
 	"/api/assets": [
 		"src/routes/api/assets/+server.ts"
+	],
+	"/api/meta/conditions": [
+		"src/routes/api/meta/conditions/+server.ts"
+	],
+	"/api/meta/locations": [
+		"src/routes/api/meta/locations/+server.ts"
+	],
+	"/api/meta/statuses": [
+		"src/routes/api/meta/statuses/+server.ts"
 	],
 	"/api/search": [
 		"src/routes/api/search/+server.ts"
 	],
 	"/api/update": [
 		"src/routes/api/update/+server.ts"
+	],
+	"/api/update/conditions": [
+		"src/routes/api/update/conditions/+server.ts"
+	],
+	"/api/update/locations": [
+		"src/routes/api/update/locations/+server.ts"
+	],
+	"/api/update/statuses": [
+		"src/routes/api/update/statuses/+server.ts"
 	]
 }

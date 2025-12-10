@@ -17,7 +17,6 @@ export const load = async ({ fetch }: Parameters<PageServerLoad>[0]) => {
       throw new Error(`Failed to fetch assets: ${assetsResponse.statusText}`);
     }
     
-    // ✅ FIX: Extract the 'assets' array from the response object
     const data = await assetsResponse.json();
     assets = data.assets || [];
 
