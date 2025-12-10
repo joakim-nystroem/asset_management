@@ -4,20 +4,18 @@
 
   let { data }: PageProps = $props();
 
-  const pathname = $derived(data.pathname.split('/').slice(1)[1]);
+  let pathname = $derived(data.fullPathname.split('/').slice(-1)[0]);
   
   let pageItems = $state(data.items);
-  
-  let messageText = $state('');
 
   let editingId = $state<number | null>(null);
   let editValue = $state('');
   let textareaRef = $state<HTMLTextAreaElement | null>(null);
-    
+  
 
   async function refetchData() {
     try {
-      const res = await fetch(`/api/meta/${pathname}`);
+      const res = await fetch(`/asset/api/meta/${pathname}`);
       if (res.ok) {
         const result = await res.json();
         pageItems = result[pathname] || [];
@@ -47,7 +45,7 @@
     }
 
     try {
-      const res = await fetch(`/api/update/${pathname}`, {
+      const res = await fetch(`/asset/api/update/${pathname}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingId, name: editValue.trim() }),
@@ -69,7 +67,7 @@
     }
 
     try {
-      const res = await fetch(`/api/delete/${pathname}`, {
+      const res = await fetch(`/asset/api/delete/${pathname}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id, name: item.name }),
@@ -99,7 +97,7 @@
     if (!newItemName.trim()) return;
 
     try {
-      const res = await fetch(`/api/create/${pathname}`, {
+      const res = await fetch(`/asset/api/create/${pathname}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newItemName.trim() }),
@@ -126,14 +124,15 @@
     <input
       type="text"
       bind:value={newItemName}
-      placeholder="New {pathname.slice(0, -1)} name"
+      onkeydown={(e) => { if (e.key === 'Enter') createItem() }}
+      placeholder="New Item..."
       class="flex-1 bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 border border-neutral-300 dark:border-none focus:outline-none"
     />
     <button
       onclick={createItem}
       class="ml-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none"
     >
-      Create {pathname.slice(0, -1)}
+      Create
     </button>
   </div>
 

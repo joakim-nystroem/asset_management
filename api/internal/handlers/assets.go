@@ -107,18 +107,18 @@ func GetLocations(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func GetStatuses(db *sql.DB) http.HandlerFunc {
+func GetStatus(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		statuses, err := admin.GetAllStatuses(db)
+		status, err := admin.GetAllStatus(db)
 		if err != nil {
-			log.Printf("Error fetching statuses: %v", err)
-			http.Error(w, "Failed to fetch statuses", http.StatusInternalServerError)
+			log.Printf("Error fetching status: %v", err)
+			http.Error(w, "Failed to fetch status", http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"statuses": statuses,
+			"status": status,
 		})
 	}
 }
@@ -181,7 +181,8 @@ func UpdateStatus(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func UpdateCondition(db *sql.DB, hub *realtime.Hub) http.HandlerFunc {
+func UpdateCondition(db *sql.DB) http.HandlerFunc {
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		var cond database.Condition
 		if err := json.NewDecoder(r.Body).Decode(&cond); err != nil {
@@ -192,14 +193,169 @@ func UpdateCondition(db *sql.DB, hub *realtime.Hub) http.HandlerFunc {
 		if err := admin.UpdateCondition(db, cond); err != nil {
 			log.Printf("Error updating condition: %v", err)
 			http.Error(w, "Failed to update condition", http.StatusInternalServerError)
+
 			return
 		}
-
-		hub.BroadcastMessage("condition_update", cond)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": true,
+		})
+
+	}
+
+}
+
+func DeleteLocation(db *sql.DB) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		var loc database.Location
+		if err := json.NewDecoder(r.Body).Decode(&loc); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if err := admin.DeleteLocation(db, loc); err != nil {
+			log.Printf("Error deleting location: %v", err)
+			http.Error(w, "Failed to delete location", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+		})
+	}
+}
+
+func DeleteStatus(db *sql.DB) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		var status database.Status
+		if err := json.NewDecoder(r.Body).Decode(&status); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		if err := admin.DeleteStatus(db, status); err != nil {
+			log.Printf("Error deleting status: %v", err)
+			http.Error(w, "Failed to delete status", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+		})
+	}
+}
+
+func DeleteCondition(db *sql.DB) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		var cond database.Condition
+
+		if err := json.NewDecoder(r.Body).Decode(&cond); err != nil {
+
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+
+			return
+
+		}
+
+		if err := admin.DeleteCondition(db, cond); err != nil {
+
+			log.Printf("Error deleting condition: %v", err)
+
+			http.Error(w, "Failed to delete condition", http.StatusInternalServerError)
+
+			return
+
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+		})
+
+	}
+
+}
+
+func CreateLocation(db *sql.DB) http.HandlerFunc {
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		var reqBody struct {
+			Name string `json:"name"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		loc, err := admin.CreateLocation(db, reqBody.Name)
+		if err != nil {
+			log.Printf("Error creating location: %v", err)
+			http.Error(w, "Failed to create location", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"item":    loc,
+		})
+	}
+}
+
+func CreateStatus(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var reqBody struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		status, err := admin.CreateStatus(db, reqBody.Name)
+		if err != nil {
+			log.Printf("Error creating status: %v", err)
+			http.Error(w, "Failed to create status", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"item":    status,
+		})
+	}
+}
+
+func CreateCondition(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var reqBody struct {
+			Name string `json:"name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		cond, err := admin.CreateCondition(db, reqBody.Name)
+		if err != nil {
+			log.Printf("Error creating condition: %v", err)
+			http.Error(w, "Failed to create condition", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"item":    cond,
 		})
 	}
 }

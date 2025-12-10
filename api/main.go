@@ -61,9 +61,6 @@ func main() {
 	api.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		hub.ServeWs(w, r)
 	})
-	api.HandleFunc("/admin/ws", func(w http.ResponseWriter, r *http.Request) {
-		adminHub.ServeWs(w, r)
-	})
 
 	// API v1 router
 	v1 := api.PathPrefix("/v1").Subrouter()
@@ -77,14 +74,24 @@ func main() {
 	// Meta endpoints
 	meta := v1.PathPrefix("/meta").Subrouter()
 	meta.HandleFunc("/locations", handlers.GetLocations(db)).Methods("GET")
-	meta.HandleFunc("/statuses", handlers.GetStatuses(db)).Methods("GET")
+	meta.HandleFunc("/status", handlers.GetStatus(db)).Methods("GET")
 	meta.HandleFunc("/conditions", handlers.GetConditions(db)).Methods("GET")
-	
+
 	// Update endpoints
 	updates := v1.PathPrefix("/update").Subrouter()
 	updates.HandleFunc("/locations", handlers.UpdateLocation(db)).Methods("PUT")
-	updates.HandleFunc("/statuses", handlers.UpdateStatus(db)).Methods("PUT")
-	updates.HandleFunc("/conditions", handlers.UpdateCondition(db, adminHub)).Methods("PUT")
+	updates.HandleFunc("/status", handlers.UpdateStatus(db)).Methods("PUT")
+	updates.HandleFunc("/conditions", handlers.UpdateCondition(db)).Methods("PUT")
+
+	deletes := v1.PathPrefix("/delete").Subrouter()
+	deletes.HandleFunc("/locations", handlers.DeleteLocation(db)).Methods("DELETE")
+	deletes.HandleFunc("/status", handlers.DeleteStatus(db)).Methods("DELETE")
+	deletes.HandleFunc("/conditions", handlers.DeleteCondition(db)).Methods("DELETE")
+
+	creates := v1.PathPrefix("/create").Subrouter()
+	creates.HandleFunc("/locations", handlers.CreateLocation(db)).Methods("POST")
+	creates.HandleFunc("/status", handlers.CreateStatus(db)).Methods("POST")
+	creates.HandleFunc("/conditions", handlers.CreateCondition(db)).Methods("POST")
 
 	log.Println("✅ Routes configured")
 

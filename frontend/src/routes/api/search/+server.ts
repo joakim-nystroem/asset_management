@@ -7,6 +7,7 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
   const q = url.searchParams.get('q');
   const filters = url.searchParams.getAll('filter');
   
+  console.log("arrived at search proxy with:", { q, filters });
   
   try {
     const params = new URLSearchParams();
@@ -15,6 +16,8 @@ export const GET: RequestHandler = async ({ url, fetch }) => {
    
     // Forward to Go Search endpoint
     const response = await fetch(`http://${PRIVATE_API_URL}/api/v1/assets/search?${params.toString()}`);
+    
+    console.log(response);
 
     if (!response.ok) {
       throw new Error(`Go API Search error: ${response.status} ${response.statusText}`);

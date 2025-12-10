@@ -30,8 +30,8 @@
 	"/api/meta/locations": [
 		"src/routes/api/meta/locations/+server.ts"
 	],
-	"/api/meta/statuses": [
-		"src/routes/api/meta/statuses/+server.ts"
+	"/api/meta/status": [
+		"src/routes/api/meta/status/+server.ts"
 	],
 	"/api/search": [
 		"src/routes/api/search/+server.ts"

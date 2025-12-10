@@ -1,8 +1,8 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
+import { PRIVATE_API_URL } from '$env/static/private';
 
-// Define allowed pages as a module-level constant for better type safety and convention.
-const ALLOWED_EDIT_PAGES = ['locations', 'statuses', 'conditions'] as const;
+const ALLOWED_EDIT_PAGES = ['locations', 'status', 'conditions'] as const;
 
 export const load = (async ({ fetch, params }) => {
     const { adminpage } = params;
@@ -12,14 +12,19 @@ export const load = (async ({ fetch, params }) => {
     }
 
     try {
-        const res = await fetch(`/api/meta/${adminpage}`);
+        // Direct call to Go API from server
+        const apiUrl = `http://${PRIVATE_API_URL}/api/v1/meta/${adminpage}`;
+        console.log('🔍 Server load fetching from:', apiUrl);
+        
+        const res = await fetch(apiUrl);
 
         if (!res.ok) {
-            console.error(`Failed to fetch admin data for ${adminpage}`);
+            console.error(`Failed to fetch admin data for ${adminpage}`, res.status);
             throw error(res.status, `Failed to fetch data for ${adminpage}`);
         }
 
         const data = await res.json();
+        console.log('✅ Server load received data:', data);
 
         return {
             items: data[adminpage] || [],

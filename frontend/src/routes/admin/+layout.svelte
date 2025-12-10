@@ -2,7 +2,7 @@
 
   let { children } = $props();
 
-  const menuItems = ["locations", "statuses", "conditions"]
+  const menuItems = ["locations", "status", "conditions"]
 </script>
 
 <div class="flex h-full bg-gray-100 mt-2 dark:bg-slate-600 text-gray-900 dark:text-gray-100">
@@ -12,7 +12,7 @@
       {#each menuItems as item}
         <li>
           <a
-            href="/admin/{item}"
+            href="./{item}"
             class="w-full text-left p-2 rounded hover:bg-gray-300 dark:hover:bg-slate-700 hover:cursor-pointer block"
           >
             {item.charAt(0).toUpperCase() + item.slice(1)}

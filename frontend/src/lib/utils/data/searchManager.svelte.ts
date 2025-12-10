@@ -41,9 +41,9 @@ export class SearchManager {
         return [...baseData];
       }
 
+      console.log("Performing search with params:", params.toString());
       // DIRECT CALL: Browser -> Go API
       const response = await fetch(`./api/search?${params.toString()}`);
-      
       
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} ${response.statusText}`);

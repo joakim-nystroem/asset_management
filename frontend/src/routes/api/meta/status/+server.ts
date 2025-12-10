@@ -5,20 +5,20 @@ import { PRIVATE_API_URL } from '$env/static/private';
 
 export const GET: RequestHandler = async ({ fetch }) => {
   try {
-    const response = await fetch(`http://${PRIVATE_API_URL}/api/v1/meta/statuses`, {
+    const response = await fetch(`http://${PRIVATE_API_URL}/api/v1/meta/status`, {
       signal: AbortSignal.timeout(5000)
     });
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Failed to fetch statuses: ${response.statusText}`);
+      throw new Error(errorData.error || `Failed to fetch status: ${response.statusText}`);
     }
 
     const data = await response.json();
     return json(data);
 
   } catch (err) {
-    console.error('Statuses proxy error:', err);
-    throw svelteError(500, err instanceof Error ? err.message : 'Failed to fetch statuses.');
+    console.error('Status proxy error:', err);
+    throw svelteError(500, err instanceof Error ? err.message : 'Failed to fetch status.');
   }
 };

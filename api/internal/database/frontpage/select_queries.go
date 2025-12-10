@@ -99,15 +99,15 @@ func SearchAssets(db *sql.DB, searchTerm string, filters []string) ([]database.A
 
 	if searchTerm != "" {
 		searchPattern := "%" + searchTerm + "%"
-		whereClauses = append(whereClauses, "" +
-			"(ai.serial_number LIKE ? OR" +
-			" ai.wbd_tag LIKE ? OR" +
-			" ai.manufacturer LIKE ? OR" +
-			" ai.department LIKE ? OR" +
-			" ai.node LIKE ? OR" +
-			" ai.asset_type LIKE ? OR" +
-			" ai.model LIKE ? OR" +
-			" al.name LIKE ?)")
+		whereClauses = append(whereClauses, ""+
+			"(ai.serial_number LIKE ? OR"+
+			" ai.wbd_tag LIKE ? OR"+
+			" ai.manufacturer LIKE ? OR"+
+			" ai.department LIKE ? OR"+
+			" ai.node LIKE ? OR"+
+			" ai.asset_type LIKE ? OR"+
+			" ai.model LIKE ? OR"+
+			" al.location_name LIKE ?)")
 		for i := 0; i < 8; i++ {
 			args = append(args, searchPattern)
 		}
