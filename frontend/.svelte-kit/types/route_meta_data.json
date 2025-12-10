@@ -10,13 +10,19 @@
 		"src/routes/admin/+layout.server.ts",
 		"src/routes/+layout.server.ts"
 	],
-	"/admin/[slug]": [
-		"src/routes/admin/[slug]/+page.server.ts",
+	"/admin/[adminpage]": [
+		"src/routes/admin/[adminpage]/+page.server.ts",
 		"src/routes/admin/+layout.server.ts",
 		"src/routes/+layout.server.ts"
 	],
 	"/api/assets": [
 		"src/routes/api/assets/+server.ts"
+	],
+	"/api/create/[adminpage]": [
+		"src/routes/api/create/[adminpage]/+server.ts"
+	],
+	"/api/delete/[adminpage]": [
+		"src/routes/api/delete/[adminpage]/+server.ts"
 	],
 	"/api/meta/conditions": [
 		"src/routes/api/meta/conditions/+server.ts"
@@ -30,16 +36,7 @@
 	"/api/search": [
 		"src/routes/api/search/+server.ts"
 	],
-	"/api/update": [
-		"src/routes/api/update/+server.ts"
-	],
-	"/api/update/conditions": [
-		"src/routes/api/update/conditions/+server.ts"
-	],
-	"/api/update/locations": [
-		"src/routes/api/update/locations/+server.ts"
-	],
-	"/api/update/statuses": [
-		"src/routes/api/update/statuses/+server.ts"
+	"/api/update/[adminpage]": [
+		"src/routes/api/update/[adminpage]/+server.ts"
 	]
 }

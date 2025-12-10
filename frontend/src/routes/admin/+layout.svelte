@@ -5,8 +5,8 @@
   const menuItems = ["locations", "statuses", "conditions"]
 </script>
 
-<div class="flex h-full bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-  <div class="w-64 bg-white dark:bg-slate-800 p-4 shadow-lg">
+<div class="flex h-full bg-gray-100 mt-2 dark:bg-slate-600 text-gray-900 dark:text-gray-100">
+  <div class="w-64 h-[calc(100dvh-5rem)] bg-white dark:bg-slate-800 p-6 shadow-lg">
     <h2 class="text-2xl font-bold mb-6">Admin Menu</h2>
     <ul class="space-y-2">
       {#each menuItems as item}
@@ -22,7 +22,7 @@
     </ul>
   </div>
 
-  <div class="flex-1 p-6">
+  <div class="flex-1 px-6 overflow-auto">
     {@render children?.()}
   </div>
 </div>

@@ -27,27 +27,32 @@ export {};
 
 declare module "$app/types" {
 	export interface AppTypes {
-		RouteId(): "/" | "/admin" | "/admin/[slug]" | "/api" | "/api/assets" | "/api/meta" | "/api/meta/conditions" | "/api/meta/locations" | "/api/meta/statuses" | "/api/search" | "/api/update" | "/api/update/conditions" | "/api/update/locations" | "/api/update/statuses";
+		RouteId(): "/" | "/admin" | "/admin/[adminpage]" | "/api" | "/api/assets" | "/api/create" | "/api/create/[adminpage]" | "/api/delete" | "/api/delete/[adminpage]" | "/api/meta" | "/api/meta/conditions" | "/api/meta/locations" | "/api/meta/statuses" | "/api/search" | "/api/update" | "/api/update/[adminpage]";
 		RouteParams(): {
-			"/admin/[slug]": { slug: string }
+			"/admin/[adminpage]": { adminpage: string };
+			"/api/create/[adminpage]": { adminpage: string };
+			"/api/delete/[adminpage]": { adminpage: string };
+			"/api/update/[adminpage]": { adminpage: string }
 		};
 		LayoutParams(): {
-			"/": { slug?: string };
-			"/admin": { slug?: string };
-			"/admin/[slug]": { slug: string };
-			"/api": Record<string, never>;
+			"/": { adminpage?: string };
+			"/admin": { adminpage?: string };
+			"/admin/[adminpage]": { adminpage: string };
+			"/api": { adminpage?: string };
 			"/api/assets": Record<string, never>;
+			"/api/create": { adminpage?: string };
+			"/api/create/[adminpage]": { adminpage: string };
+			"/api/delete": { adminpage?: string };
+			"/api/delete/[adminpage]": { adminpage: string };
 			"/api/meta": Record<string, never>;
 			"/api/meta/conditions": Record<string, never>;
 			"/api/meta/locations": Record<string, never>;
 			"/api/meta/statuses": Record<string, never>;
 			"/api/search": Record<string, never>;
-			"/api/update": Record<string, never>;
-			"/api/update/conditions": Record<string, never>;
-			"/api/update/locations": Record<string, never>;
-			"/api/update/statuses": Record<string, never>
+			"/api/update": { adminpage?: string };
+			"/api/update/[adminpage]": { adminpage: string }
 		};
-		Pathname(): "/" | "/admin" | "/admin/" | `/admin/${string}` & {} | `/admin/${string}/` & {} | "/api" | "/api/" | "/api/assets" | "/api/assets/" | "/api/meta" | "/api/meta/" | "/api/meta/conditions" | "/api/meta/conditions/" | "/api/meta/locations" | "/api/meta/locations/" | "/api/meta/statuses" | "/api/meta/statuses/" | "/api/search" | "/api/search/" | "/api/update" | "/api/update/" | "/api/update/conditions" | "/api/update/conditions/" | "/api/update/locations" | "/api/update/locations/" | "/api/update/statuses" | "/api/update/statuses/";
+		Pathname(): "/" | "/admin" | "/admin/" | `/admin/${string}` & {} | `/admin/${string}/` & {} | "/api" | "/api/" | "/api/assets" | "/api/assets/" | "/api/create" | "/api/create/" | `/api/create/${string}` & {} | `/api/create/${string}/` & {} | "/api/delete" | "/api/delete/" | `/api/delete/${string}` & {} | `/api/delete/${string}/` & {} | "/api/meta" | "/api/meta/" | "/api/meta/conditions" | "/api/meta/conditions/" | "/api/meta/locations" | "/api/meta/locations/" | "/api/meta/statuses" | "/api/meta/statuses/" | "/api/search" | "/api/search/" | "/api/update" | "/api/update/" | `/api/update/${string}` & {} | `/api/update/${string}/` & {};
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
 		Asset(): "/robots.txt" | string & {};
 	}

@@ -1,13 +1,13 @@
 import { json, error as svelteError } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-
 import { PRIVATE_API_URL } from '$env/static/private';
 
-export const PUT: RequestHandler = async ({ request, fetch }) => {
+export const PUT: RequestHandler = async ({ request, params, fetch }) => {
+  const { adminpage } = params;
   try {
     const body = await request.json();
 
-    const response = await fetch(`http://${PRIVATE_API_URL}/api/v1/update/locations`, {
+    const response = await fetch(`http://${PRIVATE_API_URL}/api/v1/update/${adminpage}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -26,6 +26,6 @@ export const PUT: RequestHandler = async ({ request, fetch }) => {
 
   } catch (err) {
     console.error('Update proxy error:', err);
-    throw svelteError(500, err instanceof Error ? err.message : 'Failed to update location.');
+    throw svelteError(500, err instanceof Error ? err.message : 'Failed to update condition.');
   }
 };

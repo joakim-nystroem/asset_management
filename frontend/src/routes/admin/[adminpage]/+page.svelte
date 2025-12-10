@@ -5,10 +5,27 @@
   let { data }: PageProps = $props();
 
   const pathname = $derived(data.pathname.split('/').slice(1)[1]);
+  
+  let pageItems = $state(data.items);
+  
+  let messageText = $state('');
 
   let editingId = $state<number | null>(null);
   let editValue = $state('');
   let textareaRef = $state<HTMLTextAreaElement | null>(null);
+    
+
+  async function refetchData() {
+    try {
+      const res = await fetch(`/api/meta/${pathname}`);
+      if (res.ok) {
+        const result = await res.json();
+        pageItems = result[pathname] || [];
+      }
+    } catch (error) {
+      console.error('Error refetching data:', error);
+    }
+  }
 
   async function startEdit(item: any) {
     editingId = item.id;
@@ -37,13 +54,32 @@
       });
 
       if (res.ok) {
-        const item = data.items.find((i: any) => i.id === editingId);
-        if (item) item.name = editValue.trim();
+        await refetchData();
       }
     } catch (error) {
       console.error('Error saving:', error);
     } finally {
       cancelEdit();
+    }
+  }
+
+  async function deleteItem(item: any) {
+    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/delete/${pathname}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, name: item.name }),
+      });
+
+      if (res.ok) {
+        await refetchData();
+      }
+    } catch (error) {
+      console.error('Error deleting:', error);
     }
   }
 
@@ -56,19 +92,59 @@
       cancelEdit();
     }
   }
+
+  let newItemName = $state('');
+
+  async function createItem() {
+    if (!newItemName.trim()) return;
+
+    try {
+      const res = await fetch(`/api/create/${pathname}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newItemName.trim() }),
+      });
+
+      if (res.ok) {
+        newItemName = '';
+        await refetchData();
+      }
+    } catch (error) {
+      console.error('Error creating item:', error);
+    }
+  }
+
+  $effect(() => {
+    pageItems = data.items;
+  });
 </script>
 
-<div class="bg-white dark:bg-slate-800 rounded-lg shadow-md p-6">
+<div class="bg-white dark:bg-slate-800 shadow-md p-6">
   <h1 class="text-3xl font-bold capitalize mb-6">{data.title} Management</h1>
 
-  <div class="flex flex-col">
-    <div class="flex bg-gray-200 dark:bg-slate-600 rounded-t-lg">
+  <div class="mb-4 flex items-center">
+    <input
+      type="text"
+      bind:value={newItemName}
+      placeholder="New {pathname.slice(0, -1)} name"
+      class="flex-1 bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 border border-neutral-300 dark:border-none focus:outline-none"
+    />
+    <button
+      onclick={createItem}
+      class="ml-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none"
+    >
+      Create {pathname.slice(0, -1)}
+    </button>
+  </div>
+
+  <div class="flex flex-col overflow-y-auto h-[calc(100dvh-15.3rem)]">
+    <div class="flex bg-gray-200 dark:bg-slate-600 rounded-t-lg sticky top-0 z-10">
       <div class="flex-1 px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID</div>
       <div class="flex-1 px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</div>
       <div class="flex-1 px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">Actions</div>
     </div>
     <div class="divide-y divide-gray-200 dark:divide-slate-600">
-      {#each data.items as item}
+      {#each pageItems as item}
         <div class="flex items-center h-16">
           <div class="flex-1 px-6 whitespace-nowrap">{item.id}</div>
           <div class="flex-1 px-6">
@@ -89,7 +165,8 @@
               <button onclick={saveEdit} class="text-green-600 hover:text-green-900 mr-4 hover:cursor-pointer">Save</button>
               <button onclick={cancelEdit} class="text-red-600 hover:text-red-900 hover:cursor-pointer">Cancel</button>
             {:else}
-              <button onclick={() => startEdit(item)} class="text-indigo-600 hover:text-indigo-900 hover:cursor-pointer">Edit</button>
+              <button onclick={() => startEdit(item)} class="text-indigo-600 hover:text-indigo-900 hover:cursor-pointer mr-4">Edit</button>
+              <button onclick={() => deleteItem(item)} class="text-red-600 hover:text-red-900 hover:cursor-pointer">Delete</button>
             {/if}
           </div>
         </div>

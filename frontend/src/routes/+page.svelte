@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { tick } from 'svelte';
   // --- COMPONENTS ---
   import ContextMenu from '$lib/utils/ui/contextMenu/contextMenu.svelte';
   import HeaderMenu from '$lib/utils/ui/headerMenu/headerMenu.svelte';
@@ -195,7 +195,7 @@
     contextMenu.close();
   }
 
-  function handleEditAction() {
+   async function handleEditAction() {
     const target = getActionTarget();
     if (!target) return;
     const { row, col } = target;
@@ -206,6 +206,14 @@
     editManager.startEdit(row, col, key, currentValue, columnManager, rowManager);
     contextMenu.close();
     selection.reset();
+    
+    // Add this:
+    await tick();
+    if (textareaRef) {
+      editManager.updateRowHeight(textareaRef, rowManager, columnManager);
+      textareaRef.focus();
+      textareaRef.select();
+    }
   }
 
   async function saveEdit() {
@@ -225,13 +233,6 @@
     if (pos) selection.selectCell(pos.row, pos.col);
   }
 
-  $effect(() => {
-    if (editManager.isEditing && textareaRef) {
-      editManager.updateRowHeight(textareaRef, rowManager, columnManager);
-      textareaRef.focus();
-      textareaRef.select();
-    }
-  });
   // --- Lifecycle ---
   $effect(() => {
     const cleanupInteraction = mountInteraction(window);
