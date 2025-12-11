@@ -30,9 +30,17 @@ export async function searchAssets(searchTerm: string | null, filters: Record<st
     ]));
   }
 
+  // Map filter keys to actual database columns
+  const filterColumnMap: Record<string, string> = {
+    'location': 'al.location_name',
+    'status': 'ast.status_name',
+    'condition': 'ac.condition_name',
+  };
+
   for (const [key, values] of Object.entries(filters)) {
     if (values.length > 0) {
-      query = query.where(key as any, 'in', values);
+      const columnName = filterColumnMap[key] || key;
+      query = query.where(columnName as any, 'in', values);
     }
   }
 
