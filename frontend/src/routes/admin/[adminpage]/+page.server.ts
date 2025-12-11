@@ -14,7 +14,6 @@ export const load = (async ({ fetch, params }) => {
     try {
         // Direct call to Go API from server
         const apiUrl = `http://${PRIVATE_API_URL}/api/v1/meta/${adminpage}`;
-        console.log('🔍 Server load fetching from:', apiUrl);
         
         const res = await fetch(apiUrl);
 
@@ -24,7 +23,6 @@ export const load = (async ({ fetch, params }) => {
         }
 
         const data = await res.json();
-        console.log('✅ Server load received data:', data);
 
         return {
             items: data[adminpage] || [],

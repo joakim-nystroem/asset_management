@@ -38,5 +38,26 @@
 	],
 	"/api/update/[adminpage]": [
 		"src/routes/api/update/[adminpage]/+server.ts"
+	],
+	"/api/v2/assets": [
+		"src/routes/api/v2/assets/+server.ts"
+	],
+	"/api/v2/create/locations": [
+		"src/routes/api/v2/create/locations/+server.ts"
+	],
+	"/api/v2/create/[adminpage]": [
+		"src/routes/api/v2/create/[adminpage]/+server.ts"
+	],
+	"/api/v2/delete/[adminpage]": [
+		"src/routes/api/v2/delete/[adminpage]/+server.ts"
+	],
+	"/api/v2/search": [
+		"src/routes/api/v2/search/+server.ts"
+	],
+	"/api/v2/update": [
+		"src/routes/api/v2/update/+server.ts"
+	],
+	"/api/v2/update/[adminpage]": [
+		"src/routes/api/v2/update/[adminpage]/+server.ts"
 	]
 }

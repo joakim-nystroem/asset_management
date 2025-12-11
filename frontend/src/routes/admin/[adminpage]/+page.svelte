@@ -45,7 +45,7 @@
     }
 
     try {
-      const res = await fetch(`/asset/api/update/${pathname}`, {
+      const res = await fetch(`/api/v2/update/${pathname}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingId, name: editValue.trim() }),
@@ -67,7 +67,7 @@
     }
 
     try {
-      const res = await fetch(`/asset/api/delete/${pathname}`, {
+      const res = await fetch(`/api/v2/delete/${pathname}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id, name: item.name }),
@@ -97,7 +97,7 @@
     if (!newItemName.trim()) return;
 
     try {
-      const res = await fetch(`/asset/api/create/${pathname}`, {
+      const res = await fetch(`/api/v2/create/${pathname}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newItemName.trim() }),

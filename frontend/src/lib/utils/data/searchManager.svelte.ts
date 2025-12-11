@@ -19,7 +19,7 @@ export class SearchManager {
   error = $state('');
 
   /**
-   * Perform search directly against the Go API
+   * Perform search against the SvelteKit API
    */
   async search(baseData: any[]): Promise<any[]> {
     try {
@@ -42,8 +42,7 @@ export class SearchManager {
       }
 
       console.log("Performing search with params:", params.toString());
-      // DIRECT CALL: Browser -> Go API
-      const response = await fetch(`./api/search?${params.toString()}`);
+      const response = await fetch(`/api/v2/search?${params.toString()}`);
       
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
@@ -53,7 +52,7 @@ export class SearchManager {
       this.error = '';
       
       // Handle case where API returns null for empty list
-      return result.assets || [];
+      return result || [];
 
     } catch (err) {
       this.error = err instanceof Error ? err.message : 'An unknown error occurred.';

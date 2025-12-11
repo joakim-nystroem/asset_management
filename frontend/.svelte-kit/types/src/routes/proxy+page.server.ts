@@ -2,23 +2,19 @@
 // src/routes/+page.server.ts
 import type { PageServerLoad } from './$types';
 
-import { PRIVATE_API_URL } from '$env/static/private';
-
 export const load = async ({ fetch }: Parameters<PageServerLoad>[0]) => {
   let assets: Record<string, any>[] = [];
-  let locations: Record<string, any>[] = [];
   let dbError: string | null = null;
   
   try {
-    // Fetch assets from Go API
-    const assetsResponse = await fetch(`http://${PRIVATE_API_URL}/api/v1/assets`)
+    const assetsResponse = await fetch('./api/v2/assets');
     
     if (!assetsResponse.ok) {
-      throw new Error(`Failed to fetch assets: ${assetsResponse.statusText}`);
+      const errorData = await assetsResponse.json();
+      throw new Error(errorData.error || `Failed to fetch assets: ${assetsResponse.statusText}`);
     }
     
-    const data = await assetsResponse.json();
-    assets = data.assets || [];
+    assets = await assetsResponse.json();
 
   } catch (err: unknown) {
     if (err instanceof Error) {
@@ -28,8 +24,7 @@ export const load = async ({ fetch }: Parameters<PageServerLoad>[0]) => {
       dbError = 'An unknown error occurred.';
     }
     assets = [];
-    locations = [];
   }
 
-  return { assets, locations, dbError };
+  return { assets, dbError };
 };

@@ -1,4 +1,4 @@
-package realtime
+package internal
 
 import (
 	"encoding/json"
