@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"asset-api/internal" // hub.go is moved to internal package
+	"asset-api/internal"
 
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
@@ -25,14 +25,9 @@ func main() {
 
 	// Realtime WebSocket Hub (in-memory)
 	log.Println("🔌 Initializing WebSocket hub...")
-	hub := NewHub()
+	hub := internal.NewHub()
 	go hub.Run()
 	log.Println("✅ WebSocket hub running")
-
-	log.Println("🔌 Initializing Admin WebSocket hub...")
-	adminHub := NewHub()
-	go adminHub.Run()
-	log.Println("✅ Admin WebSocket hub running")
 
 	// Router setup
 	log.Println("🛣️  Setting up routes...")
