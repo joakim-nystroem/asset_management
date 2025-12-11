@@ -42,7 +42,7 @@ export class SearchManager {
       }
 
       console.log("Performing search with params:", params.toString());
-      const response = await fetch(`/api/v2/search?${params.toString()}`);
+      const response = await fetch(`/asset/api/search?${params.toString()}`);
       
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} ${response.statusText}`);

@@ -6,6 +6,18 @@
 
   let pathname = $derived(data.fullPathname.split('/').slice(-1)[0]);
   
+  function getDynamicPropertyName(pathname: string): string {
+
+    if (pathname === 'status') return 'status_name';
+    return pathname.slice(0, -1) + '_name';
+
+  }
+
+  function getDynamicName(item: any, pathname: string): string {
+    const propName = getDynamicPropertyName(pathname);
+    return item[propName] || item.name || '';
+  }
+
   let pageItems = $state(data.items);
 
   let editingId = $state<number | null>(null);
@@ -15,7 +27,8 @@
 
   async function refetchData() {
     try {
-      const res = await fetch(`/asset/api/meta/${pathname}`);
+      const res = await fetch(`./api/meta/${pathname}`);
+      console.log(res);
       if (res.ok) {
         const result = await res.json();
         pageItems = result[pathname] || [];
@@ -27,7 +40,7 @@
 
   async function startEdit(item: any) {
     editingId = item.id;
-    editValue = item.name;
+    editValue = getDynamicName(item, pathname);
     await tick();
     textareaRef?.focus();
     textareaRef?.select();
@@ -45,10 +58,11 @@
     }
 
     try {
-      const res = await fetch(`/api/v2/update/${pathname}`, {
+      const propName = getDynamicPropertyName(pathname);
+      const res = await fetch(`/asset/api/update/${pathname}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingId, name: editValue.trim() }),
+        body: JSON.stringify({ id: editingId, [propName]: editValue.trim() }),
       });
 
       if (res.ok) {
@@ -62,15 +76,16 @@
   }
 
   async function deleteItem(item: any) {
-    if (!confirm(`Are you sure you want to delete "${item.name}"?`)) {
+    if (!confirm(`Are you sure you want to delete "${getDynamicName(item, pathname)}"?`)) {
       return;
     }
 
     try {
-      const res = await fetch(`/api/v2/delete/${pathname}`, {
+      const propName = getDynamicPropertyName(pathname);
+      const res = await fetch(`/api/delete/${pathname}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, name: item.name }),
+        body: JSON.stringify({ id: item.id, [propName]: getDynamicName(item, pathname) }),
       });
 
       if (res.ok) {
@@ -97,10 +112,11 @@
     if (!newItemName.trim()) return;
 
     try {
-      const res = await fetch(`/api/v2/create/${pathname}`, {
+      const propName = getDynamicPropertyName(pathname);
+      const res = await fetch(`/api/create/${pathname}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newItemName.trim() }),
+        body: JSON.stringify({ [propName]: newItemName.trim() }),
       });
 
       if (res.ok) {
@@ -156,7 +172,7 @@
                 class="w-full h-10 resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
               ></textarea>
             {:else}
-              <div class="truncate">{item.name}</div>
+              <div class="truncate">{getDynamicName(item, pathname)}</div>
             {/if}
           </div>
           <div class="flex-1 px-6 whitespace-nowrap text-right">

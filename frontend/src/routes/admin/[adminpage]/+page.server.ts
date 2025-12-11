@@ -1,38 +1,50 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { PRIVATE_API_URL } from '$env/static/private';
+import { getLocations } from '$lib/db/select/getLocations';
+import { getStatuses } from '$lib/db/select/getStatuses';
+import { getConditions } from '$lib/db/select/getConditions';
 
-const ALLOWED_EDIT_PAGES = ['locations', 'status', 'conditions'] as const;
+const ALLOWED_EDIT_PAGES: string[] = ['locations', 'status', 'conditions'];
 
-export const load = (async ({ fetch, params }) => {
+export const load = (async ({ params }) => {
     const { adminpage } = params;
 
     if (!(ALLOWED_EDIT_PAGES as readonly string[]).includes(adminpage)) {
         throw error(404, 'Not Found');
     }
 
-    try {
-        // Direct call to Go API from server
-        const apiUrl = `http://${PRIVATE_API_URL}/api/v1/meta/${adminpage}`;
-        
-        const res = await fetch(apiUrl);
+    console.log(`Loading admin data for page: ${adminpage}`);
 
-        if (!res.ok) {
-            console.error(`Failed to fetch admin data for ${adminpage}`, res.status);
-            throw error(res.status, `Failed to fetch data for ${adminpage}`);
+    try {
+        let data: any[] = [];
+        let title: string = '';
+
+        switch (adminpage) {
+            case 'locations':
+                data = await getLocations();
+                title = 'Locations';
+                break;
+            case 'status':
+                data = await getStatuses();
+                title = 'Status';
+                break;
+            case 'conditions':
+                data = await getConditions();
+                title = 'Conditions';
+                break;
+            default:
+                throw error(500, 'Invalid admin page');
         }
 
-        const data = await res.json();
-
         return {
-            items: data[adminpage] || [],
-            title: adminpage.charAt(0).toUpperCase() + adminpage.slice(1)
+            items: data,
+            title: title
         };
     } catch (err) {
         console.error(`Error loading admin data for ${adminpage}:`, err);
         if (err instanceof Error) {
-          throw error(500, err.message);
+          error(500, err.message);
         }
-        throw error(500, `Error loading admin data for ${adminpage}`);
+        error(500, `Error loading admin data for ${adminpage}`);
     }
 }) satisfies PageServerLoad;

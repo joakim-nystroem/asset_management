@@ -15,49 +15,19 @@
 		"src/routes/admin/+layout.server.ts",
 		"src/routes/+layout.server.ts"
 	],
-	"/api/assets": [
-		"src/routes/api/assets/+server.ts"
-	],
 	"/api/create/[adminpage]": [
 		"src/routes/api/create/[adminpage]/+server.ts"
 	],
 	"/api/delete/[adminpage]": [
 		"src/routes/api/delete/[adminpage]/+server.ts"
 	],
-	"/api/meta/conditions": [
-		"src/routes/api/meta/conditions/+server.ts"
-	],
-	"/api/meta/locations": [
-		"src/routes/api/meta/locations/+server.ts"
-	],
-	"/api/meta/status": [
-		"src/routes/api/meta/status/+server.ts"
-	],
 	"/api/search": [
 		"src/routes/api/search/+server.ts"
 	],
+	"/api/update": [
+		"src/routes/api/update/+server.ts"
+	],
 	"/api/update/[adminpage]": [
 		"src/routes/api/update/[adminpage]/+server.ts"
-	],
-	"/api/v2/assets": [
-		"src/routes/api/v2/assets/+server.ts"
-	],
-	"/api/v2/create/locations": [
-		"src/routes/api/v2/create/locations/+server.ts"
-	],
-	"/api/v2/create/[adminpage]": [
-		"src/routes/api/v2/create/[adminpage]/+server.ts"
-	],
-	"/api/v2/delete/[adminpage]": [
-		"src/routes/api/v2/delete/[adminpage]/+server.ts"
-	],
-	"/api/v2/search": [
-		"src/routes/api/v2/search/+server.ts"
-	],
-	"/api/v2/update": [
-		"src/routes/api/v2/update/+server.ts"
-	],
-	"/api/v2/update/[adminpage]": [
-		"src/routes/api/v2/update/[adminpage]/+server.ts"
 	]
 }

@@ -85,7 +85,7 @@ export class EditManager {
 
       // 2. Persist to DB via API (which triggers WebSocket broadcast)
       try {
-        const response = await fetch('/api/v2/update', {
+        const response = await fetch('/asset/api/update', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id: asset.id, key, value: newValue })
