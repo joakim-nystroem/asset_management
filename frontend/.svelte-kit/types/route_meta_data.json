@@ -21,6 +21,9 @@
 	"/api/delete/[adminpage]": [
 		"src/routes/api/delete/[adminpage]/+server.ts"
 	],
+	"/api/meta/[metadata]": [
+		"src/routes/api/meta/[metadata]/+server.ts"
+	],
 	"/api/search": [
 		"src/routes/api/search/+server.ts"
 	],

@@ -10,7 +10,6 @@
 
     if (pathname === 'status') return 'status_name';
     return pathname.slice(0, -1) + '_name';
-
   }
 
   function getDynamicName(item: any, pathname: string): string {
@@ -27,8 +26,7 @@
 
   async function refetchData() {
     try {
-      const res = await fetch(`./api/meta/${pathname}`);
-      console.log(res);
+      const res = await fetch(`/asset/api/meta/${pathname}`);
       if (res.ok) {
         const result = await res.json();
         pageItems = result[pathname] || [];
@@ -82,7 +80,7 @@
 
     try {
       const propName = getDynamicPropertyName(pathname);
-      const res = await fetch(`/api/delete/${pathname}`, {
+      const res = await fetch(`/asset/api/delete/${pathname}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id, [propName]: getDynamicName(item, pathname) }),
@@ -113,7 +111,7 @@
 
     try {
       const propName = getDynamicPropertyName(pathname);
-      const res = await fetch(`/api/create/${pathname}`, {
+      const res = await fetch(`/asset/api/create/${pathname}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [propName]: newItemName.trim() }),

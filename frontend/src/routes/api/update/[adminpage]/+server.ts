@@ -1,14 +1,24 @@
 import { json } from '@sveltejs/kit';
 import { updateLocation, updateStatus, updateCondition } from '$lib/db/update/updateAdmin';
 
+function getDynamicPropertyName(pathname: string) {
+  if (pathname === 'status') return 'status_name';
+  return pathname.slice(0, -1) + '_name';
+}
+
 export async function PUT({ request, params }) {
-  const { id, name } = await request.json();
+  const body = await request.json();
   const { adminpage } = params;
-
+  const { id } = body;
+  
+  const propName = getDynamicPropertyName(adminpage);
+  const name = body[propName];
+  
   if (!id || !name) {
-    return json({ error: 'Missing required fields: id and name' }, { status: 400 });
+    console.error('Missing fields. Expected:', { id, [propName]: 'value' }, 'Received:', body);
+    return json({ error: `Missing required fields: id and ${propName}` }, { status: 400 });
   }
-
+  
   try {
     switch (adminpage) {
       case 'locations':
