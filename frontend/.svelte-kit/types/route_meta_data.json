@@ -15,6 +15,9 @@
 		"src/routes/admin/+layout.server.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/api/assets": [
+		"src/routes/api/assets/+server.ts"
+	],
 	"/api/create/[adminpage]": [
 		"src/routes/api/create/[adminpage]/+server.ts"
 	],
