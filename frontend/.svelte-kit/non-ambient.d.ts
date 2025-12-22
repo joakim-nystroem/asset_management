@@ -27,31 +27,32 @@ export {};
 
 declare module "$app/types" {
 	export interface AppTypes {
-		RouteId(): "/" | "/admin" | "/admin/[adminpage]" | "/api" | "/api/assets" | "/api/create" | "/api/create/[adminpage]" | "/api/delete" | "/api/delete/[adminpage]" | "/api/meta" | "/api/meta/[metadata]" | "/api/search" | "/api/update" | "/api/update/[adminpage]";
+		RouteId(): "/" | "/admin" | "/admin/[adminpage]" | "/api" | "/api/assets" | "/api/assets/bulk" | "/api/create" | "/api/create/[category]" | "/api/delete" | "/api/delete/[category]" | "/api/meta" | "/api/meta/[category]" | "/api/search" | "/api/update" | "/api/update/[category]";
 		RouteParams(): {
 			"/admin/[adminpage]": { adminpage: string };
-			"/api/create/[adminpage]": { adminpage: string };
-			"/api/delete/[adminpage]": { adminpage: string };
-			"/api/meta/[metadata]": { metadata: string };
-			"/api/update/[adminpage]": { adminpage: string }
+			"/api/create/[category]": { category: string };
+			"/api/delete/[category]": { category: string };
+			"/api/meta/[category]": { category: string };
+			"/api/update/[category]": { category: string }
 		};
 		LayoutParams(): {
-			"/": { adminpage?: string; metadata?: string };
+			"/": { adminpage?: string; category?: string };
 			"/admin": { adminpage?: string };
 			"/admin/[adminpage]": { adminpage: string };
-			"/api": { adminpage?: string; metadata?: string };
+			"/api": { category?: string };
 			"/api/assets": Record<string, never>;
-			"/api/create": { adminpage?: string };
-			"/api/create/[adminpage]": { adminpage: string };
-			"/api/delete": { adminpage?: string };
-			"/api/delete/[adminpage]": { adminpage: string };
-			"/api/meta": { metadata?: string };
-			"/api/meta/[metadata]": { metadata: string };
+			"/api/assets/bulk": Record<string, never>;
+			"/api/create": { category?: string };
+			"/api/create/[category]": { category: string };
+			"/api/delete": { category?: string };
+			"/api/delete/[category]": { category: string };
+			"/api/meta": { category?: string };
+			"/api/meta/[category]": { category: string };
 			"/api/search": Record<string, never>;
-			"/api/update": { adminpage?: string };
-			"/api/update/[adminpage]": { adminpage: string }
+			"/api/update": { category?: string };
+			"/api/update/[category]": { category: string }
 		};
-		Pathname(): "/" | "/admin" | "/admin/" | `/admin/${string}` & {} | `/admin/${string}/` & {} | "/api" | "/api/" | "/api/assets" | "/api/assets/" | "/api/create" | "/api/create/" | `/api/create/${string}` & {} | `/api/create/${string}/` & {} | "/api/delete" | "/api/delete/" | `/api/delete/${string}` & {} | `/api/delete/${string}/` & {} | "/api/meta" | "/api/meta/" | `/api/meta/${string}` & {} | `/api/meta/${string}/` & {} | "/api/search" | "/api/search/" | "/api/update" | "/api/update/" | `/api/update/${string}` & {} | `/api/update/${string}/` & {};
+		Pathname(): "/" | "/admin" | "/admin/" | `/admin/${string}` & {} | `/admin/${string}/` & {} | "/api" | "/api/" | "/api/assets" | "/api/assets/" | "/api/assets/bulk" | "/api/assets/bulk/" | "/api/create" | "/api/create/" | `/api/create/${string}` & {} | `/api/create/${string}/` & {} | "/api/delete" | "/api/delete/" | `/api/delete/${string}` & {} | `/api/delete/${string}/` & {} | "/api/meta" | "/api/meta/" | `/api/meta/${string}` & {} | `/api/meta/${string}/` & {} | "/api/search" | "/api/search/" | "/api/update" | "/api/update/" | `/api/update/${string}` & {} | `/api/update/${string}/` & {};
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
 		Asset(): "/robots.txt" | string & {};
 	}

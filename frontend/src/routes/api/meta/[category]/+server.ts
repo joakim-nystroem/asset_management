@@ -4,11 +4,11 @@ import { getStatuses } from '$lib/db/select/getStatuses';
 import { getConditions } from '$lib/db/select/getConditions';
 
 export async function GET({ params }) {
-  const { metadata } = params;
+  const { category } = params;
   
   try {
     let items;
-    switch (metadata) {
+    switch (category) {
       case 'locations':
         items = await getLocations();
         break;
@@ -19,11 +19,11 @@ export async function GET({ params }) {
         items = await getConditions();
         break;
       default:
-        return json({ error: 'Invalid meta page' }, { status: 400 });
+        return json({ error: 'Invalid category' }, { status: 400 });
     }
-    return json({ [metadata]: items });
+    return json({ [category]: items });
   } catch (error) {
-    console.error(`Error fetching ${metadata}:`, error);
-    return json({ error: `Failed to fetch ${metadata}` }, { status: 500 });
+    console.error(`Error fetching ${category}:`, error);
+    return json({ error: `Failed to fetch ${category}` }, { status: 500 });
   }
 }

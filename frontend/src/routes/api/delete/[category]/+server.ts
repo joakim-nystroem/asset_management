@@ -3,14 +3,14 @@ import { deleteLocation, deleteStatus, deleteCondition } from '$lib/db/delete/de
 
 export async function DELETE({ request, params }) {
     const { id } = await request.json();
-    const { adminpage } = params;
+    const { category } = params;
 
     if (!id) {
         return json({ error: 'Missing required field: id' }, { status: 400 });
     }
 
     try {
-        switch (adminpage) {
+        switch (category) {
             case 'locations':
                 await deleteLocation(id);
                 break;
@@ -21,11 +21,11 @@ export async function DELETE({ request, params }) {
                 await deleteCondition(id);
                 break;
             default:
-                return json({ error: 'Invalid admin page' }, { status: 400 });
+                return json({ error: 'Invalid category' }, { status: 400 });
         }
         return json({ success: true });
     } catch (error) {
-        console.error(`Error deleting ${adminpage}:`, error);
-        return json({ error: `Failed to delete ${adminpage}` }, { status: 500 });
+        console.error(`Error deleting ${category}:`, error);
+        return json({ error: `Failed to delete ${category}` }, { status: 500 });
     }
 }

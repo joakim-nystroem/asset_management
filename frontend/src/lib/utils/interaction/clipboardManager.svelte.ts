@@ -1,5 +1,5 @@
 import type { SelectionManager } from './selectionManager.svelte';
-import type { HistoryManager, HistoryAction } from './historyManager.svelte'; 
+import type { HistoryAction } from './historyManager.svelte'; 
 
 async function copyToClipboard(text: string): Promise<void> {
   try {
@@ -84,8 +84,7 @@ export class ClipboardManager {
     target: { row: number; col: number } | null,
     assets: any[],
     keys: string[],
-    historyManager: HistoryManager
-  ): Promise<{ rows: number; cols: number } | null> {
+  ): Promise<{ rows: number; cols: number, changes: HistoryAction[] } | null> {
     if (!target) return null;
     
     const systemText = await readFromClipboard();
@@ -137,13 +136,7 @@ export class ClipboardManager {
       });
     }
 
-    // Commit all changes as a single history event
-    if (batchChanges.length > 0) {
-      historyManager.recordBatch(batchChanges);
-      console.log(`Pasted ${batchChanges.length} cells.`);
-    }
-
-    return { rows: maxRelRow + 1, cols: maxRelCol + 1 };
+    return { rows: maxRelRow + 1, cols: maxRelCol + 1, changes: batchChanges };
   }
 
   private applyValue(

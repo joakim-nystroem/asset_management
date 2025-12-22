@@ -18,14 +18,17 @@
 	"/api/assets": [
 		"src/routes/api/assets/+server.ts"
 	],
-	"/api/create/[adminpage]": [
-		"src/routes/api/create/[adminpage]/+server.ts"
+	"/api/assets/bulk": [
+		"src/routes/api/assets/bulk/+server.ts"
 	],
-	"/api/delete/[adminpage]": [
-		"src/routes/api/delete/[adminpage]/+server.ts"
+	"/api/create/[category]": [
+		"src/routes/api/create/[category]/+server.ts"
 	],
-	"/api/meta/[metadata]": [
-		"src/routes/api/meta/[metadata]/+server.ts"
+	"/api/delete/[category]": [
+		"src/routes/api/delete/[category]/+server.ts"
+	],
+	"/api/meta/[category]": [
+		"src/routes/api/meta/[category]/+server.ts"
 	],
 	"/api/search": [
 		"src/routes/api/search/+server.ts"
@@ -33,7 +36,7 @@
 	"/api/update": [
 		"src/routes/api/update/+server.ts"
 	],
-	"/api/update/[adminpage]": [
-		"src/routes/api/update/[adminpage]/+server.ts"
+	"/api/update/[category]": [
+		"src/routes/api/update/[category]/+server.ts"
 	]
 }

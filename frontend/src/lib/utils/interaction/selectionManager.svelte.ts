@@ -32,6 +32,95 @@ export class SelectionManager {
   copyEnd = $state<GridCell>({ row: -1, col: -1 });
   isCopyVisible = $state(false);
 
+  // --- NEW: Dirty Cell State ---
+  dirtyCells = $state(new Set<string>());
+
+  setDirtyCells(cells: GridCell[]) {
+    const newSet = new Set<string>();
+    for (const cell of cells) {
+      newSet.add(`${cell.row},${cell.col}`);
+    }
+
+    this.dirtyCells = newSet;
+  }
+
+  clearDirtyCells() {
+    this.dirtyCells = new Set<string>();
+  }
+
+  computeDirtyCellOverlays(
+    visibleRange: { startIndex: number; endIndex: number },
+    keys: string[],
+    columnManager: ColumnWidthManager,
+    rowHeight: number = 32
+  ): VisualSelection[] {
+    const overlays: VisualSelection[] = [];
+    if (this.dirtyCells.size === 0) {
+        return overlays;
+    }
+
+    const dirtyCoords = Array.from(this.dirtyCells).map(s => {
+        const [row, col] = s.split(',').map(Number);
+        return { row, col };
+    });
+
+    const dirtySet = new Set(this.dirtyCells);
+    dirtyCoords.sort((a, b) => a.row - b.row || a.col - b.col);
+    const groups: { minRow: number; minCol: number; maxRow: number; maxCol: number }[] = [];
+
+    for (const coord of dirtyCoords) {
+        const key = `${coord.row},${coord.col}`;
+        if (!dirtySet.has(key)) continue;
+
+        let { row: startRow, col: startCol } = coord;
+        let maxRow = startRow, maxCol = startCol;
+
+        // Expand right as far as possible
+        while (dirtySet.has(`${startRow},${maxCol + 1}`)) {
+            maxCol++;
+        }
+
+        // Expand down as far as possible
+        let canExpandDown = true;
+        while (canExpandDown) {
+            for (let c = startCol; c <= maxCol; c++) {
+                if (!dirtySet.has(`${maxRow + 1},${c}`)) {
+                    canExpandDown = false;
+                    break;
+                }
+            }
+            if (canExpandDown) {
+                maxRow++;
+            }
+        }
+        
+        groups.push({ minRow: startRow, minCol: startCol, maxRow, maxCol });
+
+        // Remove the cells of the found rectangle from the processing set
+        for (let r = startRow; r <= maxRow; r++) {
+            for (let c = startCol; c <= maxCol; c++) {
+                dirtySet.delete(`${r},${c}`);
+            }
+        }
+    }
+
+    for (const group of groups) {
+        const overlay = this.computeVisualOverlay(
+            { row: group.minRow, col: group.minCol },
+            { row: group.maxRow, col: group.maxCol },
+            visibleRange,
+            keys,
+            columnManager,
+            rowHeight
+        );
+        if (overlay) {
+            overlays.push(overlay);
+        }
+    }
+
+    return overlays;
+  }
+
   /**
    * Handle Mouse Down on a cell
    */

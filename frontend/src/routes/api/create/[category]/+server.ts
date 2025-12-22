@@ -10,9 +10,9 @@ function getDynamicPropertyName(pathname: string) {
 
 export async function POST({ request, params }) {
     const body = await request.json();
-    const { adminpage } = params;
+    const { category } = params;
     
-    const propName = getDynamicPropertyName(adminpage);
+    const propName = getDynamicPropertyName(category);
     const name = body[propName];
 
     if (!name) {
@@ -22,7 +22,7 @@ export async function POST({ request, params }) {
 
     try {
         let newItem;
-        switch (adminpage) {
+        switch (category) {
             case 'locations':
                 newItem = await createLocation(name);
                 break;
@@ -33,11 +33,11 @@ export async function POST({ request, params }) {
                 newItem = await createCondition(name);
                 break;
             default:
-                return json({ error: 'Invalid admin page' }, { status: 400 });
+                return json({ error: 'Invalid category' }, { status: 400 });
         }
         return json({ success: true, item: newItem });
     } catch (error) {
-        console.error(`Error creating ${adminpage}:`, error);
-        return json({ error: `Failed to create ${adminpage}` }, { status: 500 });
+        console.error(`Error creating ${category}:`, error);
+        return json({ error: `Failed to create ${category}` }, { status: 500 });
     }
 }

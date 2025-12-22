@@ -3,8 +3,8 @@ import type * as Kit from '@sveltejs/kit';
 type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
 // @ts-ignore
 type MatcherParam<M> = M extends (param : string) => param is infer U ? U extends string ? U : string : string;
-type RouteParams = { adminpage: string };
-type RouteId = '/api/update/[adminpage]';
+type RouteParams = { category: string };
+type RouteId = '/api/delete/[category]';
 
 export type EntryGenerator = () => Promise<Array<RouteParams>> | Array<RouteParams>;
 export type RequestHandler = Kit.RequestHandler<RouteParams, RouteId>;

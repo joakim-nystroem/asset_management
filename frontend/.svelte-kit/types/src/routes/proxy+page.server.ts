@@ -6,6 +6,7 @@ import type { PageServerLoad } from './$types';
 export const load = async () => {
   let assets: Record<string, any>[] = [];
   let dbError: string | null = null;
+  let locations: [] = [];
   
   try {
     assets = await getDefaultAssets();
@@ -20,5 +21,5 @@ export const load = async () => {
     assets = [];
   }
 
-  return { assets, dbError };
+  return { assets, dbError, locations };
 };;null as any as PageServerLoad;

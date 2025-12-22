@@ -8,10 +8,10 @@ function getDynamicPropertyName(pathname: string) {
 
 export async function PUT({ request, params }) {
   const body = await request.json();
-  const { adminpage } = params;
+  const { category } = params;
   const { id } = body;
   
-  const propName = getDynamicPropertyName(adminpage);
+  const propName = getDynamicPropertyName(category);
   const name = body[propName];
   
   if (!id || !name) {
@@ -20,7 +20,7 @@ export async function PUT({ request, params }) {
   }
   
   try {
-    switch (adminpage) {
+    switch (category) {
       case 'locations':
         await updateLocation(id, name);
         break;
@@ -31,11 +31,11 @@ export async function PUT({ request, params }) {
         await updateCondition(id, name);
         break;
       default:
-        return json({ error: 'Invalid admin page' }, { status: 400 });
+        return json({ error: 'Invalid category' }, { status: 400 });
     }
     return json({ success: true });
   } catch (error) {
-    console.error(`Error updating ${adminpage}:`, error);
-    return json({ error: `Failed to update ${adminpage}` }, { status: 500 });
+    console.error(`Error updating ${category}:`, error);
+    return json({ error: `Failed to update ${category}` }, { status: 500 });
   }
 }

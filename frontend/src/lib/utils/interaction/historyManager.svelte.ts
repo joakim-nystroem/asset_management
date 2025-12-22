@@ -30,23 +30,28 @@ export class HistoryManager {
     this.redoStack = [];
   }
 
-  undo(assets: any[]) {
-    const batch = this.undoStack.pop();
-    if (!batch) return;
-
+  revert(actions: HistoryAction[], assets: any[]) {
     // Revert all actions in the batch (in reverse order for safety)
-    for (let i = batch.length - 1; i >= 0; i--) {
-      const action = batch[i];
+    for (let i = actions.length - 1; i >= 0; i--) {
+      const action = actions[i];
       const item = assets.find(a => a.id === action.id);
       if (item) {
         item[action.key] = action.oldValue;
       }
     }
-    
-    this.redoStack.push(batch);
   }
 
-  redo(assets: any[]) {
+  undo(assets: any[]): HistoryAction[] | undefined {
+    const batch = this.undoStack.pop();
+    if (!batch) return;
+
+    this.revert(batch, assets);
+    
+    this.redoStack.push(batch);
+    return batch;
+  }
+
+  redo(assets: any[]): HistoryAction[] | undefined {
     const batch = this.redoStack.pop();
     if (!batch) return;
 
@@ -59,5 +64,11 @@ export class HistoryManager {
     }
 
     this.undoStack.push(batch);
+    return batch;
+  }
+
+  clear() {
+    this.undoStack = [];
+    this.redoStack = [];
   }
 }

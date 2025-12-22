@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import type { PageProps } from './$types';
   // --- COMPONENTS ---
   import ContextMenu from '$lib/utils/ui/contextMenu/contextMenu.svelte';
   import HeaderMenu from '$lib/utils/ui/headerMenu/headerMenu.svelte';
@@ -20,6 +21,7 @@
   import FilterPanel from '$lib/utils/ui/filterPanel/filterPanel.svelte';
   import { FilterPanelState } from '$lib/utils/ui/filterPanel/filterPanel.svelte.js';
   import { RealtimeManager } from '$lib/utils/interaction/realtimeManager.svelte';
+  import { changeManager } from '$lib/utils/interaction/changeManager.svelte';
   // Initialize State Classes
   const contextMenu = new ContextMenuState();
   const history = new HistoryManager();
@@ -34,7 +36,7 @@
   const editManager = new EditManager();
   const filterPanel = new FilterPanelState();
   
-  let { data } = $props();
+  let { data }: PageProps = $props();
 
   // --- Data State ---
   let baseAssets: Record<string, any>[] = $state(data.assets);
@@ -44,12 +46,42 @@
   let clientId: string | null = $state(null);
 
   let keys = $derived(assets.length > 0 ? Object.keys(assets[0]) : []);
+
+  $effect(() => {
+    const changes = changeManager.getAllChanges();
+    if (changes.length === 0) {
+      selection.clearDirtyCells();
+      return;
+    }
+
+    const assetIdMap = new Map(assets.map((asset, index) => [asset.id.toString(), index]));
+    const keyMap = new Map(keys.map((key, index) => [key, index]));
+
+    const dirtyCells = changes.map(change => {
+        const row = assetIdMap.get(String(change.id));
+        const col = keyMap.get(change.key);
+        return { row, col };
+    }).filter(c => c.row !== undefined && c.col !== undefined) as { row: number, col: number}[];
+    
+    selection.setDirtyCells(dirtyCells);
+  });
+
+  const dirtyCellOverlays = $derived(
+    selection.computeDirtyCellOverlays(
+      virtualScroll.visibleRange,
+      keys,
+      columnManager,
+      virtualScroll.rowHeight
+    )
+  );
+
   const updateAssetInList = (list: Record<string, any>[], payload: { id: number; key: string; value: any }) => {
     const index = list.findIndex(a => a.id === payload.id);
     if (index !== -1) {
       list[index][payload.key] = payload.value;
     }
   };
+
   const handleRealtimeUpdate = (payload: { id: number; key: string; value: any }) => {
     updateAssetInList(assets, payload);
     updateAssetInList(baseAssets, payload);
@@ -110,8 +142,32 @@
     {
       onCopy: async () => { await handleCopy(); },
       onPaste: handlePaste,
-      onUndo: () => history.undo(assets),
-      onRedo: () => history.redo(assets),
+      onUndo: () => {
+        const undoneBatch = history.undo(assets);
+        if (undoneBatch) {
+          // The value in assets is now the `oldValue` from the action.
+          // We need to re-run the change logic for each undone action.
+          for (const action of undoneBatch) {
+            changeManager.update({
+              id: action.id,
+              key: action.key,
+              // The `newValue` of this "meta" action is the value we just reverted to.
+              newValue: action.oldValue,
+              // The `oldValue` for the ChangeManager is what it was before this "meta" action.
+              oldValue: action.newValue,
+            });
+          }
+        }
+      },
+      onRedo: () => {
+        const redoneBatch = history.redo(assets);
+        if (redoneBatch) {
+          // A redo is just like a normal action.
+          for (const action of redoneBatch) {
+            changeManager.update(action);
+          }
+        }
+      },
       onEscape: () => {
         if (editManager.isEditing) {
           editManager.cancel(columnManager, rowManager);
@@ -175,13 +231,23 @@
   async function handlePaste() {
     const target = getActionTarget();
     if (!target) return;
-    const pasteSize = await clipboard.paste(target, assets, keys, history);
+    const pasteResult = await clipboard.paste(target, assets, keys);
+
+    if (pasteResult && pasteResult.changes.length > 0) {
+      // Record entire paste operation as one batch in history
+      history.recordBatch(pasteResult.changes);
+      // Update net changes for each individual action in the batch
+      for (const action of pasteResult.changes) {
+        changeManager.update(action);
+      }
+    }
+
     if (contextMenu.visible) contextMenu.close();
-    if (pasteSize) {
+    if (pasteResult) {
       const startRow = target.row;
       const startCol = target.col;
-      const endRow = Math.min(startRow + pasteSize.rows - 1, assets.length - 1);
-      const endCol = Math.min(startCol + pasteSize.cols - 1, keys.length - 1);
+      const endRow = Math.min(startRow + pasteResult.rows - 1, assets.length - 1);
+      const endCol = Math.min(startCol + pasteResult.cols - 1, keys.length - 1);
       selection.reset();
       selection.start = { row: startRow, col: startCol };
       selection.end = { row: endRow, col: endCol };
@@ -195,8 +261,10 @@
     contextMenu.close();
   }
 
-   async function handleEditAction() {
-    const target = getActionTarget();
+  import type { GridCell } from '$lib/utils/interaction/selectionManager.svelte';
+
+   async function handleEditAction(targetCell?: GridCell) {
+    const target = targetCell || getActionTarget();
     if (!target) return;
     const { row, col } = target;
     const key = keys[col];
@@ -218,12 +286,20 @@
 
   async function saveEdit() {
     const pos = editManager.getEditPosition();
-    const saved = await editManager.save(
+    const change = await editManager.save(
       assets,
-      (id, key, oldValue, newValue) => history.record(id, key, oldValue, newValue),
       columnManager,
       rowManager
     );
+
+    if (change && pos) {
+      const action = {id: change.id, key: change.key, oldValue: change.oldValue, newValue: change.newValue};
+      // Always record the action for undo/redo
+      history.recordBatch([action]);
+      // Update the change manager with the net change
+      changeManager.update(action);
+    }
+    
     if (pos) selection.selectCell(pos.row, pos.col);
   }
 
@@ -231,6 +307,45 @@
     const pos = editManager.getEditPosition();
     editManager.cancel(columnManager, rowManager);
     if (pos) selection.selectCell(pos.row, pos.col);
+  }
+
+  async function commitChanges() {
+    const changes = changeManager.getAllChanges();
+    if (changes.length === 0) return;
+
+    const apiChanges = changes.map(c => ({ rowId: c.id, columnId: c.key, newValue: c.newValue, oldValue: c.oldValue }));
+
+    try {
+        const response = await fetch('/api/assets/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(apiChanges),
+        });
+
+        if (response.ok) {
+            // After a successful commit, the net changes are zero.
+            changeManager.clear();
+            // We also clear history so we can't undo past a commit.
+            history.clear();
+        } else {
+            // Handle error
+            console.error('Commit failed:', await response.text());
+            alert('Failed to commit changes. See console for details.');
+        }
+    } catch (error) {
+        console.error('Commit failed:', error);
+        alert('Failed to commit changes. See console for details.');
+    }
+  }
+
+  function discardChanges() {
+    // Get all changes to revert data
+    const allChangesToRevert = history.undoStack.flat();
+    history.revert(allChangesToRevert, assets);
+
+    // Clear all managers
+    history.clear();
+    changeManager.clear();
   }
 
   // --- Lifecycle ---
@@ -318,9 +433,24 @@
     
     <div class="flex flex-row w-full justify-between items-center">
    
-      <div class="flex flex-row text-xs gap-2">
+      <div class="flex flex-row gap-2">
         <FilterPanel state={filterPanel} searchManager={search} />
+        {#if changeManager.hasChanges}
+          <div class="flex gap-2 items-center">
+            <button 
+              onclick={commitChanges}
+              class="cursor-pointer bg-green-500 hover:bg-green-600 px-2 py-1 rounded text-neutral-100 whitespace-nowrap">
+              Commit Changes
+            </button>
+            <button 
+              onclick={discardChanges}
+              class="cursor-pointer bg-red-500 hover:bg-red-600 px-2 py-1 rounded text-neutral-100">
+              Discard
+            </button>
+          </div>
+        {/if}
       </div>
+      
     </div>
   </div>
 </div>
@@ -392,7 +522,7 @@ columnManager.resetWidth(key);
           )}
           {#if otherUserOverlay}
             <div
-              class="absolute pointer-events-none z-5"
+              class="absolute pointer-events-none z-50"
               style="
                 top: {otherUserOverlay.top}px;
                 left: {otherUserOverlay.left}px;
@@ -447,6 +577,18 @@ columnManager.resetWidth(key);
 ></div>
         {/if}
 
+        {#each dirtyCellOverlays as overlay}
+          <div
+              class="absolute pointer-events-none z-40 bg-green-400/20 dark:bg-green-400/10 border border-2 border-green-400 dark:border-green-600"
+              style="
+                  top: {overlay.top}px;
+                  left: {overlay.left}px;
+                  width: {overlay.width}px;
+                  height: {overlay.height}px;
+              "
+          ></div>
+        {/each}
+
         {#each visibleData.items as asset, i (asset.id || (visibleData.startIndex + i))}
           {@const actualIndex = visibleData.startIndex + i}
           {@const rowHeight = rowManager.getHeight(actualIndex)}
@@ -460,21 +602,25 @@ columnManager.resetWidth(key);
               <div
                 data-row={actualIndex}
                 data-col={j} 
-     
                 onmousedown={(e) => {
                   if (isEditingThisCell) return;
-if (editManager.isEditing) {
+                  if (editManager.isEditing) {
                     editManager.cancel(columnManager, rowManager);
-setTimeout(() => { selection.handleMouseDown(actualIndex, j, e); }, 0);
+                    setTimeout(() => { selection.handleMouseDown(actualIndex, j, e); }, 0);
                   } else {
                     selection.handleMouseDown(actualIndex, j, e);
-}
+                  }
+                }}
+                ondblclick={(e) => {
+                  e.preventDefault();
+                  if (!isEditingThisCell) {
+                    handleEditAction({ row: actualIndex, col: j });
+                  }
                 }}
                 onmouseenter={() => !isEditingThisCell && selection.extendSelection(actualIndex, j)}
                 oncontextmenu={(e) => !isEditingThisCell && handleContextMenu(e, i, j)}
                 class="
                   h-full flex items-center text-xs
-    
                text-neutral-700 dark:text-neutral-200 
                   border-r border-neutral-200 dark:border-slate-700 last:border-r-0
                   {isEditingThisCell ? '' : 'px-2 cursor-cell hover:bg-blue-100 dark:hover:bg-slate-600'}

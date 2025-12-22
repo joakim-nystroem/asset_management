@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { updateAsset } from '$lib/db/update/updateAsset';
 
-export async function PUT({ request }) {
+export async function POST({ request }) {
     const { id, key, value } = await request.json();
 
     if (!id || !key) {

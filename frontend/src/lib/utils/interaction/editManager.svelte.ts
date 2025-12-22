@@ -1,4 +1,3 @@
-// src/lib/utils/interaction/editManager.svelte.ts
 import type { ColumnWidthManager } from '../core/columnManager.svelte';
 import type { RowHeightManager } from '../core/rowManager.svelte';
 
@@ -66,43 +65,16 @@ export class EditManager {
 
   async save(
     assets: any[],
-    onHistoryRecord: (id: number | string, key: string, oldValue: string, newValue: string) => void,
     columnManager: ColumnWidthManager,
     rowManager: RowHeightManager
-  ): Promise<boolean> {
-    if (!this.editState) return false;
+  ): Promise<{ id: any; key: string; oldValue: any; newValue: any; } | null> {
+    if (!this.editState) return null;
 
     const { row, key, originalValue, originalColumnWidth } = this.editState;
     const newValue = this.inputValue.trim();
 
     const asset = assets[row];
-    if (!asset) return false;
-
-    if (originalValue !== newValue) {
-      // 1. Optimistic Update (Update UI immediately)
-      asset[key] = newValue;
-      onHistoryRecord(asset.id, key, originalValue, newValue);
-
-      // 2. Persist to DB via API (which triggers WebSocket broadcast)
-      try {
-        const response = await fetch('/asset/api/update', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: asset.id, key, value: newValue })
-        });
-
-        if (!response.ok) {
-          console.error('Save failed:', await response.text());
-          // Optional: Revert change on error
-          asset[key] = originalValue; 
-          return false;
-        }
-      } catch (err) {
-        console.error('Network error saving edit:', err);
-        asset[key] = originalValue;
-        return false;
-      }
-    }
+    if (!asset) return null;
 
     columnManager.setWidth(key, originalColumnWidth);
     rowManager.resetHeight(row);
@@ -111,7 +83,15 @@ export class EditManager {
     this.editState = null;
     this.inputValue = '';
 
-    return true;
+    if (originalValue !== newValue) {
+      // 1. Optimistic Update (Update UI immediately)
+      asset[key] = newValue;
+
+      // 2. Return change for caller to handle
+      return { id: asset.id, key: key, oldValue: originalValue, newValue: newValue };
+    }
+
+    return null;
   }
 
   cancel(columnManager: ColumnWidthManager, rowManager: RowHeightManager) {
