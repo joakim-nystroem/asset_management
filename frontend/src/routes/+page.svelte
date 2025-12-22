@@ -27,7 +27,7 @@
   const history = new HistoryManager();
   const headerMenu = new HeaderMenuState();
   const selection = new SelectionManager();
-  const clipboard = new ClipboardManager();
+  const clipboard = new ClipboardManager(selection);
   const search = new SearchManager();
   const sort = new SortManager();
   const virtualScroll = new VirtualScrollManager();
@@ -298,6 +298,34 @@
       history.recordBatch([action]);
       // Update the change manager with the net change
       changeManager.update(action);
+
+      // --- NEW: API Call to persist changes ---
+      try {
+        const response = await fetch('/asset/api/update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: change.id,
+            key: change.key,
+            value: change.newValue,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          console.error('Failed to save edit to server:', errorData.error);
+          // Optionally, revert the optimistic update or show an error message to the user
+          // For now, we'll just log the error.
+        } else {
+          console.log('Edit saved successfully to server.');
+        }
+      } catch (error) {
+        console.error('Network error while saving edit:', error);
+        // Optionally, revert the optimistic update or show an error message to the user
+      }
+      // --- END NEW ---
     }
     
     if (pos) selection.selectCell(pos.row, pos.col);
@@ -316,7 +344,7 @@
     const apiChanges = changes.map(c => ({ rowId: c.id, columnId: c.key, newValue: c.newValue, oldValue: c.oldValue }));
 
     try {
-        const response = await fetch('/api/assets/bulk', {
+        const response = await fetch('/asset/api/assets/bulk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(apiChanges),
@@ -325,8 +353,7 @@
         if (response.ok) {
             // After a successful commit, the net changes are zero.
             changeManager.clear();
-            // We also clear history so we can't undo past a commit.
-            history.clear();
+            selection.resetAll();
         } else {
             // Handle error
             console.error('Commit failed:', await response.text());
@@ -371,6 +398,9 @@
         // [NEW] Disconnect Realtime
         realtime.disconnect();
         if (resizeObserver) resizeObserver.disconnect();
+        // Clear change manager and history on component destroy/navigation away
+        changeManager.clear();
+        history.clear();
     };
   });
   $effect(() => { 

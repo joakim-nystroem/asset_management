@@ -2,8 +2,8 @@ import { db } from '$lib/db/conn';
 
 export async function getDefaultAssets() {
     return await db.selectFrom('asset_inventory as ai')
-        .leftJoin('asset_status as ast', 'ai.id', 'ast.id')
-        .leftJoin('asset_condition as ac', 'ai.id', 'ac.id')
+        .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
+        .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
         .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
         .select([
             'ai.id', 'ai.bu_estate', 'ai.department', 'al.location_name as location',

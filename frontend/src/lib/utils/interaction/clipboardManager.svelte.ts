@@ -27,6 +27,11 @@ export type CopiedItem = {
 export class ClipboardManager {
   internal = $state<CopiedItem[]>([]);
   private lastCopiedText = '';
+  private selectionManager: SelectionManager;
+
+  constructor(selectionManager: SelectionManager) {
+    this.selectionManager = selectionManager;
+  }
 
   async copy(
     selectionManager: SelectionManager,
@@ -90,53 +95,92 @@ export class ClipboardManager {
     const systemText = await readFromClipboard();
     if (systemText === null) return null;
 
-    // Determine if we can use internal high-fidelity clipboard or must parse text
     const useInternal = this.internal.length > 0 && systemText === this.lastCopiedText;
-    
-    // Collection for batch history
     const batchChanges: HistoryAction[] = [];
-    
-    // Track paste dimensions
-    let maxRelRow = 0;
-    let maxRelCol = 0;
 
+    let copiedBlock: string[][] = [];
+
+    // Parse clipboard data into a 2D array (block)
     if (useInternal) {
+      // Determine dimensions of the internal clipboard data
+      let maxRelRow = 0;
+      let maxRelCol = 0;
       for (const item of this.internal) {
-        const destRow = target.row + item.relRow;
-        const destCol = target.col + item.relCol;
-        
-        // Track dimensions
         if (item.relRow > maxRelRow) maxRelRow = item.relRow;
         if (item.relCol > maxRelCol) maxRelCol = item.relCol;
+      }
 
-        // Apply value and collect change record
-        const change = this.applyValue(destRow, destCol, item.value, assets, keys);
-        if (change) batchChanges.push(change);
+      // Initialize copiedBlock with correct dimensions
+      for (let r = 0; r <= maxRelRow; r++) {
+        copiedBlock.push(new Array(maxRelCol + 1).fill(''));
+      }
+
+      // Populate copiedBlock
+      for (const item of this.internal) {
+        copiedBlock[item.relRow][item.relCol] = item.value;
       }
     } else {
       const rows = systemText.split(/\r?\n/);
-      rows.forEach((rowStr, rIdx) => {
-        if (!rowStr) return;
-        
-        // Track row dimension
-        if (rIdx > maxRelRow) maxRelRow = rIdx;
-
-        const cells = rowStr.split('\t');
-        cells.forEach((cellValue, cIdx) => {
-          // Track col dimension
-          if (cIdx > maxRelCol) maxRelCol = cIdx;
-
-          const destRow = target.row + rIdx;
-          const destCol = target.col + cIdx;
-          
-          // Apply value and collect change record
-          const change = this.applyValue(destRow, destCol, cellValue, assets, keys);
-          if (change) batchChanges.push(change);
-        });
-      });
+      for (const rowStr of rows) {
+        if (!rowStr) continue;
+        copiedBlock.push(rowStr.split('\t'));
+      }
     }
 
-    return { rows: maxRelRow + 1, cols: maxRelCol + 1, changes: batchChanges };
+    if (copiedBlock.length === 0 || copiedBlock[0].length === 0) return null;
+
+    const copiedBlockHeight = copiedBlock.length;
+    const copiedBlockWidth = copiedBlock[0].length;
+
+    const selectionBounds = this.selectionManager.getBounds();
+    const isSingleCellSelection = selectionBounds && selectionBounds.minRow === selectionBounds.maxRow && selectionBounds.minCol === selectionBounds.maxCol;
+    const hasMultiCellSelection = selectionBounds && !(isSingleCellSelection);
+
+    let effectivePasteRows = 0;
+    let effectivePasteCols = 0;
+
+    if (hasMultiCellSelection) {
+      // Distributed paste to multiple selected cells
+      const pasteStartRow = selectionBounds.minRow;
+      const pasteEndRow = selectionBounds.maxRow;
+      const pasteStartCol = selectionBounds.minCol;
+      const pasteEndCol = selectionBounds.maxCol;
+
+      effectivePasteRows = pasteEndRow - pasteStartRow + 1;
+      effectivePasteCols = pasteEndCol - pasteStartCol + 1;
+
+      for (let r = pasteStartRow; r <= pasteEndRow; r++) {
+        for (let c = pasteStartCol; c <= pasteEndCol; c++) {
+          const relRowInBlock = (r - pasteStartRow) % copiedBlockHeight;
+          const relColInBlock = (c - pasteStartCol) % copiedBlockWidth;
+          const valueToPaste = copiedBlock[relRowInBlock][relColInBlock];
+          
+          const change = this.applyValue(r, c, valueToPaste, assets, keys);
+          if (change) batchChanges.push(change);
+        }
+      }
+    } else {
+      // Old functionality: paste as a block starting from 'target'
+      // Or if there's a single cell selection, 'target' is that cell
+      const pasteStartRow = target.row;
+      const pasteStartCol = target.col;
+
+      effectivePasteRows = copiedBlockHeight;
+      effectivePasteCols = copiedBlockWidth;
+
+      for (let r = 0; r < copiedBlockHeight; r++) {
+        for (let c = 0; c < copiedBlockWidth; c++) {
+          const destRow = pasteStartRow + r;
+          const destCol = pasteStartCol + c;
+          const valueToPaste = copiedBlock[r][c];
+
+          const change = this.applyValue(destRow, destCol, valueToPaste, assets, keys);
+          if (change) batchChanges.push(change);
+        }
+      }
+    }
+
+    return { rows: effectivePasteRows, cols: effectivePasteCols, changes: batchChanges };
   }
 
   private applyValue(
