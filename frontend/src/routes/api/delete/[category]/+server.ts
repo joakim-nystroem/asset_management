@@ -1,7 +1,10 @@
 import { json } from '@sveltejs/kit';
 import { deleteLocation, deleteStatus, deleteCondition } from '$lib/db/delete/deleteAdmin';
 
-export async function DELETE({ request, params }) {
+export async function DELETE({ request, params, locals }) {
+    if (!locals.user) {
+        return json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { id } = await request.json();
     const { category } = params;
 

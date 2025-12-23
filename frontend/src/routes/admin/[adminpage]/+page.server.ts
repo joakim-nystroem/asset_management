@@ -13,8 +13,6 @@ export const load = (async ({ params }) => {
         throw error(404, 'Not Found');
     }
 
-    console.log(`Loading admin data for page: ${adminpage}`);
-
     try {
         let data: any[] = [];
         let title: string = '';
@@ -41,7 +39,6 @@ export const load = (async ({ params }) => {
             title: title
         };
     } catch (err) {
-        console.error(`Error loading admin data for ${adminpage}:`, err);
         if (err instanceof Error) {
           error(500, err.message);
         }

@@ -144,7 +144,7 @@
     />
     <button
       onclick={createItem}
-      class="ml-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none"
+      class="ml-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none hover:cursor-pointer"
     >
       Create
     </button>
@@ -175,10 +175,10 @@
           </div>
           <div class="flex-1 px-6 whitespace-nowrap text-right">
             {#if editingId === item.id}
-              <button onclick={saveEdit} class="text-green-600 hover:text-green-900 mr-4 hover:cursor-pointer">Save</button>
+              <button onclick={saveEdit} class="text-green-600 dark:text-green-500 hover:text-green-800 dark:hover:text-green-600 mr-4 hover:cursor-pointer">Save</button>
               <button onclick={cancelEdit} class="text-red-600 hover:text-red-900 hover:cursor-pointer">Cancel</button>
             {:else}
-              <button onclick={() => startEdit(item)} class="text-indigo-600 hover:text-indigo-900 hover:cursor-pointer mr-4">Edit</button>
+              <button onclick={() => startEdit(item)} class="text-blue-600 dark:text-blue-400 hover:text-indigo-900 hover:cursor-pointer mr-4">Edit</button>
               <button onclick={() => deleteItem(item)} class="text-red-600 hover:text-red-900 hover:cursor-pointer">Delete</button>
             {/if}
           </div>

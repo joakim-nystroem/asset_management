@@ -19,6 +19,14 @@
           </a>
         </li>
       {/each}
+       <li>
+        <a
+          href="./register"
+          class="w-full text-left p-2 rounded hover:bg-gray-300 dark:hover:bg-slate-700 hover:cursor-pointer block"
+        >
+          Register User
+        </a>
+       </li>
     </ul>
   </div>
 

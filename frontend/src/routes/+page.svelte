@@ -42,8 +42,9 @@
   let baseAssets: Record<string, any>[] = $state(data.assets);
   let assets: Record<string, any>[] = $state(data.assets);
   let locations: Record<string, any>[] = $state(data.locations || []);
-  let otherUserSelections: Record<string, { row: number; col: number }> = $state({});
+  let otherUserSelections: Record<string, { row: number; col: number; firstname: string; lastname: string; }> = $state({});
   let clientId: string | null = $state(null);
+  let hoveredUser: string | null = $state(null);
 
   let keys = $derived(assets.length > 0 ? Object.keys(assets[0]) : []);
 
@@ -86,18 +87,17 @@
     updateAssetInList(assets, payload);
     updateAssetInList(baseAssets, payload);
   };
-  const handleUserPositionUpdate = (payload: { clientId: string; row: number; col: number }) => {
-    if (payload.clientId === clientId) return;
-    otherUserSelections = { ...otherUserSelections, [payload.clientId]: { row: payload.row, col: payload.col } };
-  };
-  const handleUserLeft = (payload: { clientId: string }) => {
+      const handleUserPositionUpdate = (payload: { clientId: string; row: number; col: number; firstname: string; lastname:string; }) => {
+        if (payload.clientId === clientId) return;
+        otherUserSelections = { ...otherUserSelections, [payload.clientId]: { row: payload.row, col: payload.col, firstname: payload.firstname, lastname: payload.lastname } };
+      };  const handleUserLeft = (payload: { clientId: string }) => {
     if (payload.clientId === clientId) return;
     const newSelections = { ...otherUserSelections };
     delete newSelections[payload.clientId];
     otherUserSelections = newSelections;
   };
 
-  const handleExistingUsers = (users: Record<string, { row: number; col: number }>) => {
+  const handleExistingUsers = (users: Record<string, { row: number; col: number; firstname: string; lastname: string; }>) => {
     const newSelections = { ...users };
     if (clientId) {
       delete newSelections[clientId];
@@ -306,11 +306,12 @@
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            id: change.id,
-            key: change.key,
-            value: change.newValue,
-          }),
+          body: JSON.stringify([{
+            rowId: change.id,
+            columnId: change.key,
+
+            newValue: change.newValue,
+          }]),
         });
 
         if (!response.ok) {
@@ -344,7 +345,7 @@
     const apiChanges = changes.map(c => ({ rowId: c.id, columnId: c.key, newValue: c.newValue, oldValue: c.oldValue }));
 
     try {
-        const response = await fetch('/asset/api/assets/bulk', {
+        const response = await fetch('/asset/api/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(apiChanges),
@@ -380,7 +381,9 @@
     const cleanupInteraction = mountInteraction(window);
     
     // [NEW] Connect Realtime
-    realtime.connect();
+    if (data.user) {
+      realtime.connect(data.user);
+    }
 
     let resizeObserver: ResizeObserver | null = null;
     if (scrollContainer) {
@@ -440,7 +443,6 @@
 <div class="flex flex-col gap-2 mb-3">
   <div class="flex flex-row gap-4 items-center">
     <h2 class="text-lg font-bold whitespace-nowrap">
-      Asset Master
       {#if realtime.isConnected}
         <span class="inline-block w-2 h-2 rounded-full bg-green-500 ml-2" title="Live"></span>
       {:else}
@@ -522,18 +524,17 @@ min-width: {columnManager.getWidth(key)}px;"
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div 
-                class="absolute right-0 top-0 
-bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-50"
+                class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-50"
                 onmousedown={(e) => {
                     e.preventDefault();
-e.stopPropagation();
+                    e.stopPropagation();
                     document.body.style.cursor = 'col-resize';
                     columnManager.startResize(key, e.clientX);
                 }}
                 onclick={(e) => e.stopPropagation()} 
                 ondblclick={(e) => {
-                    e.stopPropagation();
-columnManager.resetWidth(key);
+                  e.stopPropagation();
+                  columnManager.resetWidth(key);
                 }}
             ></div>
           </div>
@@ -541,52 +542,60 @@ columnManager.resetWidth(key);
       </div>
 
       <div class="absolute top-8 w-full" style="transform: translateY({virtualScroll.getOffsetY(rowManager)}px);">
-        {#each Object.entries(otherUserSelections) as [clientId, position]}
-          {@const otherUserOverlay = selection.computeVisualOverlay(
-            position,
-            position,
-            virtualScroll.visibleRange,
-            keys,
-            columnManager,
-            virtualScroll.rowHeight
-          )}
-          {#if otherUserOverlay}
-            <div
-              class="absolute pointer-events-none z-50"
-              style="
-                top: {otherUserOverlay.top}px;
-                left: {otherUserOverlay.left}px;
-                width: {otherUserOverlay.width}px;
-                height: {otherUserOverlay.height}px;
-                border: 1px solid #ef4444; 
-                box-sizing: border-box;
-              "
-            >
+          {#each Object.entries(otherUserSelections) as [clientId, position]}
+            {@const otherUserOverlay = selection.computeVisualOverlay(
+              position,
+              position,
+              virtualScroll.visibleRange,
+              keys,
+              columnManager,
+              virtualScroll.rowHeight
+            )}
+            {#if otherUserOverlay}
+              {@const initials = ((position.firstname?.[0] || '') + (position.lastname?.[0] || '')).toUpperCase()}
+              {@const fullName = `${position.firstname || ''} ${position.lastname || ''}`.trim()}
+              
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
               <div
-                class="absolute -top-5 left-0 text-xs bg-red-500 text-white px-1 rounded whitespace-nowrap"
+                class="absolute pointer-events-auto z-50 cursor-pointer"
+                style="
+                  top: {otherUserOverlay.top}px;
+                  left: {otherUserOverlay.left}px;
+                  width: {otherUserOverlay.width}px;
+                  height: {otherUserOverlay.height}px;
+                  border: 1px solid #ef4444; 
+                  box-sizing: border-box;
+                "
+                onmouseenter={() => (hoveredUser = clientId)}
+                onmouseleave={() => (hoveredUser = null)}
               >
-                User {clientId}
+                <div
+                  class="absolute -top-5 left-0 text-xs bg-red-500 text-white px-1 rounded whitespace-nowrap transition-all duration-200 ease-in-out overflow-hidden"
+                  style="max-width: {hoveredUser === clientId ? '200px' : '2rem'};"
+                  title={fullName}
+                >
+                  {hoveredUser === clientId ? fullName : initials}
+                </div>
               </div>
-            </div>
-          {/if}
-        {/each}
+            {/if}
+          {/each}
 
         {#if copyOverlay}
-            <div
-               class="absolute pointer-events-none z-20 border-blue-600 dark:border-blue-500"
-            
-                style="
-                top: {copyOverlay.top}px;
-                left: {copyOverlay.left}px; 
-                width: {copyOverlay.width}px; 
-                height: {copyOverlay.height}px;
-                border-top-style: {copyOverlay.showTopBorder ? 'dashed' : 'none'};
-      
-                border-bottom-style: {copyOverlay.showBottomBorder ? 'dashed' : 'none'};
-                border-left-style: {copyOverlay.showLeftBorder ? 'dashed' : 'none'};
-                border-right-style: {copyOverlay.showRightBorder ? 'dashed' : 'none'};
-                border-width: 2px;"
-></div>
+          <div
+            class="absolute pointer-events-none z-20 border-blue-600 dark:border-blue-500"
+        
+            style="
+            top: {copyOverlay.top}px;
+            left: {copyOverlay.left}px; 
+            width: {copyOverlay.width}px; 
+            height: {copyOverlay.height}px;
+            border-top-style: {copyOverlay.showTopBorder ? 'dashed' : 'none'};
+  
+            border-bottom-style: {copyOverlay.showBottomBorder ? 'dashed' : 'none'};
+            border-left-style: {copyOverlay.showLeftBorder ? 'dashed' : 'none'};
+            border-right-style: {copyOverlay.showRightBorder ? 'dashed' : 'none'};
+            border-width: 2px;"
+          ></div>
         {/if}
 
         {#if selectionOverlay}
@@ -604,7 +613,7 @@ columnManager.resetWidth(key);
          
                 border-right-style: {selectionOverlay.showRightBorder ? 'solid' : 'none'};
                 border-width: 2px;"
-></div>
+    ></div>
         {/if}
 
         {#each dirtyCellOverlays as overlay}
@@ -666,14 +675,13 @@ columnManager.resetWidth(key);
                     onkeydown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-saveEdit();
+                        saveEdit();
                       } else if (e.key === 'Escape') {
                         e.preventDefault();
-cancelEdit();
+                        cancelEdit();
                       }
                     }}
-                    onmousedown={(e) => { e.stopPropagation();
-}}
+                    onmousedown={(e) => { e.stopPropagation(); }}
                     onblur={(e) => {
                       const relatedTarget = e.relatedTarget as HTMLElement;
 if (!relatedTarget || relatedTarget.closest('[data-row]')) {

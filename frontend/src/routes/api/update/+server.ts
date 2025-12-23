@@ -1,18 +1,24 @@
 import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
 import { updateAsset } from '$lib/db/update/updateAsset';
 
-export async function POST({ request }) {
-    const { id, key, value } = await request.json();
-
-    if (!id || !key) {
-        return json({ error: 'Missing required fields: id and key' }, { status: 400 });
+export const POST: RequestHandler = async ({ request, locals }) => {
+    if (!locals.user) {
+        return json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const changes = await request.json();
 
     try {
-        await updateAsset(id, key, value);
+        for (const change of changes) {
+            await updateAsset(
+                parseInt(change.rowId),
+                change.columnId,
+                change.newValue,
+            );
+        }
         return json({ success: true });
     } catch (error) {
-        console.error('Error updating asset:', error);
-        return json({ error: 'Failed to update asset' }, { status: 500 });
+        console.error('Bulk update failed:', error);
+        return json({ success: false }, { status: 500 });
     }
-}
+};

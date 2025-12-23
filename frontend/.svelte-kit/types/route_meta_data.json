@@ -10,6 +10,11 @@
 		"src/routes/admin/+layout.server.ts",
 		"src/routes/+layout.server.ts"
 	],
+	"/admin/register": [
+		"src/routes/admin/register/+page.server.ts",
+		"src/routes/admin/+layout.server.ts",
+		"src/routes/+layout.server.ts"
+	],
 	"/admin/[adminpage]": [
 		"src/routes/admin/[adminpage]/+page.server.ts",
 		"src/routes/admin/+layout.server.ts",
@@ -17,9 +22,6 @@
 	],
 	"/api/assets": [
 		"src/routes/api/assets/+server.ts"
-	],
-	"/api/assets/bulk": [
-		"src/routes/api/assets/bulk/+server.ts"
 	],
 	"/api/create/[category]": [
 		"src/routes/api/create/[category]/+server.ts"
@@ -38,5 +40,13 @@
 	],
 	"/api/update/[category]": [
 		"src/routes/api/update/[category]/+server.ts"
+	],
+	"/login": [
+		"src/routes/login/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/logout": [
+		"src/routes/logout/+page.server.ts",
+		"src/routes/+layout.server.ts"
 	]
 }

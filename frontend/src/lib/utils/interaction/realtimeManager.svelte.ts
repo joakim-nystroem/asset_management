@@ -31,7 +31,7 @@ export class RealtimeManager {
     this.onWelcome = onWelcome;
   }
 
-  connect() {
+  connect(user: { color: string } | null, sessionId: string | undefined) {
     // Clear any pending reconnect
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -43,7 +43,18 @@ export class RealtimeManager {
       return;
     }
 
-    this.socket = new WebSocket(`${PUBLIC_WS_PROTOCOL}://${PUBLIC_WS_URL}/api/ws`);
+    if (!sessionId) {
+      console.error('[Realtime] No sessionId provided');
+      return;
+    }
+
+    const wsUrl = new URL(`${PUBLIC_WS_PROTOCOL}://${PUBLIC_WS_URL}/api/ws`);
+    wsUrl.searchParams.append('session_id', sessionId);
+    if (user) {
+      wsUrl.searchParams.append('color', user.color);
+    }
+
+    this.socket = new WebSocket(wsUrl.toString());
 
     this.socket.onopen = () => {
       this.isConnected = true;
@@ -59,7 +70,7 @@ export class RealtimeManager {
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
       this.reconnectAttempts++;
       
-      this.reconnectTimeout = setTimeout(() => this.connect(), delay);
+      this.reconnectTimeout = setTimeout(() => this.connect(user, sessionId), delay);
     };
 
     this.socket.onerror = (err) => {

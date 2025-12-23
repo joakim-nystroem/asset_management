@@ -6,7 +6,10 @@ function getDynamicPropertyName(pathname: string) {
   return pathname.slice(0, -1) + '_name';
 }
 
-export async function PUT({ request, params }) {
+export async function PUT({ request, params, locals }) {
+  if (!locals.user) {
+    return json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const body = await request.json();
   const { category } = params;
   const { id } = body;

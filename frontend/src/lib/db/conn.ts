@@ -50,11 +50,31 @@ export interface ConditionTable {
     condition_name: string;
 }
 
+// New interfaces for User and Session tables
+export interface UserTable {
+    id: ColumnType<number, never, never>;
+    username: string;
+    firstname: string;
+    lastname: string;
+    password_hash: string;
+    created_at: ColumnType<Date, string | undefined, never>;
+    last_login_at: ColumnType<Date | null, string | null, string | null>;
+}
+
+export interface SessionTable {
+    session_id: string;
+    user_id: number;
+    created_at: ColumnType<Date, string | undefined, never>;
+    expires_at: ColumnType<Date, string, string>;
+}
+
 export interface Database {
     asset_inventory: AssetTable;
     asset_locations: LocationTable;
     asset_status: StatusTable;
     asset_condition: ConditionTable;
+    users: UserTable; // Add this
+    sessions: SessionTable; // Add this
 }
 
 const dialect = new MysqlDialect({
