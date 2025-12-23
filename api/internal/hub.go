@@ -1,12 +1,13 @@
 package internal
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -17,33 +18,28 @@ const (
 	pongWait   = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10
 	
-	// Connection health check
 	healthCheckInterval = 30 * time.Second
 	
-	// Buffer sizes
 	clientSendBuffer = 256
 	hubChannelBuffer = 100
 )
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all origins for dev
+		return true
 	},
 }
 
-// Message sent to the frontend
 type Message struct {
 	Type    string      `json:"type"`
 	Payload interface{} `json:"payload"`
 }
 
-// UserPosition represents a user's current position in the grid
 type UserPosition struct {
 	Row int `json:"row"`
 	Col int `json:"col"`
 }
 
-// UserPresence tracks all active users and their positions
 type UserPresence struct {
 	positions map[string]*UserPosition
 	mutex     sync.RWMutex
@@ -58,17 +54,12 @@ func NewUserPresence() *UserPresence {
 func (up *UserPresence) Set(clientID string, row, col int) {
 	up.mutex.Lock()
 	defer up.mutex.Unlock()
-	
-	up.positions[clientID] = &UserPosition{
-		Row: row,
-		Col: col,
-	}
+	up.positions[clientID] = &UserPosition{Row: row, Col: col}
 }
 
 func (up *UserPresence) Get(clientID string) (*UserPosition, bool) {
 	up.mutex.RLock()
 	defer up.mutex.RUnlock()
-	
 	pos, exists := up.positions[clientID]
 	return pos, exists
 }
@@ -76,7 +67,6 @@ func (up *UserPresence) Get(clientID string) (*UserPosition, bool) {
 func (up *UserPresence) Remove(clientID string) bool {
 	up.mutex.Lock()
 	defer up.mutex.Unlock()
-	
 	_, existed := up.positions[clientID]
 	delete(up.positions, clientID)
 	return existed
@@ -85,14 +75,9 @@ func (up *UserPresence) Remove(clientID string) bool {
 func (up *UserPresence) GetAll() map[string]*UserPosition {
 	up.mutex.RLock()
 	defer up.mutex.RUnlock()
-	
-	// Return a copy to avoid race conditions
 	snapshot := make(map[string]*UserPosition, len(up.positions))
 	for id, pos := range up.positions {
-		snapshot[id] = &UserPosition{
-			Row: pos.Row,
-			Col: pos.Col,
-		}
+		snapshot[id] = &UserPosition{Row: pos.Row, Col: pos.Col}
 	}
 	return snapshot
 }
@@ -100,14 +85,10 @@ func (up *UserPresence) GetAll() map[string]*UserPosition {
 func (up *UserPresence) GetAllExcept(excludeID string) map[string]*UserPosition {
 	up.mutex.RLock()
 	defer up.mutex.RUnlock()
-	
 	snapshot := make(map[string]*UserPosition)
 	for id, pos := range up.positions {
 		if id != excludeID {
-			snapshot[id] = &UserPosition{
-				Row: pos.Row,
-				Col: pos.Col,
-			}
+			snapshot[id] = &UserPosition{Row: pos.Row, Col: pos.Col}
 		}
 	}
 	return snapshot
@@ -119,39 +100,39 @@ func (up *UserPresence) Count() int {
 	return len(up.positions)
 }
 
-var clientIDCounter int64
+// UserInfo holds authenticated user data
+type UserInfo struct {
+	UserID    int64
+	Username  string
+	Firstname string
+	Lastname  string
+	Color     string
+}
 
-// Client is a middleman between the websocket connection and the hub.
 type Client struct {
-	hub  *Hub
-	conn *websocket.Conn
-	send chan []byte
-	id   string
-	
-	// Track last activity for health checks
+	hub      *Hub
+	conn     *websocket.Conn
+	send     chan []byte
+	id       string // Now user_id from database
+	userInfo *UserInfo
 	lastPong time.Time
 	mu       sync.Mutex
 }
 
 type Hub struct {
-	clients    map[*Client]bool
-	broadcast  chan []byte
-	register   chan *Client
-	unregister chan *Client
-	mutex      sync.RWMutex
-	
-	// Track active client IDs
+	clients         map[*Client]bool
+	broadcast       chan []byte
+	register        chan *Client
+	unregister      chan *Client
+	mutex           sync.RWMutex
 	activeClientIDs map[string]*Client
-	
-	// User presence tracking
-	presence *UserPresence
-	
-	// Graceful shutdown
-	shutdown chan struct{}
-	wg       sync.WaitGroup
+	presence        *UserPresence
+	shutdown        chan struct{}
+	wg              sync.WaitGroup
+	db              *sql.DB
 }
 
-func NewHub() *Hub {
+func NewHub(db *sql.DB) *Hub {
 	return &Hub{
 		broadcast:       make(chan []byte, hubChannelBuffer),
 		register:        make(chan *Client, hubChannelBuffer),
@@ -160,10 +141,42 @@ func NewHub() *Hub {
 		activeClientIDs: make(map[string]*Client),
 		presence:        NewUserPresence(),
 		shutdown:        make(chan struct{}),
+		db:              db,
 	}
 }
 
-// readPump pumps messages from the websocket connection to the hub.
+// ValidateSession checks if a session is valid and returns user info
+func (h *Hub) ValidateSession(sessionID string) (*UserInfo, error) {
+	query := `
+		SELECT 
+			s.user_id,
+			u.username,
+			u.firstname,
+			u.lastname
+		FROM sessions s
+		JOIN users u ON s.user_id = u.id
+		WHERE s.session_id = ? 
+		AND s.expires_at > NOW()
+	`
+
+	var userInfo UserInfo
+	err := h.db.QueryRow(query, sessionID).Scan(
+		&userInfo.UserID,
+		&userInfo.Username,
+		&userInfo.Firstname,
+		&userInfo.Lastname,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("invalid or expired session")
+		}
+		return nil, fmt.Errorf("database error: %v", err)
+	}
+
+	return &userInfo, nil
+}
+
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
@@ -179,7 +192,6 @@ func (c *Client) readPump() {
 		return nil
 	})
 	
-	// Set initial lastPong
 	c.mu.Lock()
 	c.lastPong = time.Now()
 	c.mu.Unlock()
@@ -188,22 +200,20 @@ func (c *Client) readPump() {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WS unexpected close for client %s: %v", c.id, err)
+				log.Printf("WS unexpected close for user %s: %v", c.userInfo.Username, err)
 			}
 			break
 		}
 
 		var msg Message
 		if err := json.Unmarshal(message, &msg); err != nil {
-			log.Printf("Could not decode message from client %s: %v", c.id, err)
+			log.Printf("Could not decode message from user %s: %v", c.userInfo.Username, err)
 			continue
 		}
 
-		// Handle messages from client
 		switch msg.Type {
 		case "USER_POSITION_UPDATE":
 			c.handlePositionUpdate(msg.Payload)
-			
 		case "USER_DESELECTED":
 			c.handleDeselect()
 		}
@@ -216,7 +226,6 @@ func (c *Client) handlePositionUpdate(payload interface{}) {
 		return
 	}
 
-	// Validate position
 	row, rowOk := payloadMap["row"].(float64)
 	col, colOk := payloadMap["col"].(float64)
 	
@@ -224,32 +233,31 @@ func (c *Client) handlePositionUpdate(payload interface{}) {
 		return
 	}
 
-	// Update presence
 	c.hub.presence.Set(c.id, int(row), int(col))
 
-	// DEBUG: Log the selection
-	log.Printf("[DEBUG] User %s selected cell -> Row: %d, Col: %d", c.id, int(row), int(col))
+	log.Printf("[DEBUG] User %s (%s %s) selected cell -> Row: %d, Col: %d", 
+		c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, int(row), int(col))
 
-	// Add client ID to payload for broadcast
 	payloadMap["clientId"] = c.id
+	payloadMap["userId"] = c.userInfo.UserID
+	payloadMap["username"] = c.userInfo.Username
+	payloadMap["firstname"] = c.userInfo.Firstname
+	payloadMap["lastname"] = c.userInfo.Lastname
+	payloadMap["color"] = c.userInfo.Color
 
-	// Broadcast to other clients
 	c.hub.BroadcastMessage("USER_POSITION_UPDATE", payloadMap)
 }
 
 func (c *Client) handleDeselect() {
-	// Remove from presence and check if they had a position
 	hadPosition := c.hub.presence.Remove(c.id)
 
-	// Only notify if user actually had a position
 	if hadPosition {
 		payload := map[string]interface{}{"clientId": c.id}
 		c.hub.BroadcastMessage("USER_LEFT", payload)
-		log.Printf("Client %s deselected", c.id)
+		log.Printf("User %s deselected", c.userInfo.Username)
 	}
 }
 
-// writePump pumps messages from the hub to the websocket connection.
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -280,13 +288,11 @@ func (c *Client) writePump() {
 }
 
 func (h *Hub) Run() {
-	// Periodic health check for stale connections
 	healthTicker := time.NewTicker(healthCheckInterval)
 	defer healthTicker.Stop()
 
 	log.Println("Hub started - ready for WebSocket connections")
 
-	// Main event loop
 	for {
 		select {
 		case client := <-h.register:
@@ -311,9 +317,8 @@ func (h *Hub) Run() {
 func (h *Hub) registerClient(client *Client) {
 	h.mutex.Lock()
 	
-	// Check if there's an existing connection with this ID
 	if existingClient, exists := h.activeClientIDs[client.id]; exists {
-		log.Printf("Duplicate client ID %s detected, closing old connection", client.id)
+		log.Printf("User %s reconnecting, closing old connection", client.userInfo.Username)
 		delete(h.clients, existingClient)
 		close(existingClient.send)
 	}
@@ -323,9 +328,9 @@ func (h *Hub) registerClient(client *Client) {
 	clientCount := len(h.clients)
 	h.mutex.Unlock()
 
-	log.Printf("Client %s connected (total: %d)", client.id, clientCount)
+	log.Printf("User %s (%s %s) connected (total: %d)", 
+		client.userInfo.Username, client.userInfo.Firstname, client.userInfo.Lastname, clientCount)
 
-	// Send existing user positions in background
 	h.wg.Add(1)
 	go func() {
 		defer h.wg.Done()
@@ -334,24 +339,41 @@ func (h *Hub) registerClient(client *Client) {
 }
 
 func (h *Hub) sendExistingUsers(client *Client) {
-	// Get all positions except the connecting client's
 	existingUsers := h.presence.GetAllExcept(client.id)
 
-	msg := Message{Type: "EXISTING_USERS", Payload: existingUsers}
+	enhancedUsers := make(map[string]interface{})
+	h.mutex.RLock()
+	for clientID, pos := range existingUsers {
+		if existingClient, ok := h.activeClientIDs[clientID]; ok {
+			enhancedUsers[clientID] = map[string]interface{}{
+				"row":       pos.Row,
+				"col":       pos.Col,
+				"userId":    existingClient.userInfo.UserID,
+				"username":  existingClient.userInfo.Username,
+				"firstname": existingClient.userInfo.Firstname,
+				"lastname":  existingClient.userInfo.Lastname,
+				"color":     existingClient.userInfo.Color,
+			}
+		}
+	}
+	h.mutex.RUnlock()
+
+	msg := Message{Type: "EXISTING_USERS", Payload: enhancedUsers}
 	jsonMsg, err := json.Marshal(msg)
 	if err != nil {
-		log.Printf("Failed to marshal existing users for client %s: %v", client.id, err)
+		log.Printf("Failed to marshal existing users for %s: %v", client.userInfo.Username, err)
 		return
 	}
 
-	// Non-blocking send
 	select {
 	case client.send <- jsonMsg:
-		if len(existingUsers) > 0 {
-			log.Printf("Sent %d existing user positions to client %s", len(existingUsers), client.id)
+		if len(enhancedUsers) > 0 {
+			log.Printf("Sent %d existing user positions to %s (%s %s)", 
+				len(enhancedUsers), client.userInfo.Username, 
+				client.userInfo.Firstname, client.userInfo.Lastname)
 		}
 	default:
-		log.Printf("Failed to send existing users to client %s (buffer full)", client.id)
+		log.Printf("Failed to send existing users to %s (buffer full)", client.userInfo.Username)
 	}
 }
 
@@ -365,9 +387,8 @@ func (h *Hub) unregisterClient(client *Client) {
 		clientCount := len(h.clients)
 		h.mutex.Unlock()
 		
-		log.Printf("Client %s disconnected (remaining: %d)", client.id, clientCount)
+		log.Printf("User %s disconnected (remaining: %d)", client.userInfo.Username, clientCount)
 		
-		// Clean up position if client had one
 		h.wg.Add(1)
 		go func() {
 			defer h.wg.Done()
@@ -379,20 +400,17 @@ func (h *Hub) unregisterClient(client *Client) {
 }
 
 func (h *Hub) cleanupClient(client *Client) {
-	// Remove from presence - this is the single source of truth
 	hadPosition := h.presence.Remove(client.id)
 
-	// Only notify if user had a position
 	if hadPosition {
 		payload := map[string]interface{}{"clientId": client.id}
 		h.BroadcastMessage("USER_LEFT", payload)
 		
-		log.Printf("Cleaned up position for client %s (remaining users with positions: %d)", 
-			client.id, h.presence.Count())
+		log.Printf("Cleaned up position for user %s (remaining users with positions: %d)", 
+			client.userInfo.Username, h.presence.Count())
 	}
 }
 
-// BroadcastMessage sends a message to all connected clients (public method for handlers)
 func (h *Hub) BroadcastMessage(msgType string, data interface{}) {
 	msg := Message{
 		Type:    msgType,
@@ -415,7 +433,6 @@ func (h *Hub) sendToClients(message []byte) {
 		return
 	}
 
-	// Extract sender ID for position updates (don't echo back to sender)
 	senderID := ""
 	if msgData.Type == "USER_POSITION_UPDATE" {
 		if payload, ok := msgData.Payload.(map[string]interface{}); ok {
@@ -429,23 +446,21 @@ func (h *Hub) sendToClients(message []byte) {
 	defer h.mutex.RUnlock()
 
 	for client := range h.clients {
-		// Don't echo position updates back to sender
 		if senderID != "" && client.id == senderID {
 			continue
 		}
 
-		// Non-blocking send
 		select {
 		case client.send <- message:
 		default:
-			log.Printf("Client %s send buffer full, skipping message", client.id)
+			log.Printf("User %s send buffer full, skipping message", client.userInfo.Username)
 		}
 	}
 }
 
 func (h *Hub) checkStaleConnections() {
 	now := time.Now()
-	staleThreshold := pongWait + (10 * time.Second) // Grace period
+	staleThreshold := pongWait + (10 * time.Second)
 	
 	h.mutex.RLock()
 	var staleClients []*Client
@@ -460,65 +475,85 @@ func (h *Hub) checkStaleConnections() {
 	}
 	h.mutex.RUnlock()
 	
-	// Clean up stale connections
 	if len(staleClients) > 0 {
 		log.Printf("Health check: Cleaning up %d stale connections", len(staleClients))
 		for _, client := range staleClients {
-			client.conn.Close() // This will trigger readPump's defer -> unregister
+			client.conn.Close()
 		}
 	}
 }
 
 func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
+	sessionID := r.URL.Query().Get("session_id")
+	if sessionID == "" {
+		log.Println("WebSocket connection rejected: missing session_id")
+		http.Error(w, "Missing session_id", http.StatusUnauthorized)
+		return
+	}
+
+	userInfo, err := h.ValidateSession(sessionID)
+	if err != nil {
+		log.Printf("WebSocket connection rejected: %v", err)
+		http.Error(w, "Invalid session", http.StatusUnauthorized)
+		return
+	}
+
+	color := r.URL.Query().Get("color")
+	if color == "" {
+		color = "#6b7280"
+	}
+	userInfo.Color = color
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade error: %v", err)
 		return
 	}
 
-	// Generate unique client ID
-	newID := atomic.AddInt64(&clientIDCounter, 1)
+	clientID := strconv.FormatInt(userInfo.UserID, 10)
 
 	client := &Client{
 		hub:      h,
 		conn:     conn,
 		send:     make(chan []byte, clientSendBuffer),
-		id:       strconv.FormatInt(newID, 10),
+		id:       clientID,
+		userInfo: userInfo,
 		lastPong: time.Now(),
 	}
 
 	h.register <- client
 
-	// Send welcome message
 	welcomeMsg := Message{
-		Type:    "WELCOME",
-		Payload: map[string]string{"clientId": client.id},
+		Type: "WELCOME",
+		Payload: map[string]interface{}{
+			"clientId":  client.id,
+			"userId":    userInfo.UserID,
+			"username":  userInfo.Username,
+			"firstname": userInfo.Firstname,
+			"lastname":  userInfo.Lastname,
+			"color":     userInfo.Color,
+		},
 	}
 	
 	if jsonMsg, err := json.Marshal(welcomeMsg); err == nil {
 		select {
 		case client.send <- jsonMsg:
+			log.Printf("User %s (%s %s) connected via WebSocket", 
+				userInfo.Username, userInfo.Firstname, userInfo.Lastname)
 		default:
-			log.Printf("Failed to send welcome to client %s", client.id)
+			log.Printf("Failed to send welcome to %s", userInfo.Username)
 		}
 	}
 
-	// Start client goroutines
 	go client.writePump()
 	go client.readPump()
 }
 
-// Shutdown gracefully closes the hub
 func (h *Hub) Shutdown() {
 	close(h.shutdown)
 	h.wg.Wait()
 }
 
-// ============================================================================
-// DEBUG FUNCTIONS - Can be removed in production
-// ============================================================================
-
-// DebugPrintPresence logs all current user positions (for debugging)
 func (h *Hub) DebugPrintPresence() {
 	positions := h.presence.GetAll()
 	
@@ -536,8 +571,6 @@ func (h *Hub) DebugPrintPresence() {
 	log.Println("========================================")
 }
 
-// StartDebugLogger starts a goroutine that periodically logs presence (for debugging)
-// Returns a channel that can be closed to stop the logger
 func (h *Hub) StartDebugLogger(interval time.Duration) chan struct{} {
 	stop := make(chan struct{})
 	

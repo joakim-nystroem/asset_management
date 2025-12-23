@@ -1,12 +1,16 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"asset-api/internal"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
@@ -16,16 +20,48 @@ func main() {
 	log.Println("🚀 Starting Asset Management API")
 	log.Println("========================================")
 
-	// Load environment variables
 	if err := godotenv.Load(); err != nil {
 		log.Println("⚠️  No .env file found, using environment variables")
 	} else {
 		log.Println("✅ Loaded .env file")
 	}
 
-	// Realtime WebSocket Hub (in-memory)
+	// Database connection
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbName := os.Getenv("DB_NAME")
+
+	if dbUser == "" || dbPassword == "" || dbHost == "" || dbPort == "" || dbName == "" {
+		log.Fatal("❌ Missing required database environment variables")
+	}
+
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
+		dbUser, dbPassword, dbHost, dbPort, dbName)
+
+	log.Println("🔌 Connecting to database...")
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		log.Fatalf("❌ Failed to open database connection: %v", err)
+	}
+	defer db.Close()
+
+	// Test database connection
+	if err := db.Ping(); err != nil {
+		log.Fatalf("❌ Failed to ping database: %v", err)
+	}
+
+	// Configure connection pool
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	log.Println("✅ Database connection established")
+
+	// Realtime WebSocket Hub with database connection
 	log.Println("🔌 Initializing WebSocket hub...")
-	hub := internal.NewHub()
+	hub := internal.NewHub(db)
 	go hub.Run()
 	log.Println("✅ WebSocket hub running")
 
@@ -33,7 +69,6 @@ func main() {
 	log.Println("🛣️  Setting up routes...")
 	r := http.NewServeMux()
 
-	// WebSocket endpoints (unchanged)
 	r.HandleFunc("/api/ws", func(w http.ResponseWriter, r *http.Request) {
 		hub.ServeWs(w, r)
 	})

@@ -4,13 +4,11 @@ export class RealtimeManager {
   socket: WebSocket | null = null;
   isConnected = $state(false);
   
-  // Track the last sent position to avoid duplicate updates
   private lastSentPosition: { row: number; col: number } | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectDelay = 30000; // 30 seconds max
+  private maxReconnectDelay = 30000;
   private reconnectTimeout: NodeJS.Timeout | null = null;
 
-  // Callbacks for various real-time events
   onAssetUpdate: (data: any) => void;
   onUserPositionUpdate: (data: any) => void;
   onUserLeft: (data: any) => void;
@@ -31,14 +29,12 @@ export class RealtimeManager {
     this.onWelcome = onWelcome;
   }
 
-  connect(user: { color: string } | null, sessionId: string | undefined) {
-    // Clear any pending reconnect
+  connect(sessionId: string | undefined, sessionColor: string | undefined) {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
 
-    // Don't create multiple connections
     if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
       return;
     }
@@ -50,27 +46,31 @@ export class RealtimeManager {
 
     const wsUrl = new URL(`${PUBLIC_WS_PROTOCOL}://${PUBLIC_WS_URL}/api/ws`);
     wsUrl.searchParams.append('session_id', sessionId);
-    if (user) {
-      wsUrl.searchParams.append('color', user.color);
+    if (sessionColor) {
+      wsUrl.searchParams.append('color', sessionColor);
     }
+
+    console.log('[Realtime] Connecting to:', wsUrl.toString());
 
     this.socket = new WebSocket(wsUrl.toString());
 
     this.socket.onopen = () => {
+      console.log('[Realtime] Connected');
       this.isConnected = true;
       this.reconnectAttempts = 0;
-      this.lastSentPosition = null; // Reset on new connection
+      this.lastSentPosition = null;
     };
 
     this.socket.onclose = () => {
+      console.log('[Realtime] Disconnected');
       this.isConnected = false;
-      this.lastSentPosition = null; // Clear on disconnect
+      this.lastSentPosition = null;
       
-      // Exponential backoff for reconnection
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
       this.reconnectAttempts++;
       
-      this.reconnectTimeout = setTimeout(() => this.connect(user, sessionId), delay);
+      console.log(`[Realtime] Reconnecting in ${delay}ms...`);
+      this.reconnectTimeout = setTimeout(() => this.connect(sessionId, sessionColor), delay);
     };
 
     this.socket.onerror = (err) => {
@@ -81,6 +81,8 @@ export class RealtimeManager {
     this.socket.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
+        console.log('[Realtime] Received:', msg.type, msg.payload);
+        
         switch (msg.type) {
           case 'asset_update':
             this.onAssetUpdate(msg.payload);
@@ -106,12 +108,15 @@ export class RealtimeManager {
 
   private _sendMessage(type: string, payload: any) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({ type, payload }));
+      const message = JSON.stringify({ type, payload });
+      console.log('[Realtime] Sending:', type, payload);
+      this.socket.send(message);
+    } else {
+      console.warn('[Realtime] Cannot send message, socket not open');
     }
   }
 
   sendPositionUpdate(row: number, col: number) {
-    // Skip if this is the same position we just sent
     if (this.lastSentPosition?.row === row && this.lastSentPosition?.col === col) {
       return;
     }
@@ -121,7 +126,6 @@ export class RealtimeManager {
   }
 
   sendDeselect() {
-    // Only send if we actually had a position
     if (this.lastSentPosition === null) {
       return;
     }
@@ -131,13 +135,11 @@ export class RealtimeManager {
   }
 
   disconnect() {
-    // Clear reconnect timeout
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
 
-    // Send deselect before closing if we have a position
     if (this.lastSentPosition !== null) {
       this.sendDeselect();
     }
