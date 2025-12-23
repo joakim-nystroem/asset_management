@@ -45,8 +45,18 @@
   let locations: Record<string, any>[] = $state(data.locations || []);
   
   // Realtime State (Derived from Singleton)
-  let otherUserSelections = $derived(realtime.connectedUsers);
-  let clientId = $derived(realtime.clientId);
+  let otherUserSelections = $derived(
+    Object.entries(realtime.connectedUsers).reduce((acc, [clientId, position]) => {
+      acc[clientId] = {
+        ...position,
+        initials: (
+          (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
+        ).toUpperCase(),
+        fullName: `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim()
+      };
+      return acc;
+    }, {} as Record<string, any>)
+  );
   let hoveredUser: string | null = $state(null);
 
   let keys = $derived(assets.length > 0 ? Object.keys(assets[0]) : []);
@@ -561,11 +571,6 @@ min-width: {columnManager.getWidth(key)}px;"
             virtualScroll.rowHeight
           )}
           {#if otherUserOverlay}
-            {@const initials = (
-              (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
-            ).toUpperCase()}
-            {@const fullName =
-              `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim()}
 
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <!-- Wrapper: pointer-events-none to allow selection of the cell underneath -->
@@ -596,7 +601,7 @@ min-width: {columnManager.getWidth(key)}px;"
                 onmouseleave={() => (hoveredUser = null)}
               >
                  <div class="{hoveredUser === clientId ? 'px-1' : ''} whitespace-nowrap">
-                    {hoveredUser === clientId ? fullName : initials}
+                    {hoveredUser === clientId ? position.fullName : position.initials}
                  </div>
               </div>
             </div>
