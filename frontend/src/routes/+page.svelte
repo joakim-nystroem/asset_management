@@ -20,8 +20,9 @@
   import { EditManager } from "$lib/utils/interaction/editManager.svelte";
   import FilterPanel from "$lib/utils/ui/filterPanel/filterPanel.svelte";
   import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.js";
-  import { RealtimeManager } from "$lib/utils/interaction/realtimeManager.svelte";
   import { changeManager } from "$lib/utils/interaction/changeManager.svelte";
+  import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
+
   // Initialize State Classes
   const contextMenu = new ContextMenuState();
   const history = new HistoryManager();
@@ -42,14 +43,10 @@
   let baseAssets: Record<string, any>[] = $state(data.assets);
   let assets: Record<string, any>[] = $state(data.assets);
   let locations: Record<string, any>[] = $state(data.locations || []);
-  let otherUserSelections: Record<string, { 
-    row: number; 
-    col: number; 
-    firstname: string; 
-    lastname: string;
-    color: string; 
-  }> = $state({});
-  let clientId: string | null = $state(null);
+  
+  // Realtime State (Derived from Singleton)
+  let otherUserSelections = $derived(realtime.connectedUsers);
+  let clientId = $derived(realtime.clientId);
   let hoveredUser: string | null = $state(null);
 
   let keys = $derived(assets.length > 0 ? Object.keys(assets[0]) : []);
@@ -107,64 +104,6 @@
     updateAssetInList(assets, payload);
     updateAssetInList(baseAssets, payload);
   };
-  const handleUserPositionUpdate = (payload: { 
-    clientId: string; 
-    row: number; 
-    col: number; 
-    firstname: string; 
-    lastname: string;
-    color: string; // ADD THIS
-  }) => {
-    if (payload.clientId === clientId) return;
-    otherUserSelections = { 
-      ...otherUserSelections, 
-      [payload.clientId]: { 
-        row: payload.row, 
-        col: payload.col, 
-        firstname: payload.firstname, 
-        lastname: payload.lastname,
-        color: payload.color // ADD THIS
-      } 
-    };
-  };
-  const handleUserLeft = (payload: { clientId: string }) => {
-    if (payload.clientId === clientId) return;
-    const newSelections = { ...otherUserSelections };
-    delete newSelections[payload.clientId];
-    otherUserSelections = newSelections;
-  };
-
-  const handleExistingUsers = (users: Record<string, { 
-    row: number; 
-    col: number; 
-    firstname: string; 
-    lastname: string;
-    color: string; // ADD THIS
-  }>) => {
-    const newSelections = { ...users };
-    if (clientId) {
-      delete newSelections[clientId];
-    }
-    otherUserSelections = newSelections;
-  };
-
-  const handleWelcome = (payload: { clientId: string }) => {
-    clientId = payload.clientId;
-    // Re-filter existing users in case welcome arrived after
-    if (otherUserSelections[clientId]) {
-      const newSelections = { ...otherUserSelections };
-      delete newSelections[clientId];
-      otherUserSelections = newSelections;
-    }
-  };
-
-  const realtime = new RealtimeManager(
-    handleRealtimeUpdate,
-    handleUserPositionUpdate,
-    handleUserLeft,
-    handleExistingUsers,
-    handleWelcome
-  );
 
   let scrollContainer: HTMLDivElement | null = $state(null);
   let textareaRef: HTMLTextAreaElement | null = $state(null);
@@ -202,15 +141,11 @@
       onUndo: () => {
         const undoneBatch = history.undo(assets);
         if (undoneBatch) {
-          // The value in assets is now the `oldValue` from the action.
-          // We need to re-run the change logic for each undone action.
           for (const action of undoneBatch) {
             changeManager.update({
               id: action.id,
               key: action.key,
-              // The `newValue` of this "meta" action is the value we just reverted to.
               newValue: action.oldValue,
-              // The `oldValue` for the ChangeManager is what it was before this "meta" action.
               oldValue: action.newValue,
             });
           }
@@ -219,7 +154,6 @@
       onRedo: () => {
         const redoneBatch = history.redo(assets);
         if (redoneBatch) {
-          // A redo is just like a normal action.
           for (const action of redoneBatch) {
             changeManager.update(action);
           }
@@ -231,13 +165,10 @@
           return;
         }
 
-        // Only reset the selection if one actually exists.
-        // This prevents sending a (-1,-1) update if nothing is selected.
         if (selection.hasSelection()) {
           selection.resetAll();
         }
 
-        // Always clear other UI states like menus or copy overlays.
         clipboard.clear();
         if (contextMenu.visible) contextMenu.close();
         headerMenu.close();
@@ -298,9 +229,7 @@
     const pasteResult = await clipboard.paste(target, assets, keys);
 
     if (pasteResult && pasteResult.changes.length > 0) {
-      // Record entire paste operation as one batch in history
       history.recordBatch(pasteResult.changes);
-      // Update net changes for each individual action in the batch
       for (const action of pasteResult.changes) {
         changeManager.update(action);
       }
@@ -349,7 +278,6 @@
     contextMenu.close();
     selection.reset();
 
-    // Add this:
     await tick();
     if (textareaRef) {
       editManager.updateRowHeight(textareaRef, rowManager, columnManager);
@@ -369,12 +297,9 @@
         oldValue: change.oldValue,
         newValue: change.newValue,
       };
-      // Always record the action for undo/redo
       history.recordBatch([action]);
-      // Update the change manager with the net change
       changeManager.update(action);
 
-      // --- NEW: API Call to persist changes ---
       try {
         const response = await fetch("/asset/api/update", {
           method: "POST",
@@ -385,7 +310,6 @@
             {
               rowId: change.id,
               columnId: change.key,
-
               newValue: change.newValue,
             },
           ]),
@@ -394,16 +318,12 @@
         if (!response.ok) {
           const errorData = await response.json();
           console.error("Failed to save edit to server:", errorData.error);
-          // Optionally, revert the optimistic update or show an error message to the user
-          // For now, we'll just log the error.
         } else {
           console.log("Edit saved successfully to server.");
         }
       } catch (error) {
         console.error("Network error while saving edit:", error);
-        // Optionally, revert the optimistic update or show an error message to the user
       }
-      // --- END NEW ---
     }
 
     if (pos) selection.selectCell(pos.row, pos.col);
@@ -434,11 +354,9 @@
       });
 
       if (response.ok) {
-        // After a successful commit, the net changes are zero.
         changeManager.clear();
         selection.resetAll();
       } else {
-        // Handle error
         console.error("Commit failed:", await response.text());
         alert("Failed to commit changes. See console for details.");
       }
@@ -449,26 +367,18 @@
   }
 
   function discardChanges() {
-    // Get all changes to revert data
     const allChangesToRevert = history.undoStack.flat();
     history.revert(allChangesToRevert, assets);
-
-    // Clear all managers
     history.clear();
     changeManager.clear();
     selection.resetAll();
   }
 
-  // --- Lifecycle ---
-  // Find this section in your +page.svelte and replace it:
-
   $effect(() => {
     const cleanupInteraction = mountInteraction(window);
 
-    // Connect Realtime with session authentication
-    if (data.user && data.sessionId) {
-      realtime.connect(data.sessionId, data.session_color);
-    }
+    // Register this page's handler for data updates
+    realtime.setAssetUpdateHandler(handleRealtimeUpdate);
 
     let resizeObserver: ResizeObserver | null = null;
     if (scrollContainer) {
@@ -482,7 +392,7 @@
 
     return () => {
       cleanupInteraction();
-      realtime.disconnect();
+      realtime.removeAssetUpdateHandler();
       if (resizeObserver) resizeObserver.disconnect();
       changeManager.clear();
       history.clear();
@@ -525,38 +435,27 @@
 
 <div class="flex flex-col gap-2 mb-3">
   <div class="flex flex-row gap-4 items-center">
-    <h2 class="text-lg font-bold whitespace-nowrap">
-      {#if realtime.isConnected}
-        <span
-          class="inline-block w-2 h-2 rounded-full bg-green-500 ml-2"
-          title="Live"
-        ></span>
-      {:else}
-        <span
-          class="inline-block w-2 h-2 rounded-full bg-red-500 ml-2"
-          title="Disconnected"
-        ></span>
-      {/if}
-    </h2>
+    <!-- WS Indicator Moved to Layout, H2 removed here -->
+    
     <div class="flex gap-4 items-center">
       <div class="relative">
-      <input
-        bind:value={search.inputValue}
-        class="bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 border border-neutral-300 dark:border-none focus:outline-none"
-        placeholder="Search..."
-        onkeydown={(e) => {
-          if (e.key === "Enter") search.executeSearch();
-        }}
-      />
-      {#if search.inputValue}
-        <button
-          onclick={() => search.clearSearch()}
-          class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
-          title="Clear search"
-        >
-          ✕
-        </button>
-      {/if}
+        <input
+          bind:value={search.inputValue}
+          class="bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pr-7 border border-neutral-300 dark:border-none focus:outline-none"
+          placeholder="Search..."
+          onkeydown={(e) => {
+            if (e.key === "Enter") search.executeSearch();
+          }}
+        />
+        {#if search.inputValue}
+          <button
+            onclick={() => search.clearSearch()}
+            class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
+            title="Clear search"
+          >
+            ✕
+          </button>
+        {/if}
       </div>
       <button
         onclick={() => search.executeSearch()}
@@ -666,7 +565,7 @@ min-width: {columnManager.getWidth(key)}px;"
               (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
             ).toUpperCase()}
             {@const fullName =
-              `${position.firstname || ""} ${position.lastname || ""}`.trim()} 
+              `${position.firstname || ""} ${position.lastname || ""}`.trim()}
 
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
@@ -676,7 +575,8 @@ min-width: {columnManager.getWidth(key)}px;"
                   left: {otherUserOverlay.left}px;
                   width: {otherUserOverlay.width}px;
                   height: {otherUserOverlay.height}px;
-                  border: 1px solid {position.color}; box-sizing: border-box;
+                  border: 1px solid {position.color};
+                  box-sizing: border-box;
                 "
               onmouseenter={() => (hoveredUser = clientId)}
               onmouseleave={() => (hoveredUser = null)}
@@ -684,7 +584,7 @@ min-width: {columnManager.getWidth(key)}px;"
               <div
                 class="absolute -top-5 left-0 text-xs text-white px-1 rounded whitespace-nowrap transition-all duration-200 ease-in-out overflow-hidden" 
                 style="
-                  background-color: {position.color}; /* UPDATED: Use dynamic color */
+                  background-color: {position.color};
                   max-width: {hoveredUser === clientId ? '200px' : '2rem'};
                 "
                 title={fullName}

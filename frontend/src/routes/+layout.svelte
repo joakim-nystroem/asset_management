@@ -2,12 +2,23 @@
   import '../app.css';
   import favicon from '$lib/assets/favicon.svg';
   import { beforeNavigate } from '$app/navigation';
+  import { appState } from '$lib/utils/states/appState.svelte';
+  import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
 
   let { children, data } = $props();
-	let darkMode = $state(data.theme === 'dark');
+  let darkMode = $state(data.theme === 'dark');
   let showUserMenu = $state(false);
-
   let sessionColor: string = $derived(data.session_color || '#6b7280');
+
+  // Connect to Realtime on mount (or when session data changes)
+  // This persists across navigation because layout is not unmounted
+  $effect(() => {
+    if (data.user && data.sessionId) {
+      realtime.connect(data.sessionId, data.session_color);
+    } else {
+      realtime.disconnect();
+    }
+  });
 
   // Get user initials
   let userInitials = $derived(() => {
@@ -17,19 +28,15 @@
     return (first + last).toUpperCase();
   });
 
-	function toggleTheme() {
+  function toggleTheme() {
     darkMode = !darkMode;
-
     const newTheme = darkMode ? 'dark' : 'light';
-    
     localStorage.theme = newTheme;
-
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-
     document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=Lax`;
   }
 
@@ -49,7 +56,6 @@
   beforeNavigate(() => {
     showUserMenu = false;
   });
-
 </script>
 
 <svelte:head>
@@ -78,12 +84,25 @@
 
           {#if showUserMenu}
             <div class="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-700 rounded-lg shadow-lg py-2 z-50">
-              <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-600">
+              <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-600 flex justify-between items-center">
                 <p class="text-sm font-semibold text-gray-900 dark:text-white">
                   {data.user.firstname} {data.user.lastname}
                 </p>
+                <!-- WS Connection Indicator -->
+                {#if appState.isWsConnected}
+                  <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" title="Connected"></span>
+                {:else}
+                  <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" title="Disconnected"></span>
+                {/if}
               </div>
               
+              <a 
+                href="/asset" 
+                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
+              >
+                Home
+              </a>
+
               <a 
                 href="/asset/admin" 
                 class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
@@ -93,6 +112,7 @@
               
               <a 
                 href="/asset/logout" 
+                data-sveltekit-preload-data="off"
                 class="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-600"
               >
                 Logout
@@ -101,7 +121,7 @@
           {/if}
         </div>
       {:else}
-        <a href="/asset/login" class="hover:cursor-pointer hover:bg-blue-900 h-12 flex justify-center items-center px-3">
+         <a href="/asset/login" class="hover:cursor-pointer hover:bg-blue-900 h-12 flex justify-center items-center px-3">
           <div>Login</div>
         </a>
       {/if}

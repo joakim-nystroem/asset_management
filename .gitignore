@@ -5,8 +5,8 @@ node_modules
 .vercel
 .netlify
 .wrangler
-/.svelte-kit
-
+frontend/.svelte-kit
+frontend/build
 
 # OS
 .DS_Store
@@ -30,5 +30,5 @@ docker-compose.yml
 # Other
 .github
 metadata
-frontend/build
 frontend/metadata
+*.md
