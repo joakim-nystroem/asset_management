@@ -565,11 +565,12 @@ min-width: {columnManager.getWidth(key)}px;"
               (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
             ).toUpperCase()}
             {@const fullName =
-              `${position.firstname || ""} ${position.lastname || ""}`.trim()}
+              `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim()}
 
             <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <!-- Wrapper: pointer-events-none to allow selection of the cell underneath -->
             <div
-              class="absolute pointer-events-auto z-50 cursor-pointer"
+              class="absolute pointer-events-none z-50"
               style="
                   top: {otherUserOverlay.top}px;
                   left: {otherUserOverlay.left}px;
@@ -578,18 +579,25 @@ min-width: {columnManager.getWidth(key)}px;"
                   border: 1px solid {position.color};
                   box-sizing: border-box;
                 "
-              onmouseenter={() => (hoveredUser = clientId)}
-              onmouseleave={() => (hoveredUser = null)}
             >
+              <!-- Badge: pointer-events-auto to allow interaction -->
               <div
-                class="absolute -top-5 left-0 text-xs text-white px-1 rounded whitespace-nowrap transition-all duration-200 ease-in-out overflow-hidden" 
+                class="absolute flex items-center justify-center text-white text-[10px] rounded-full font-bold shadow-sm overflow-hidden pointer-events-auto cursor-default"
                 style="
+                  top: -8px;
+                  right: -8px;
+                  height: 16px;
                   background-color: {position.color};
-                  max-width: {hoveredUser === clientId ? '200px' : '2rem'};
+                  min-width: 16px;
+                  max-width: {hoveredUser === clientId ? '200px' : '16px'};
+                  transition: max-width 0.2s ease-in-out, background-color 0.2s ease-in-out;
                 "
-                title={fullName}
+                onmouseenter={() => (hoveredUser = clientId)}
+                onmouseleave={() => (hoveredUser = null)}
               >
-                {hoveredUser === clientId ? fullName : initials}
+                 <div class="{hoveredUser === clientId ? 'px-1' : ''} whitespace-nowrap">
+                    {hoveredUser === clientId ? fullName : initials}
+                 </div>
               </div>
             </div>
           {/if}
