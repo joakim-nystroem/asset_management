@@ -456,6 +456,7 @@
     // Clear all managers
     history.clear();
     changeManager.clear();
+    selection.resetAll();
   }
 
   // --- Lifecycle ---
@@ -538,6 +539,7 @@
       {/if}
     </h2>
     <div class="flex gap-4 items-center">
+      <div class="relative">
       <input
         bind:value={search.inputValue}
         class="bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 border border-neutral-300 dark:border-none focus:outline-none"
@@ -546,6 +548,16 @@
           if (e.key === "Enter") search.executeSearch();
         }}
       />
+      {#if search.inputValue}
+        <button
+          onclick={() => search.clearSearch()}
+          class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
+          title="Clear search"
+        >
+          ✕
+        </button>
+      {/if}
+      </div>
       <button
         onclick={() => search.executeSearch()}
         class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-neutral-100"
@@ -654,7 +666,7 @@ min-width: {columnManager.getWidth(key)}px;"
               (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
             ).toUpperCase()}
             {@const fullName =
-              `${position.firstname || ""} ${position.lastname || ""}`.trim()}
+              `${position.firstname || ""} ${position.lastname || ""}`.trim()} 
 
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
@@ -664,17 +676,17 @@ min-width: {columnManager.getWidth(key)}px;"
                   left: {otherUserOverlay.left}px;
                   width: {otherUserOverlay.width}px;
                   height: {otherUserOverlay.height}px;
-                  border: 1px solid #ef4444; 
-                  box-sizing: border-box;
+                  border: 1px solid {position.color}; box-sizing: border-box;
                 "
               onmouseenter={() => (hoveredUser = clientId)}
               onmouseleave={() => (hoveredUser = null)}
             >
               <div
-                class="absolute -top-5 left-0 text-xs bg-red-500 text-white px-1 rounded whitespace-nowrap transition-all duration-200 ease-in-out overflow-hidden"
-                style="max-width: {hoveredUser === clientId
-                  ? '200px'
-                  : '2rem'};"
+                class="absolute -top-5 left-0 text-xs text-white px-1 rounded whitespace-nowrap transition-all duration-200 ease-in-out overflow-hidden" 
+                style="
+                  background-color: {position.color}; /* UPDATED: Use dynamic color */
+                  max-width: {hoveredUser === clientId ? '200px' : '2rem'};
+                "
                 title={fullName}
               >
                 {hoveredUser === clientId ? fullName : initials}

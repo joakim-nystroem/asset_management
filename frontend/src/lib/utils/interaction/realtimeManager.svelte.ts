@@ -30,13 +30,23 @@ export class RealtimeManager {
   }
 
   connect(sessionId: string | undefined, sessionColor: string | undefined) {
+    // 1. Prevent overlapping connection attempts
+    if (this.socket) {
+        // If we are already connected, do nothing
+        if (this.socket.readyState === WebSocket.OPEN) {
+            return;
+        }
+        // If we are currently connecting, do nothing
+        if (this.socket.readyState === WebSocket.CONNECTING) {
+            return;
+        }
+        // If closing or closed, ensure we clean up before making a new one
+        this.disconnect(); 
+    }
+
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
-    }
-
-    if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
-      return;
     }
 
     if (!sessionId) {
@@ -50,38 +60,42 @@ export class RealtimeManager {
       wsUrl.searchParams.append('color', sessionColor);
     }
 
-    console.log('[Realtime] Connecting to:', wsUrl.toString());
+    // 2. Create the socket and capture it in a local variable
+    const socket = new WebSocket(wsUrl.toString());
+    this.socket = socket;
 
-    this.socket = new WebSocket(wsUrl.toString());
+    socket.onopen = () => {
+      // Guard: If this socket has been replaced (e.g. by a disconnect call), ignore it
+      if (this.socket !== socket) return; 
 
-    this.socket.onopen = () => {
-      console.log('[Realtime] Connected');
       this.isConnected = true;
       this.reconnectAttempts = 0;
       this.lastSentPosition = null;
     };
 
-    this.socket.onclose = () => {
-      console.log('[Realtime] Disconnected');
+    socket.onclose = () => {
+      // Guard: If this socket is not the active one, do not trigger reconnect
+      if (this.socket !== socket) return;
+
       this.isConnected = false;
       this.lastSentPosition = null;
+      this.socket = null; // Clear the reference
       
       const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
       this.reconnectAttempts++;
-      
-      console.log(`[Realtime] Reconnecting in ${delay}ms...`);
+
       this.reconnectTimeout = setTimeout(() => this.connect(sessionId, sessionColor), delay);
     };
 
-    this.socket.onerror = (err) => {
-      console.error('[Realtime] Socket error:', err);
-      this.isConnected = false;
+    socket.onerror = (err) => {
+      if (this.socket !== socket) return;
+      // Don't manually disconnect; let onclose handle it
     };
 
-    this.socket.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (this.socket !== socket) return;
       try {
         const msg = JSON.parse(event.data);
-        console.log('[Realtime] Received:', msg.type, msg.payload);
         
         switch (msg.type) {
           case 'asset_update':
@@ -109,10 +123,7 @@ export class RealtimeManager {
   private _sendMessage(type: string, payload: any) {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       const message = JSON.stringify({ type, payload });
-      console.log('[Realtime] Sending:', type, payload);
       this.socket.send(message);
-    } else {
-      console.warn('[Realtime] Cannot send message, socket not open');
     }
   }
 
@@ -135,6 +146,7 @@ export class RealtimeManager {
   }
 
   disconnect() {
+    // Clear reconnect timer
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
@@ -145,11 +157,17 @@ export class RealtimeManager {
     }
 
     if (this.socket) {
+      this.socket.onclose = null;
+      this.socket.onmessage = null;
+      this.socket.onopen = null;
+      this.socket.onerror = null;
+      
       this.socket.close();
       this.socket = null;
     }
     
     this.isConnected = false;
     this.lastSentPosition = null;
+    this.reconnectAttempts = 0;
   }
 }
