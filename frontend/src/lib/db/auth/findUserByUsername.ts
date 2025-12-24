@@ -7,5 +7,5 @@ export async function findUserByUsername(username: string): Promise<User | null>
         .selectAll()
         .where('username', '=', username)
         .executeTakeFirst();
-    return user;
+    return user || null;
 }
