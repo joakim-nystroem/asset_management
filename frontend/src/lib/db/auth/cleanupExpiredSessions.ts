@@ -9,7 +9,7 @@ import { sql } from 'kysely';
 export async function cleanupExpiredSessions(): Promise<number> {
     const result = await db
         .deleteFrom('sessions')
-        .where('expires_at', '<', sql`NOW()`) 
+        .where('expires_at', '<', sql<Date>`NOW()`) 
         .executeTakeFirst();
     
     const deletedCount = Number(result.numDeletedRows || 0);

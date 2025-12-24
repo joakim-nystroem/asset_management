@@ -7,7 +7,7 @@ export async function findSessionById(sessionId: string): Promise<Session | null
         .selectFrom('sessions')
         .selectAll()
         .where('session_id', '=', sessionId)
-        .where('expires_at', '>', sql`NOW()`)
+        .where('expires_at', '>', sql<Date>`NOW()`)
         .executeTakeFirst();
     return session || null;
 }
