@@ -1,8 +1,23 @@
+// frontend/src/hooks.server.ts
 import type { Handle } from '@sveltejs/kit';
 import { findSessionById } from '$lib/db/auth/findSessionById';
-import { db } from '$lib/db/conn'; 
+import { db } from '$lib/db/conn';
+import { cleanupExpiredSessions } from '$lib/db/auth/cleanupExpiredSessions';
+
+// Track last cleanup time
+let lastCleanup = 0;
+const CLEANUP_INTERVAL = 1000 * 60 * 60; // 1 hour
 
 export const handle: Handle = async ({ event, resolve }) => {
+    // Periodic cleanup of expired sessions (runs once per hour max)
+    const now = Date.now();
+    if (now - lastCleanup > CLEANUP_INTERVAL) {
+        cleanupExpiredSessions().catch(err => {
+            console.error('Failed to cleanup expired sessions:', err);
+        });
+        lastCleanup = now;
+    }
+
     const sessionId = event.cookies.get('sessionId');
 
     if (!sessionId) {
@@ -12,8 +27,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 
     const session = await findSessionById(sessionId);
 
-    if (!session || session.expires_at < new Date()) {
+    if (!session) {
+        // Session is invalid or expired, clear cookies
         event.cookies.delete('sessionId', { path: '/' });
+        event.cookies.delete('session_color', { path: '/' });
         event.locals.user = null;
         return resolve(event);
     }

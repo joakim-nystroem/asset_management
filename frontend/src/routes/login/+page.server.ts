@@ -7,17 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { sql } from 'kysely';
 
 const vibrantColors = [
-  '#ef4444', // red-500
-  '#eab308', // yellow-500
-  '#22c55e', // green-500
-  '#3b82f6', // blue-500
-  '#6366f1', // indigo-500
-  '#8b5cf6', // purple-500
-  '#ec4899', // pink-500
-  '#f97316', // orange-500
-  '#84cc16', // lime-500
-  '#14b8a6', // teal-500
-  '#06b6d4', // cyan-500
+  '#ef4444', '#eab308', '#22c55e', '#3b82f6', '#6366f1', 
+  '#8b5cf6', '#ec4899', '#f97316', '#84cc16', '#14b8a6', '#06b6d4',
 ];
 
 export const actions = {
@@ -52,11 +43,19 @@ export const actions = {
         });
       }
 
-      // Generate session ID
+      // ============================================
+      // FIX: Delete all existing sessions for this user
+      // ============================================
+      await db
+        .deleteFrom('sessions')
+        .where('user_id', '=', user.id)
+        .execute();
+
+      // Generate new session ID
       const sessionId = uuidv4();
       const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
 
-      // Create session in database
+      // Create new session in database
       await createSession({
         session_id: sessionId,
         user_id: user.id,
@@ -81,7 +80,7 @@ export const actions = {
         expires: expiresAt,
       });
 
-      // Select a random color and set the session_color cookie
+      // Select a random color
       const sessionColor = vibrantColors[Math.floor(Math.random() * vibrantColors.length)];
       cookies.set('session_color', sessionColor, {
         path: '/',

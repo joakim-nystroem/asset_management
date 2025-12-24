@@ -110,13 +110,13 @@ type UserInfo struct {
 }
 
 type Client struct {
-	hub      *Hub
-	conn     *websocket.Conn
-	send     chan []byte
-	id       string // Now user_id from database
-	userInfo *UserInfo
-	lastPong time.Time
-	mu       sync.Mutex
+	hub       *Hub
+	conn      *websocket.Conn
+	send      chan []byte
+	id        string
+	userInfo  *UserInfo
+	lastPong  time.Time
+	mu        sync.Mutex
 }
 
 type Hub struct {
@@ -216,6 +216,8 @@ func (c *Client) readPump() {
 			c.handlePositionUpdate(msg.Payload)
 		case "USER_DESELECTED":
 			c.handleDeselect()
+		case "PING":
+			// Client is checking if we're alive, we auto-respond with pong
 		}
 	}
 }
@@ -317,12 +319,16 @@ func (h *Hub) Run() {
 func (h *Hub) registerClient(client *Client) {
 	h.mutex.Lock()
 	
+	// If there's an existing connection, close it and let unregister clean it up
 	if existingClient, exists := h.activeClientIDs[client.id]; exists {
 		log.Printf("User %s reconnecting, closing old connection", client.userInfo.Username)
-		delete(h.clients, existingClient)
-		close(existingClient.send)
+		
+		// Just close the connection - unregister will be called naturally by readPump/writePump
+		// and will handle all the cleanup
+		go existingClient.conn.Close()
 	}
 	
+	// Register new client (this overwrites the old entry in activeClientIDs)
 	h.clients[client] = true
 	h.activeClientIDs[client.id] = client
 	clientCount := len(h.clients)
@@ -372,8 +378,8 @@ func (h *Hub) sendExistingUsers(client *Client) {
 				len(enhancedUsers), client.userInfo.Username, 
 				client.userInfo.Firstname, client.userInfo.Lastname)
 		}
-	default:
-		log.Printf("Failed to send existing users to %s (buffer full)", client.userInfo.Username)
+	case <-time.After(100 * time.Millisecond):
+		log.Printf("Timeout sending existing users to %s", client.userInfo.Username)
 	}
 }
 
@@ -381,7 +387,13 @@ func (h *Hub) unregisterClient(client *Client) {
 	h.mutex.Lock()
 	if _, exists := h.clients[client]; exists {
 		delete(h.clients, client)
-		delete(h.activeClientIDs, client.id)
+		
+		// Only delete from activeClientIDs if this client is still the active one
+		// (it might have been replaced by a new connection)
+		if h.activeClientIDs[client.id] == client {
+			delete(h.activeClientIDs, client.id)
+		}
+		
 		close(client.send)
 		
 		clientCount := len(h.clients)
@@ -404,10 +416,22 @@ func (h *Hub) cleanupClient(client *Client) {
 
 	if hadPosition {
 		payload := map[string]interface{}{"clientId": client.id}
-		h.BroadcastMessage("USER_LEFT", payload)
 		
-		log.Printf("Cleaned up position for user %s (remaining users with positions: %d)", 
-			client.userInfo.Username, h.presence.Count())
+		// Use non-blocking broadcast
+		msg := Message{Type: "USER_LEFT", Payload: payload}
+		jsonMsg, err := json.Marshal(msg)
+		if err != nil {
+			log.Printf("Failed to marshal USER_LEFT for %s: %v", client.userInfo.Username, err)
+			return
+		}
+		
+		select {
+		case h.broadcast <- jsonMsg:
+			log.Printf("Cleaned up position for user %s (remaining users with positions: %d)", 
+				client.userInfo.Username, h.presence.Count())
+		case <-time.After(100 * time.Millisecond):
+			log.Printf("Timeout broadcasting USER_LEFT for %s", client.userInfo.Username)
+		}
 	}
 }
 
@@ -423,7 +447,12 @@ func (h *Hub) BroadcastMessage(msgType string, data interface{}) {
 		return
 	}
 
-	h.broadcast <- jsonMsg
+	// Non-blocking send with timeout
+	select {
+	case h.broadcast <- jsonMsg:
+	case <-time.After(100 * time.Millisecond):
+		log.Printf("Broadcast channel full, dropping message type: %s", msgType)
+	}
 }
 
 func (h *Hub) sendToClients(message []byte) {
@@ -523,6 +552,7 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 
 	h.register <- client
 
+	// Send welcome message immediately, before waiting for existing users
 	welcomeMsg := Message{
 		Type: "WELCOME",
 		Payload: map[string]interface{}{
@@ -536,12 +566,13 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	if jsonMsg, err := json.Marshal(welcomeMsg); err == nil {
-		select {
-		case client.send <- jsonMsg:
+		// Send directly to avoid any delays
+		client.conn.SetWriteDeadline(time.Now().Add(writeWait))
+		if err := client.conn.WriteMessage(websocket.TextMessage, jsonMsg); err != nil {
+			log.Printf("Failed to send welcome to %s: %v", userInfo.Username, err)
+		} else {
 			log.Printf("User %s (%s %s) connected via WebSocket", 
 				userInfo.Username, userInfo.Firstname, userInfo.Lastname)
-		default:
-			log.Printf("Failed to send welcome to %s", userInfo.Username)
 		}
 	}
 
