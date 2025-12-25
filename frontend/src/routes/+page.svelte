@@ -387,7 +387,7 @@
   $effect(() => {
     const cleanupInteraction = mountInteraction(window);
 
-    // Register this page's handler for data updates
+    // Register this page's handler
     realtime.setAssetUpdateHandler(handleRealtimeUpdate);
 
     let resizeObserver: ResizeObserver | null = null;
@@ -402,7 +402,10 @@
 
     return () => {
       cleanupInteraction();
-      realtime.removeAssetUpdateHandler();
+      
+      // CHANGED: Overwrite with an empty function to "remove" the handler
+      realtime.setAssetUpdateHandler(() => {}); 
+      
       if (resizeObserver) resizeObserver.disconnect();
       changeManager.clear();
       history.clear();

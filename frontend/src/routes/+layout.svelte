@@ -2,16 +2,18 @@
   import '../app.css';
   import favicon from '$lib/assets/favicon.svg';
   import { beforeNavigate } from '$app/navigation';
-  import { appState } from '$lib/utils/states/appState.svelte';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
 
   let { children, data } = $props();
   let darkMode = $state(data.theme === 'dark');
   let showUserMenu = $state(false);
   let sessionColor: string = $derived(data.session_color || '#6b7280');
+  
+  // UPDATED: Derive connection status from clientId existence
+  // In the new manager, having a clientId means we are socket-connected AND welcomed.
+  let isWsConnected = $derived(realtime.clientId !== null);
 
-  // Connect to Realtime on mount (or when session data changes)
-  // This persists across navigation because layout is not unmounted
+  // Manage WebSocket connection in layout (persists across navigation)
   $effect(() => {
     if (data.user && data.sessionId) {
       realtime.connect(data.sessionId, data.session_color);
@@ -88,8 +90,7 @@
                 <p class="text-sm font-semibold text-gray-900 dark:text-white">
                   {data.user.firstname} {data.user.lastname}
                 </p>
-                <!-- WS Connection Indicator -->
-                {#if appState.isWsConnected}
+                {#if isWsConnected}
                   <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" title="Connected"></span>
                 {:else}
                   <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" title="Disconnected"></span>

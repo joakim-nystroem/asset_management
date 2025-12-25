@@ -35,6 +35,12 @@ type Message struct {
 	Payload interface{} `json:"payload"`
 }
 
+// BroadcastData wraps the message and the sender to allow echo suppression
+type BroadcastData struct {
+	Message []byte
+	Sender  *Client // Can be nil for system messages
+}
+
 type UserPosition struct {
 	Row int `json:"row"`
 	Col int `json:"col"`
@@ -51,24 +57,24 @@ func NewUserPresence() *UserPresence {
 	}
 }
 
-func (up *UserPresence) Set(clientID string, row, col int) {
+func (up *UserPresence) Set(userID string, row, col int) {
 	up.mutex.Lock()
 	defer up.mutex.Unlock()
-	up.positions[clientID] = &UserPosition{Row: row, Col: col}
+	up.positions[userID] = &UserPosition{Row: row, Col: col}
 }
 
-func (up *UserPresence) Get(clientID string) (*UserPosition, bool) {
+func (up *UserPresence) Get(userID string) (*UserPosition, bool) {
 	up.mutex.RLock()
 	defer up.mutex.RUnlock()
-	pos, exists := up.positions[clientID]
+	pos, exists := up.positions[userID]
 	return pos, exists
 }
 
-func (up *UserPresence) Remove(clientID string) bool {
+func (up *UserPresence) Remove(userID string) bool {
 	up.mutex.Lock()
 	defer up.mutex.Unlock()
-	_, existed := up.positions[clientID]
-	delete(up.positions, clientID)
+	_, existed := up.positions[userID]
+	delete(up.positions, userID)
 	return existed
 }
 
@@ -82,12 +88,12 @@ func (up *UserPresence) GetAll() map[string]*UserPosition {
 	return snapshot
 }
 
-func (up *UserPresence) GetAllExcept(excludeID string) map[string]*UserPosition {
+func (up *UserPresence) GetAllExcept(excludeUserID string) map[string]*UserPosition {
 	up.mutex.RLock()
 	defer up.mutex.RUnlock()
 	snapshot := make(map[string]*UserPosition)
 	for id, pos := range up.positions {
-		if id != excludeID {
+		if id != excludeUserID {
 			snapshot[id] = &UserPosition{Row: pos.Row, Col: pos.Col}
 		}
 	}
@@ -113,19 +119,24 @@ type Client struct {
 	hub       *Hub
 	conn      *websocket.Conn
 	send      chan []byte
-	id        string
+	userID    string    // Shared ID (e.g., "101")
 	userInfo  *UserInfo
 	lastPong  time.Time
 	mu        sync.Mutex
 }
 
 type Hub struct {
-	clients         map[*Client]bool
-	broadcast       chan []byte
+	// Raw set of all connected clients
+	clients map[*Client]bool
+
+	// Map of UserID -> Set of Clients (1-to-Many)
+	// This allows us to track all open tabs for a specific user
+	userClients map[string]map[*Client]bool
+
+	broadcast       chan BroadcastData
 	register        chan *Client
 	unregister      chan *Client
 	mutex           sync.RWMutex
-	activeClientIDs map[string]*Client
 	presence        *UserPresence
 	shutdown        chan struct{}
 	wg              sync.WaitGroup
@@ -134,14 +145,14 @@ type Hub struct {
 
 func NewHub(db *sql.DB) *Hub {
 	return &Hub{
-		broadcast:       make(chan []byte, hubChannelBuffer),
-		register:        make(chan *Client, hubChannelBuffer),
-		unregister:      make(chan *Client, hubChannelBuffer),
-		clients:         make(map[*Client]bool),
-		activeClientIDs: make(map[string]*Client),
-		presence:        NewUserPresence(),
-		shutdown:        make(chan struct{}),
-		db:              db,
+		broadcast:   make(chan BroadcastData, hubChannelBuffer),
+		register:    make(chan *Client, hubChannelBuffer),
+		unregister:  make(chan *Client, hubChannelBuffer),
+		clients:     make(map[*Client]bool),
+		userClients: make(map[string]map[*Client]bool),
+		presence:    NewUserPresence(),
+		shutdown:    make(chan struct{}),
+		db:          db,
 	}
 }
 
@@ -235,27 +246,28 @@ func (c *Client) handlePositionUpdate(payload interface{}) {
 		return
 	}
 
-	c.hub.presence.Set(c.id, int(row), int(col))
+	// Update presence for the USER (shared across tabs)
+	c.hub.presence.Set(c.userID, int(row), int(col))
 
-	log.Printf("[DEBUG] User %s (%s %s) selected cell -> Row: %d, Col: %d", 
-		c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, int(row), int(col))
+	// log.Printf("[DEBUG] User %s updated position", c.userInfo.Username)
 
-	payloadMap["clientId"] = c.id
+	payloadMap["clientId"] = c.userID // Use UserID as the identifier for other clients
 	payloadMap["userId"] = c.userInfo.UserID
 	payloadMap["username"] = c.userInfo.Username
 	payloadMap["firstname"] = c.userInfo.Firstname
 	payloadMap["lastname"] = c.userInfo.Lastname
 	payloadMap["color"] = c.userInfo.Color
 
-	c.hub.BroadcastMessage("USER_POSITION_UPDATE", payloadMap)
+	// Send to everyone, but exclude THIS specific connection
+	c.hub.BroadcastMessage("USER_POSITION_UPDATE", payloadMap, c)
 }
 
 func (c *Client) handleDeselect() {
-	hadPosition := c.hub.presence.Remove(c.id)
+	hadPosition := c.hub.presence.Remove(c.userID)
 
 	if hadPosition {
-		payload := map[string]interface{}{"clientId": c.id}
-		c.hub.BroadcastMessage("USER_LEFT", payload)
+		payload := map[string]interface{}{"clientId": c.userID}
+		c.hub.BroadcastMessage("USER_LEFT", payload, c)
 		log.Printf("User %s deselected", c.userInfo.Username)
 	}
 }
@@ -303,8 +315,8 @@ func (h *Hub) Run() {
 		case client := <-h.unregister:
 			h.unregisterClient(client)
 
-		case message := <-h.broadcast:
-			h.sendToClients(message)
+		case broadcastData := <-h.broadcast:
+			h.sendToClients(broadcastData)
 		
 		case <-healthTicker.C:
 			h.checkStaleConnections()
@@ -318,24 +330,18 @@ func (h *Hub) Run() {
 
 func (h *Hub) registerClient(client *Client) {
 	h.mutex.Lock()
-	
-	// If there's an existing connection, close it and let unregister clean it up
-	if existingClient, exists := h.activeClientIDs[client.id]; exists {
-		log.Printf("User %s reconnecting, closing old connection", client.userInfo.Username)
-		
-		// Just close the connection - unregister will be called naturally by readPump/writePump
-		// and will handle all the cleanup
-		go existingClient.conn.Close()
-	}
-	
-	// Register new client (this overwrites the old entry in activeClientIDs)
-	h.clients[client] = true
-	h.activeClientIDs[client.id] = client
-	clientCount := len(h.clients)
-	h.mutex.Unlock()
+	defer h.mutex.Unlock()
 
-	log.Printf("User %s (%s %s) connected (total: %d)", 
-		client.userInfo.Username, client.userInfo.Firstname, client.userInfo.Lastname, clientCount)
+	// 1. Add to main list
+	h.clients[client] = true
+
+	// 2. Add to User list (Create map if not exists)
+	if _, ok := h.userClients[client.userID]; !ok {
+		h.userClients[client.userID] = make(map[*Client]bool)
+	}
+	h.userClients[client.userID][client] = true
+
+	log.Printf("User %s connected (Sessions: %d)", client.userInfo.Username, len(h.userClients[client.userID]))
 
 	h.wg.Add(1)
 	go func() {
@@ -344,21 +350,46 @@ func (h *Hub) registerClient(client *Client) {
 	}()
 }
 
+// Helper to get UserInfo from ANY active client for a given UserID
+func (h *Hub) getUserInfo(userID string) *UserInfo {
+	// We need to lock mainly because we are accessing the map
+	// Since this helper is called from inside already locked functions, we assume caller holds lock
+	// OR we split logic. 
+	// For simplicity in sendExistingUsers, we will rely on the caller's lock or minimal locking.
+	
+	if clients, ok := h.userClients[userID]; ok {
+		for client := range clients {
+			return client.userInfo
+		}
+	}
+	return nil
+}
+
 func (h *Hub) sendExistingUsers(client *Client) {
-	existingUsers := h.presence.GetAllExcept(client.id)
+	existingPositions := h.presence.GetAllExcept(client.userID)
 
 	enhancedUsers := make(map[string]interface{})
 	h.mutex.RLock()
-	for clientID, pos := range existingUsers {
-		if existingClient, ok := h.activeClientIDs[clientID]; ok {
-			enhancedUsers[clientID] = map[string]interface{}{
-				"row":       pos.Row,
-				"col":       pos.Col,
-				"userId":    existingClient.userInfo.UserID,
-				"username":  existingClient.userInfo.Username,
-				"firstname": existingClient.userInfo.Firstname,
-				"lastname":  existingClient.userInfo.Lastname,
-				"color":     existingClient.userInfo.Color,
+	for userID, pos := range existingPositions {
+		// Look up metadata for this user from their active connections
+		if clients, ok := h.userClients[userID]; ok && len(clients) > 0 {
+			// Just pick the first client to get the user info
+			var info *UserInfo
+			for c := range clients {
+				info = c.userInfo
+				break
+			}
+
+			if info != nil {
+				enhancedUsers[userID] = map[string]interface{}{
+					"row":       pos.Row,
+					"col":       pos.Col,
+					"userId":    info.UserID,
+					"username":  info.Username,
+					"firstname": info.Firstname,
+					"lastname":  info.Lastname,
+					"color":     info.Color,
+				}
 			}
 		}
 	}
@@ -367,17 +398,13 @@ func (h *Hub) sendExistingUsers(client *Client) {
 	msg := Message{Type: "EXISTING_USERS", Payload: enhancedUsers}
 	jsonMsg, err := json.Marshal(msg)
 	if err != nil {
-		log.Printf("Failed to marshal existing users for %s: %v", client.userInfo.Username, err)
+		log.Printf("Failed to marshal existing users: %v", err)
 		return
 	}
 
 	select {
 	case client.send <- jsonMsg:
-		if len(enhancedUsers) > 0 {
-			log.Printf("Sent %d existing user positions to %s (%s %s)", 
-				len(enhancedUsers), client.userInfo.Username, 
-				client.userInfo.Firstname, client.userInfo.Lastname)
-		}
+		// Success
 	case <-time.After(100 * time.Millisecond):
 		log.Printf("Timeout sending existing users to %s", client.userInfo.Username)
 	}
@@ -385,21 +412,23 @@ func (h *Hub) sendExistingUsers(client *Client) {
 
 func (h *Hub) unregisterClient(client *Client) {
 	h.mutex.Lock()
+	
 	if _, exists := h.clients[client]; exists {
+		// 1. Remove from main list
 		delete(h.clients, client)
 		
-		// Only delete from activeClientIDs if this client is still the active one
-		// (it might have been replaced by a new connection)
-		if h.activeClientIDs[client.id] == client {
-			delete(h.activeClientIDs, client.id)
+		// 2. Remove from User list
+		if userSet, ok := h.userClients[client.userID]; ok {
+			delete(userSet, client)
+			if len(userSet) == 0 {
+				delete(h.userClients, client.userID)
+			}
 		}
 		
 		close(client.send)
-		
-		clientCount := len(h.clients)
 		h.mutex.Unlock()
 		
-		log.Printf("User %s disconnected (remaining: %d)", client.userInfo.Username, clientCount)
+		log.Printf("User %s disconnected session", client.userInfo.Username)
 		
 		h.wg.Add(1)
 		go func() {
@@ -412,30 +441,32 @@ func (h *Hub) unregisterClient(client *Client) {
 }
 
 func (h *Hub) cleanupClient(client *Client) {
-	hadPosition := h.presence.Remove(client.id)
+	h.mutex.RLock()
+	// Check if user still has OTHER active sessions
+	_, hasOtherSessions := h.userClients[client.userID]
+	h.mutex.RUnlock()
+
+	// If the user still has other tabs open, do NOT remove their presence/selection
+	if hasOtherSessions {
+		return
+	}
+
+	hadPosition := h.presence.Remove(client.userID)
 
 	if hadPosition {
-		payload := map[string]interface{}{"clientId": client.id}
+		payload := map[string]interface{}{"clientId": client.userID}
 		
-		// Use non-blocking broadcast
 		msg := Message{Type: "USER_LEFT", Payload: payload}
 		jsonMsg, err := json.Marshal(msg)
-		if err != nil {
-			log.Printf("Failed to marshal USER_LEFT for %s: %v", client.userInfo.Username, err)
-			return
-		}
-		
-		select {
-		case h.broadcast <- jsonMsg:
-			log.Printf("Cleaned up position for user %s (remaining users with positions: %d)", 
-				client.userInfo.Username, h.presence.Count())
-		case <-time.After(100 * time.Millisecond):
-			log.Printf("Timeout broadcasting USER_LEFT for %s", client.userInfo.Username)
+		if err == nil {
+			// Notify others that this USER is gone
+			h.broadcast <- BroadcastData{Message: jsonMsg, Sender: nil}
 		}
 	}
 }
 
-func (h *Hub) BroadcastMessage(msgType string, data interface{}) {
+// BroadcastMessage queues a message for broadcast, excluding the sender if provided
+func (h *Hub) BroadcastMessage(msgType string, data interface{}, sender *Client) {
 	msg := Message{
 		Type:    msgType,
 		Payload: data,
@@ -447,40 +478,27 @@ func (h *Hub) BroadcastMessage(msgType string, data interface{}) {
 		return
 	}
 
-	// Non-blocking send with timeout
 	select {
-	case h.broadcast <- jsonMsg:
+	case h.broadcast <- BroadcastData{Message: jsonMsg, Sender: sender}:
 	case <-time.After(100 * time.Millisecond):
 		log.Printf("Broadcast channel full, dropping message type: %s", msgType)
 	}
 }
 
-func (h *Hub) sendToClients(message []byte) {
-	var msgData Message
-	if err := json.Unmarshal(message, &msgData); err != nil {
-		log.Printf("Error unmarshalling broadcast message: %v", err)
-		return
-	}
-
-	senderID := ""
-	if msgData.Type == "USER_POSITION_UPDATE" {
-		if payload, ok := msgData.Payload.(map[string]interface{}); ok {
-			if id, ok := payload["clientId"].(string); ok {
-				senderID = id
-			}
-		}
-	}
-
+func (h *Hub) sendToClients(data BroadcastData) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
 	for client := range h.clients {
-		if senderID != "" && client.id == senderID {
+		// ECHO SUPPRESSION:
+		// Do not send the message back to the exact same connection that sent it.
+		// However, DO send it to other connections of the same user (so Tab 2 updates when Tab 1 moves).
+		if data.Sender != nil && client == data.Sender {
 			continue
 		}
 
 		select {
-		case client.send <- message:
+		case client.send <- data.Message:
 		default:
 			log.Printf("User %s send buffer full, skipping message", client.userInfo.Username)
 		}
@@ -513,7 +531,10 @@ func (h *Hub) checkStaleConnections() {
 }
 
 func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
+	// 1. Try to get Session ID from URL Param (Legacy/Manual)
 	sessionID := r.URL.Query().Get("session_id")
+
+	// 2. Fallback to Cookie (Secure/Automatic)
 	if sessionID == "" {
 		log.Println("WebSocket connection rejected: missing session_id")
 		http.Error(w, "Missing session_id", http.StatusUnauthorized)
@@ -545,18 +566,18 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 		hub:      h,
 		conn:     conn,
 		send:     make(chan []byte, clientSendBuffer),
-		id:       clientID,
+		userID:   clientID, 
 		userInfo: userInfo,
 		lastPong: time.Now(),
 	}
 
 	h.register <- client
 
-	// Send welcome message immediately, before waiting for existing users
+	// Send welcome message immediately
 	welcomeMsg := Message{
 		Type: "WELCOME",
 		Payload: map[string]interface{}{
-			"clientId":  client.id,
+			"clientId":  client.userID, // FIXED: was 'client.id'
 			"userId":    userInfo.UserID,
 			"username":  userInfo.Username,
 			"firstname": userInfo.Firstname,
@@ -566,7 +587,6 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	if jsonMsg, err := json.Marshal(welcomeMsg); err == nil {
-		// Send directly to avoid any delays
 		client.conn.SetWriteDeadline(time.Now().Add(writeWait))
 		if err := client.conn.WriteMessage(websocket.TextMessage, jsonMsg); err != nil {
 			log.Printf("Failed to send welcome to %s: %v", userInfo.Username, err)
@@ -589,37 +609,27 @@ func (h *Hub) DebugPrintPresence() {
 	positions := h.presence.GetAll()
 	
 	if len(positions) == 0 {
-		log.Println("[DEBUG] No users have active positions")
 		return
 	}
 	
 	log.Println("========================================")
-	log.Println("[DEBUG] Current User Positions:")
-	log.Println("========================================")
-	for clientID, pos := range positions {
-		log.Printf("[DEBUG] User %s -> Row: %d, Col: %d", clientID, pos.Row, pos.Col)
-	}
+	log.Printf("[DEBUG] Active Users: %d | Total Connections: %d", len(positions), len(h.clients))
 	log.Println("========================================")
 }
 
 func (h *Hub) StartDebugLogger(interval time.Duration) chan struct{} {
 	stop := make(chan struct{})
-	
 	go func() {
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
-		
 		for {
 			select {
 			case <-ticker.C:
 				h.DebugPrintPresence()
 			case <-stop:
-				log.Println("[DEBUG] Stopped debug logger")
 				return
 			}
 		}
 	}()
-	
-	log.Printf("[DEBUG] Started debug logger (interval: %v)", interval)
 	return stop
 }
