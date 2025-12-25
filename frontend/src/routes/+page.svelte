@@ -693,6 +693,9 @@ min-width: {columnManager.getWidth(key)}px;"
                 data-col={j}
                 onmousedown={(e) => {
                   if (isEditingThisCell) return;
+                  // Don't interfere if we're about to double-click
+                  if (e.detail === 2) return;
+                  
                   if (editManager.isEditing) {
                     editManager.cancel(columnManager, rowManager);
                     setTimeout(() => {
@@ -704,8 +707,12 @@ min-width: {columnManager.getWidth(key)}px;"
                 }}
                 ondblclick={(e) => {
                   e.preventDefault();
+                  e.stopPropagation();
                   if (!isEditingThisCell) {
-                    handleEditAction(); 
+                    // Set selection first
+                    selection.selectCell(actualIndex, j);
+                    // Then trigger edit
+                    handleEditAction();
                   }
                 }}
                 onmouseenter={() =>
@@ -715,11 +722,11 @@ min-width: {columnManager.getWidth(key)}px;"
                   !isEditingThisCell && handleContextMenu(e, i, j)}
                 class="
                   h-full flex items-center text-xs
-               text-neutral-700 dark:text-neutral-200
+                  text-neutral-700 dark:text-neutral-200
                   border-r border-neutral-200 dark:border-slate-700 last:border-r-0
                   {isEditingThisCell
-                  ? ''
-                  : 'px-2 cursor-cell hover:bg-blue-100 dark:hover:bg-slate-600'}
+                    ? ''
+                    : 'px-2 cursor-cell hover:bg-blue-100 dark:hover:bg-slate-600'}
                 "
                 style="width: {columnManager.getWidth(
                   key
