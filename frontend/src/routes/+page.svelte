@@ -7,10 +7,10 @@
   // --- UTILS IMPORTS ---
   import { createInteractionHandler } from "$lib/utils/interaction/interactionHandler";
   // --- STATE CLASSES ---
-  import { ContextMenuState } from "$lib/utils/ui/contextMenu/contextMenu.svelte.js";
+  import { ContextMenuState } from "$lib/utils/ui/contextMenu/contextMenu.svelte.ts";
   import { HistoryManager } from "$lib/utils/interaction/historyManager.svelte";
-  import { HeaderMenuState } from "$lib/utils/ui/headerMenu/headerMenu.svelte.js";
-  import { SelectionManager } from "$lib/utils/interaction/selectionManager.svelte";
+  import { HeaderMenuState } from "$lib/utils/ui/headerMenu/headerMenu.svelte.ts";
+  import { selection } from "$lib/utils/interaction/selectionManager.svelte";
   import { ClipboardManager } from "$lib/utils/interaction/clipboardManager.svelte";
   import { SearchManager } from "$lib/utils/data/searchManager.svelte";
   import { SortManager } from "$lib/utils/data/sortManager.svelte";
@@ -19,7 +19,7 @@
   import { RowHeightManager } from "$lib/utils/core/rowManager.svelte";
   import { EditManager } from "$lib/utils/interaction/editManager.svelte";
   import FilterPanel from "$lib/utils/ui/filterPanel/filterPanel.svelte";
-  import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.js";
+  import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.ts";
   import { changeManager } from "$lib/utils/interaction/changeManager.svelte";
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
 
@@ -27,7 +27,6 @@
   const contextMenu = new ContextMenuState();
   const history = new HistoryManager();
   const headerMenu = new HeaderMenuState();
-  const selection = new SelectionManager();
   const clipboard = new ClipboardManager(selection);
   const search = new SearchManager();
   const sort = new SortManager();
@@ -175,7 +174,7 @@
           return;
         }
 
-        if (selection.hasSelection()) {
+        if (selection.hasSelection) {
           selection.resetAll();
         }
 
@@ -230,7 +229,7 @@
     if (contextMenu.visible) {
       return { row: contextMenu.row, col: contextMenu.col };
     }
-    return selection.getAnchor();
+    return selection.anchor;
   }
 
   async function handlePaste() {
