@@ -267,16 +267,19 @@
     contextMenu.close();
   }
 
-  import type { GridCell } from "$lib/utils/interaction/selectionManager.svelte";
-
-  async function handleEditAction(targetCell?: GridCell) {
-    const target = targetCell || getActionTarget();
+  async function handleEditAction() {
+    // Falls back to state (ContextMenu > Selection)
+    const target = getActionTarget(); 
+    
     if (!target) return;
     const { row, col } = target;
+    
     const key = keys[col];
     const asset = assets[row];
     if (!asset || !key) return;
+
     const currentValue = String(asset[key] ?? "");
+    
     editManager.startEdit(
       row,
       col,
@@ -702,7 +705,7 @@ min-width: {columnManager.getWidth(key)}px;"
                 ondblclick={(e) => {
                   e.preventDefault();
                   if (!isEditingThisCell) {
-                    handleEditAction({ row: actualIndex, col: j });
+                    handleEditAction(); 
                   }
                 }}
                 onmouseenter={() =>
