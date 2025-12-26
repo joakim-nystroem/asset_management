@@ -21,7 +21,8 @@
   import FilterPanel from "$lib/utils/ui/filterPanel/filterPanel.svelte";
   import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.ts";
   import { changeManager } from "$lib/utils/interaction/changeManager.svelte";
-  import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
+  import { realtime } from "$lib/utils/interaction/realtimeManager.svelte";
+  import { toastState } from "$lib/utils/ui/toast/toastState.svelte";
 
   // Initialize State Classes
   const contextMenu = new ContextMenuState();
@@ -44,19 +45,23 @@
   let locations: Record<string, any>[] = $state(data.locations || []);
   let statuses: Record<string, any>[] = $state(data.statuses || []);
   let conditions: Record<string, any>[] = $state(data.conditions || []);
-  
+
   // Realtime State (Derived from Singleton)
   let otherUserSelections = $derived(
-    Object.entries(realtime.connectedUsers).reduce((acc, [clientId, position]) => {
-      acc[clientId] = {
-        ...position,
-        initials: (
-          (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
-        ).toUpperCase(),
-        fullName: `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim()
-      };
-      return acc;
-    }, {} as Record<string, any>)
+    Object.entries(realtime.connectedUsers).reduce(
+      (acc, [clientId, position]) => {
+        acc[clientId] = {
+          ...position,
+          initials: (
+            (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
+          ).toUpperCase(),
+          fullName:
+            `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim(),
+        };
+        return acc;
+      },
+      {} as Record<string, any>,
+    ),
   );
   let hoveredUser: string | null = $state(null);
 
@@ -70,7 +75,7 @@
     }
 
     const assetIdMap = new Map(
-      assets.map((asset, index) => [asset.id.toString(), index])
+      assets.map((asset, index) => [asset.id.toString(), index]),
     );
     const keyMap = new Map(keys.map((key, index) => [key, index]));
 
@@ -91,9 +96,9 @@
   $effect(() => {
     // 1. Capture the data explicitly.
     // This ensures the effect subscribes to 'locations', 'statuses', and 'conditions'.
-    const locNames = locations.map(l => l.location_name);
-    const statNames = statuses.map(s => s.status_name);
-    const condNames = conditions.map(c => c.condition_name);
+    const locNames = locations.map((l) => l.location_name);
+    const statNames = statuses.map((s) => s.status_name);
+    const condNames = conditions.map((c) => c.condition_name);
 
     // 2. Update the manager inside 'untrack'.
     // This tells Svelte: "Execute this, but ignore any state reads happening inside."
@@ -101,7 +106,7 @@
       changeManager.setConstraints({
         location: locNames,
         status: statNames,
-        condition: condNames
+        condition: condNames,
       });
     });
   });
@@ -111,13 +116,21 @@
       virtualScroll.visibleRange,
       keys,
       columnManager,
-      virtualScroll.rowHeight
-    )
+      virtualScroll.rowHeight,
+      // Add this callback:
+      (row, col) => {
+        const asset = assets[row];
+        if (!asset) return false;
+        const key = keys[col];
+        // Use your existing changeManager to check validity
+        return changeManager.isInvalid(asset.id, key);
+      },
+    ),
   );
 
   const updateAssetInList = (
     list: Record<string, any>[],
-    payload: { id: number; key: string; value: any }
+    payload: { id: number | string; key: string; value: any },
   ) => {
     const index = list.findIndex((a) => a.id === payload.id);
     if (index !== -1) {
@@ -145,8 +158,8 @@
       virtualScroll.visibleRange,
       keys,
       columnManager,
-      virtualScroll.rowHeight
-    )
+      virtualScroll.rowHeight,
+    ),
   );
   const copyOverlay = $derived(
     selection.isCopyVisible
@@ -156,9 +169,9 @@
           virtualScroll.visibleRange,
           keys,
           columnManager,
-          virtualScroll.rowHeight
+          virtualScroll.rowHeight,
         )
-      : null
+      : null,
   );
   const mountInteraction = createInteractionHandler(
     { selection, columnManager, contextMenu, headerMenu },
@@ -210,11 +223,11 @@
           scrollContainer,
           keys,
           columnManager,
-          rowManager
+          rowManager,
         );
       },
       getGridSize: () => ({ rows: assets.length, cols: keys.length }),
-    }
+    },
   );
   async function handleSearch() {
     const result = await search.search(baseAssets);
@@ -270,7 +283,7 @@
       const startCol = target.col;
       const endRow = Math.min(
         startRow + pasteResult.rows - 1,
-        assets.length - 1
+        assets.length - 1,
       );
       const endCol = Math.min(startCol + pasteResult.cols - 1, keys.length - 1);
       selection.reset();
@@ -288,24 +301,24 @@
 
   async function handleEditAction() {
     // Falls back to state (ContextMenu > Selection)
-    const target = getActionTarget(); 
-    
+    const target = getActionTarget();
+
     if (!target) return;
     const { row, col } = target;
-    
+
     const key = keys[col];
     const asset = assets[row];
     if (!asset || !key) return;
 
     const currentValue = String(asset[key] ?? "");
-    
+
     editManager.startEdit(
       row,
       col,
       key,
       currentValue,
       columnManager,
-      rowManager
+      rowManager,
     );
     contextMenu.close();
     selection.reset();
@@ -368,15 +381,20 @@
   }
 
   async function commitChanges() {
-    const changes = changeManager.getValidChanges(); // Only get valid changes
-    if (changes.length === 0) {
+    const validChanges = changeManager.getValidChanges();
+    // Only get valid changes
+    if (validChanges.length === 0) {
       if (changeManager.hasInvalidChanges) {
-        alert('Cannot commit: Some changes have invalid values. Please fix the highlighted cells.');
+        // REPLACE ALERT
+        toastState.addToast(
+          "Cannot commit: Some changes have invalid values. Please fix the highlighted cells.",
+          "warning",
+        );
       }
       return;
     }
 
-    const apiChanges = changes.map((c) => ({
+    const apiChanges = validChanges.map((c) => ({
       rowId: c.id,
       columnId: c.key,
       newValue: c.newValue,
@@ -391,19 +409,56 @@
       });
 
       if (response.ok) {
+        // --- NEW LOGIC: Revert invalid changes ---
+        // 1. Capture invalid changes before clearing
+        const allChanges = changeManager.getAllChanges();
+        const invalidChanges = allChanges.filter((c) =>
+          changeManager.isInvalid(c.id, c.key),
+        );
+
+        // 2. Revert them in the local state to the original value
+        for (const change of invalidChanges) {
+          updateAssetInList(assets, {
+            id: change.id,
+            key: change.key,
+            value: change.oldValue,
+          });
+          updateAssetInList(baseAssets, {
+            id: change.id,
+            key: change.key,
+            value: change.oldValue,
+          });
+        }
+        // ----------------------------------------
+
         changeManager.clear();
         selection.resetAll();
-        
-        if (changeManager.hasInvalidChanges) {
-          alert(`${changes.length} changes committed successfully. ${changeManager.validChangeCount} invalid changes were skipped.`);
+
+        if (invalidChanges.length > 0) {
+          // REPLACE ALERT
+          toastState.addToast(
+            `${validChanges.length} changes committed. ${invalidChanges.length} invalid changes were reverted.`,
+            "warning",
+          );
+        } else {
+          // REPLACE ALERT (or add new success message)
+          toastState.addToast(
+            `${validChanges.length} changes committed successfully.`,
+            "success",
+          );
         }
       } else {
         console.error("Commit failed:", await response.text());
-        alert("Failed to commit changes. See console for details.");
+        // REPLACE ALERT
+        toastState.addToast(
+          "Failed to commit changes. See console for details.",
+          "error",
+        );
       }
     } catch (error) {
       console.error("Commit failed:", error);
-      alert("Failed to commit changes. See console for details.");
+      // REPLACE ALERT
+      toastState.addToast("Network error while committing changes.", "error");
     }
   }
 
@@ -433,10 +488,10 @@
 
     return () => {
       cleanupInteraction();
-      
+
       // CHANGED: Overwrite with an empty function to "remove" the handler
-      realtime.setAssetUpdateHandler(() => {}); 
-      
+      realtime.setAssetUpdateHandler(() => {});
+
       if (resizeObserver) resizeObserver.disconnect();
       changeManager.clear();
       history.clear();
@@ -480,7 +535,7 @@
 <div class="flex flex-col gap-2 mb-3">
   <div class="flex flex-row gap-4 items-center">
     <!-- WS Indicator Moved to Layout, H2 removed here -->
-    
+
     <div class="flex gap-4 items-center">
       <div class="relative">
         <input
@@ -519,7 +574,9 @@
             >
               Commit Changes
               {#if changeManager.hasInvalidChanges}
-                <span class="ml-1 text-xs">({changeManager.validChangeCount} valid)</span>
+                <span class="ml-1 text-xs"
+                  >({changeManager.validChangeCount} valid)</span
+                >
               {/if}
             </button>
             <button
@@ -610,10 +667,9 @@ min-width: {columnManager.getWidth(key)}px;"
             virtualScroll.visibleRange,
             keys,
             columnManager,
-            virtualScroll.rowHeight
+            virtualScroll.rowHeight,
           )}
           {#if otherUserOverlay}
-
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <!-- Wrapper: pointer-events-none to allow selection of the cell underneath -->
             <div
@@ -642,9 +698,15 @@ min-width: {columnManager.getWidth(key)}px;"
                 onmouseenter={() => (hoveredUser = clientId)}
                 onmouseleave={() => (hoveredUser = null)}
               >
-                 <div class="{hoveredUser === clientId ? 'px-1' : ''} whitespace-nowrap">
-                    {hoveredUser === clientId ? position.fullName : position.initials}
-                 </div>
+                <div
+                  class="{hoveredUser === clientId
+                    ? 'px-1'
+                    : ''} whitespace-nowrap"
+                >
+                  {hoveredUser === clientId
+                    ? position.fullName
+                    : position.initials}
+                </div>
               </div>
             </div>
           {/if}
@@ -700,14 +762,18 @@ min-width: {columnManager.getWidth(key)}px;"
         {#each dirtyCellOverlays as overlay}
           {@const cellKey = `${virtualScroll.getActualIndex(Math.floor(overlay.top / virtualScroll.rowHeight))},${keys[Math.floor(overlay.left / columnManager.getWidth(keys[0]))]}`}
           {@const isInvalid = changeManager.isInvalid(
-            assets[virtualScroll.getActualIndex(Math.floor(overlay.top / virtualScroll.rowHeight))]?.id,
-            keys[Math.floor(overlay.left / columnManager.getWidth(keys[0]))]
+            assets[
+              virtualScroll.getActualIndex(
+                Math.floor(overlay.top / virtualScroll.rowHeight),
+              )
+            ]?.id,
+            keys[Math.floor(overlay.left / columnManager.getWidth(keys[0]))],
           )}
           <div
             class="absolute pointer-events-none z-40 border-2
-              {isInvalid 
-                ? 'bg-yellow-400/20 dark:bg-yellow-400/10 border-yellow-500 dark:border-yellow-600' 
-                : 'bg-green-400/20 dark:bg-green-400/10 border-green-400 dark:border-green-600'}"
+              {isInvalid
+              ? 'bg-yellow-400/20 dark:bg-yellow-400/10 border-yellow-500 dark:border-yellow-600'
+              : 'bg-green-400/20 dark:bg-green-400/10 border-green-400 dark:border-green-600'}"
             style="
               top: {overlay.top}px;
               left: {overlay.left}px;
@@ -728,7 +794,7 @@ min-width: {columnManager.getWidth(key)}px;"
             {#each keys as key, j}
               {@const isEditingThisCell = editManager.isEditingCell(
                 actualIndex,
-                j
+                j,
               )}
 
               <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -739,7 +805,7 @@ min-width: {columnManager.getWidth(key)}px;"
                   if (isEditingThisCell) return;
                   // Don't interfere if we're about to double-click
                   if (e.detail === 2) return;
-                  
+
                   if (editManager.isEditing) {
                     editManager.cancel(columnManager, rowManager);
                     setTimeout(() => {
@@ -769,11 +835,11 @@ min-width: {columnManager.getWidth(key)}px;"
                   text-neutral-700 dark:text-neutral-200
                   border-r border-neutral-200 dark:border-slate-700 last:border-r-0
                   {isEditingThisCell
-                    ? ''
-                    : 'px-2 cursor-cell hover:bg-blue-100 dark:hover:bg-slate-600'}
+                  ? ''
+                  : 'px-2 cursor-cell hover:bg-blue-100 dark:hover:bg-slate-600'}
                 "
                 style="width: {columnManager.getWidth(
-                  key
+                  key,
                 )}px; min-width: {columnManager.getWidth(key)}px;"
               >
                 {#if isEditingThisCell}
@@ -784,7 +850,7 @@ min-width: {columnManager.getWidth(key)}px;"
                       editManager.updateRowHeight(
                         textareaRef,
                         rowManager,
-                        columnManager
+                        columnManager,
                       )}
                     onkeydown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {

@@ -204,7 +204,9 @@ function createSelectionManager() {
     visibleRange: { startIndex: number; endIndex: number },
     keys: string[],
     columnManager: ColumnWidthManager,
-    rowHeight: number = 32
+    rowHeight: number = 32,
+    // Add this optional callback
+    isCellInvalid?: (row: number, col: number) => boolean 
   ): VisualSelection[] {
     const overlays: VisualSelection[] = [];
     if (dirtyCells.size === 0) return overlays;
@@ -223,14 +225,34 @@ function createSelectionManager() {
       if (!dirtySet.has(key)) continue;
 
       let { row: startRow, col: startCol } = coord;
+      
+      // Determine the validity of the "seed" cell for this group
+      // If no callback is provided, treat all as "same" (fallback to old behavior)
+      const isStartInvalid = isCellInvalid ? isCellInvalid(startRow, startCol) : false;
+
       let maxRow = startRow, maxCol = startCol;
 
-      while (dirtySet.has(`${startRow},${maxCol + 1}`)) maxCol++;
+      // Expand Right
+      // We now check:
+      // 1. Is the next cell dirty?
+      // 2. Does it have the SAME validity status as the start cell?
+      while (
+        dirtySet.has(`${startRow},${maxCol + 1}`) && 
+        (!isCellInvalid || isCellInvalid(startRow, maxCol + 1) === isStartInvalid)
+      ) {
+        maxCol++;
+      }
 
+      // Expand Down
       let canExpandDown = true;
       while (canExpandDown) {
         for (let c = startCol; c <= maxCol; c++) {
-          if (!dirtySet.has(`${maxRow + 1},${c}`)) {
+          const nextRow = maxRow + 1;
+          // Check existence AND validity match
+          if (
+            !dirtySet.has(`${nextRow},${c}`) ||
+            (isCellInvalid && isCellInvalid(nextRow, c) !== isStartInvalid)
+          ) {
             canExpandDown = false;
             break;
           }

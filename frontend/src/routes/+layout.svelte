@@ -3,6 +3,7 @@
   import favicon from '$lib/assets/favicon.svg';
   import { beforeNavigate } from '$app/navigation';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
+  import ToastContainer from '$lib/utils/ui/toast/ToastContainer.svelte';
 
   let { children, data } = $props();
   let darkMode = $state(data.theme === 'dark');
@@ -65,6 +66,8 @@
 </svelte:head>
 
 <svelte:window onclick={handleClickOutside} />
+
+<ToastContainer />
 
 <div class="bg-neutral-100 dark:bg-slate-600 text-neutral-700 dark:text-neutral-100 flex flex-col min-h-screen">
   <header class="h-12 w-full bg-blue-500 dark:bg-blue-600 text-neutral-100 dark:text-neutral-50 flex justify-between items-center pl-4 px-10">
