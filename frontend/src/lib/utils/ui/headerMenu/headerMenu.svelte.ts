@@ -1,88 +1,132 @@
 // src/lib/utils/ui/headerMenu/headerMenu.svelte.ts
 
-export class HeaderMenuState {
-  activeKey = $state(''); 
-  filterOpen = $state(false);
-  filterSearchTerm = $state('');
-  x = $state(0);
-  y = $state(0);
-  submenuDirection = $state<'left' | 'right'>('right');
-  menuElement: HTMLElement | undefined;
+function createHeaderMenuState() {
+  // State
+  let activeKey = $state('');
+  let filterOpen = $state(false);
+  let filterSearchTerm = $state('');
+  let x = $state(0);
+  let y = $state(0);
+  let submenuDirection = $state<'left' | 'right'>('right');
+  let useRightPositioning = $state(false); 
+  let menuElement: HTMLElement | undefined = $state(undefined);
 
-  private triggerElement: HTMLElement | null = null;
-  private savedFilterItems: string[] = [];
+  // Private internal state
+  let triggerElement: HTMLElement | null = null;
+  let savedFilterItems: string[] = [];
+  let scrollContainer: HTMLElement | null = null;
 
-  toggle(e: MouseEvent, key: string, filterItems: string[] = []) {
+  function toggle(e: MouseEvent, key: string, filterItems: string[] = [], isLastColumn: boolean = false) {
     e.stopPropagation();
 
-    if (this.activeKey === key) {
-      this.close();
+    if (activeKey === key) {
+      close();
       return;
     }
 
-    this.triggerElement = e.currentTarget as HTMLElement;
-    this.savedFilterItems = filterItems;
-    this.activeKey = key;
-    this.filterOpen = false; 
-    this.filterSearchTerm = '';
+    triggerElement = e.currentTarget as HTMLElement;
+    scrollContainer = triggerElement.closest('.overflow-auto');
+    savedFilterItems = filterItems;
+    activeKey = key;
+    filterOpen = false;
+    filterSearchTerm = '';
 
-    if (this.menuElement) {
-      this.menuElement.style.display = 'block';
-    }
+    // Set submenu direction AND positioning method based on column position
+    submenuDirection = isLastColumn ? 'left' : 'right';
+    useRightPositioning = isLastColumn;
 
-    // Calculate initial position
-    this.reposition();
+    // Calculate position immediately
+    reposition();
   }
 
-  reposition() {
-    if (!this.triggerElement || !this.activeKey) return;
+  function reposition() {
+    if (!triggerElement || !activeKey || !scrollContainer) return;
 
-    const rect = this.triggerElement.getBoundingClientRect();
-    const windowWidth = window.innerWidth;
-    const MAIN_MENU_WIDTH = 220;
+    const triggerRect = triggerElement.getBoundingClientRect();
+    const containerRect = scrollContainer.getBoundingClientRect();
 
-    let calculatedX = rect.left;
-
-    if (calculatedX + MAIN_MENU_WIDTH > windowWidth) {
-      calculatedX = Math.max(0, windowWidth - MAIN_MENU_WIDTH - 8);
-    }
-    
-    // Update State (keeps Svelte in sync for next render)
-    this.x = calculatedX;
-    this.y = rect.bottom;
-
-    // --- DIRECT DOM UPDATE (Fixes the lag) ---
-    if (this.menuElement) {
-      this.menuElement.style.left = `${calculatedX}px`;
-      this.menuElement.style.top = `${rect.bottom}px`;
+    if (useRightPositioning) {
+      const xRelativeToContainer = triggerRect.left - containerRect.left + scrollContainer.scrollLeft;
+      x = xRelativeToContainer - 42;
+    } else {
+      // For other columns: align menu's left edge with trigger's left edge
+      const xRelativeToContainer = triggerRect.left - containerRect.left + scrollContainer.scrollLeft;
+      x = xRelativeToContainer;
     }
 
-    // Recalculate Submenu Direction
-    const maxItemLength = this.savedFilterItems.reduce((max, item) => Math.max(max, (item || '').length), 0);
-    const estimatedSubmenuWidth = Math.max(200, maxItemLength * 8 + 40);
-    const spaceOnRight = windowWidth - (this.x + MAIN_MENU_WIDTH);
-
-    this.submenuDirection = spaceOnRight < estimatedSubmenuWidth ? 'left' : 'right';
+    // Y position is always from top
+    const yRelativeToContainer = triggerRect.bottom - containerRect.top + scrollContainer.scrollTop;
+    y = yRelativeToContainer;
   }
-  
-  // ... rest of the file (toggleFilter, close, handleOutsideClick)
-  toggleFilter() {
-    if (!this.filterOpen) {
-      this.filterSearchTerm = '';
+
+  function calculateSubmenuDirection() {
+    if (menuElement) {
+      const rect = menuElement.getBoundingClientRect();
+      
+      // Find the longest item in the filter list to estimate width
+      const longestItem = savedFilterItems.reduce((a, b) => a.length > b.length ? a : b, '');
+      const estimatedCharWidth = 8; // Average width of a character in pixels
+      const paddingAndIcons = 48; // Combined width for padding, icons, etc.
+      const calculatedWidth = (longestItem.length * estimatedCharWidth) + paddingAndIcons;
+      
+      // Use a minimum width, similar to 'min-w-48'
+      const SUBMENU_WIDTH = Math.max(192, calculatedWidth);
+
+      if (rect.right + SUBMENU_WIDTH > window.innerWidth) {
+        submenuDirection = 'left';
+      } else {
+        submenuDirection = 'right';
+      }
     }
-    this.filterOpen = !this.filterOpen;
   }
 
-  close() {
-    this.activeKey = '';
-    this.filterOpen = false;
-    this.triggerElement = null;
+  function toggleFilter() {
+    if (!filterOpen) {
+      filterSearchTerm = '';
+    }
+    filterOpen = !filterOpen;
   }
 
-  handleOutsideClick(e: MouseEvent) {
-    if (this.activeKey === '') return;
+  function close() {
+    activeKey = '';
+    filterOpen = false;
+    triggerElement = null;
+    scrollContainer = null;
+    useRightPositioning = false;
+  }
+
+  function handleOutsideClick(e: MouseEvent) {
+    if (activeKey === '') return;
     const target = e.target as HTMLElement;
     if (target.closest('.header-interactive')) return;
-    this.close();
+    close();
   }
+
+  // Return public API
+  return {
+    // State accessors
+    get activeKey() { return activeKey },
+    get filterOpen() { return filterOpen },
+    get filterSearchTerm() { return filterSearchTerm },
+    set filterSearchTerm(val: string) { filterSearchTerm = val },
+    get x() { return x },
+    get y() { return y },
+    get submenuDirection() { return submenuDirection },
+    get useRightPositioning() { return useRightPositioning },
+    get menuElement() { return menuElement },
+    set menuElement(el: HTMLElement | undefined) { menuElement = el },
+
+    // Actions
+    toggle,
+    reposition,
+    toggleFilter,
+    close,
+    handleOutsideClick,
+    calculateSubmenuDirection
+  };
 }
+
+export type HeaderMenuState = ReturnType<typeof createHeaderMenuState>;
+
+// Export factory function
+export const createHeaderMenu = createHeaderMenuState;

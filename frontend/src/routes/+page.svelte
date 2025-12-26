@@ -9,7 +9,7 @@
   // --- STATE CLASSES ---
   import { ContextMenuState } from "$lib/utils/ui/contextMenu/contextMenu.svelte.ts";
   import { HistoryManager } from "$lib/utils/interaction/historyManager.svelte";
-  import { HeaderMenuState } from "$lib/utils/ui/headerMenu/headerMenu.svelte.ts";
+  import { createHeaderMenu } from "$lib/utils/ui/headerMenu/headerMenu.svelte.ts";
   import { selection } from "$lib/utils/interaction/selectionManager.svelte";
   import { createClipboard } from "$lib/utils/interaction/clipboardManager.svelte";
   import { SearchManager } from "$lib/utils/data/searchManager.svelte";
@@ -27,7 +27,7 @@
   // Initialize State Classes
   const contextMenu = new ContextMenuState();
   const history = new HistoryManager();
-  const headerMenu = new HeaderMenuState();
+  const headerMenu = createHeaderMenu();
   const clipboard = createClipboard(selection);
   const search = new SearchManager();
   const sort = new SortManager();
@@ -256,6 +256,7 @@
     const value = String(assets[actualRow][key] ?? "");
     selection.selectCell(actualRow, col);
     contextMenu.open(e, actualRow, col, value, key);
+    headerMenu.close();
   }
 
   function getActionTarget() {
@@ -468,6 +469,7 @@
     history.clear();
     changeManager.clear();
     selection.resetAll();
+    toastState.addToast("Changes discarded.", "info");
   }
 
   $effect(() => {
@@ -612,14 +614,21 @@
     class="rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
     tabindex="-1"
   >
+
+    <HeaderMenu
+      state={headerMenu}
+      sortManager={sort}
+      searchManager={search}
+      {assets}
+      onSort={applySort}
+    />
+
     <div
       class="w-max min-w-full bg-white dark:bg-slate-800 text-left relative"
       style="height: {virtualScroll.getTotalHeight(assets.length, rowManager) +
         32}px;"
     >
-      <div
-        class="sticky top-0 z-20 flex border-b border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-700"
-      >
+      <div class="sticky top-0 z-20 flex border-b border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-700">
         {#each keys as key, i}
           <div
             data-header-col={i}
@@ -628,25 +637,29 @@
           >
             <button
               class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
-              onclick={(e) =>
+              onclick={(e) =>{
+                const isLast = i === keys.length - 1;
+                console.log(`Column ${i}: ${key}, isLast: ${isLast}, total columns: ${keys.length}`),
+                contextMenu.close(),
                 headerMenu.toggle(
                   e,
                   key,
                   search.getFilterItems(key, assets),
+                  i === keys.length - 1 
                 )}
+              }
             >
               <span class="truncate">{key.replaceAll("_", " ")}</span>
               <span class="ml-1">
                 {#if sort.key === key}
                   <span>{sort.direction === "asc" ? "▲" : "▼"}</span>
                 {:else}
-                  <span class="invisible group-hover:visible text-neutral-400"
-                    >▾</span
-                  >
+                  <span class="invisible group-hover:visible text-neutral-400">▾</span>
                 {/if}
               </span>
             </button>
 
+            <!-- Resize handle remains the same -->
             <!-- svelte-ignore a11y_click_events_have_key_events -->
             <!-- svelte-ignore a11y_no_static_element_interactions -->
             <div
@@ -907,16 +920,12 @@
 {:else if search.error}
   <p class="text-red-500">Error: {search.error}</p>
 {:else}
-  <p>Query successful, but no data was returned.</p>
+  <div
+    class="flex items-center justify-center rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
+  >
+    <p class="text-lg text-neutral-400">Query successful, but no data was returned.</p>
+  </div>
 {/if}
-
-<HeaderMenu
-  state={headerMenu}
-  sortManager={sort}
-  searchManager={search}
-  {assets}
-  onSort={applySort}
-/>
 
 <ContextMenu
   state={contextMenu}

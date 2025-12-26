@@ -12,6 +12,12 @@
   };
 
   let { state, sortManager, searchManager, assets, onSort }: Props = $props();
+
+  $effect(() => {
+    if (state.activeKey) {
+      state.calculateSubmenuDirection();
+    }
+  });
 </script>
 
 {#if state.activeKey}
@@ -19,7 +25,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div 
     bind:this={state.menuElement}
-    class="fixed z-50 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm text-neutral-900 dark:text-neutral-100 min-w-48 font-normal normal-case cursor-default text-left flex flex-col"
+    class="absolute z-50 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm text-neutral-900 dark:text-neutral-100 min-w-48 font-normal normal-case cursor-default text-left flex flex-col"
     style="top: {state.y}px; left: {state.x}px;"
     onclick={(e) => e.stopPropagation()}
   >
