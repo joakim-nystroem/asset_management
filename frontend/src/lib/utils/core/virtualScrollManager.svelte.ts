@@ -1,31 +1,30 @@
-// $lib/utils/core/virtualScrollManager.svelte.ts
-
 import type { ColumnWidthManager } from './columnManager.svelte';
 import type { RowHeightManager } from './rowManager.svelte';
 
-export class VirtualScrollManager {
+function createVirtualScrollManager() {
   // Configuration
-  rowHeight = 32; // Default height of each row (h-8 = 2rem = 32px)
-  overscan = 15; // Extra rows to render above/below viewport for smooth scrolling
-  
-  // State
-  scrollTop = $state(0);
-  containerHeight = $state(0);
-  
-  // Computed visible range
-  get visibleRange() {
-    const startIndex = Math.max(0, Math.floor(this.scrollTop / this.rowHeight) - this.overscan);
-    const visibleCount = Math.ceil(this.containerHeight / this.rowHeight);
-    const endIndex = startIndex + visibleCount + (this.overscan * 2);
+  const rowHeight = 32;
+  const overscan = 15;
+
+  // Reactive scroll state
+  let scrollTop = $state(0);
+  let containerHeight = $state(0);
+
+  // Derived: Visible range
+  const visibleRange = $derived.by(() => {
+    const startIndex = Math.max(
+      0, 
+      Math.floor(scrollTop / rowHeight) - overscan
+    );
+    const visibleCount = Math.ceil(containerHeight / rowHeight);
+    const endIndex = startIndex + visibleCount + (overscan * 2);
     
     return { startIndex, endIndex };
-  }
-  
-  /**
-   * Get the subset of data to actually render
-   */
-  getVisibleItems<T>(data: T[]): { items: T[]; startIndex: number; endIndex: number } {
-    const { startIndex, endIndex } = this.visibleRange;
+  });
+
+  // Actions
+  function getVisibleItems<T>(data: T[]) {
+    const { startIndex, endIndex } = visibleRange;
     const clampedEnd = Math.min(endIndex, data.length);
     
     return {
@@ -34,105 +33,81 @@ export class VirtualScrollManager {
       endIndex: clampedEnd
     };
   }
-  
-  /**
-   * Calculate total height of all rows (for scrollbar)
-   * Now accounts for custom row heights
-   */
-  getTotalHeight(itemCount: number, RowHeightManager?: RowHeightManager): number {
-    if (!RowHeightManager) {
-      return itemCount * this.rowHeight;
+
+  function getTotalHeight(itemCount: number, rowHeightManager?: RowHeightManager): number {
+    if (!rowHeightManager) {
+      return itemCount * rowHeight;
     }
-    return RowHeightManager.getTotalHeight(itemCount);
+    return rowHeightManager.getTotalHeight(itemCount);
   }
-  
-  /**
-   * Calculate offset for the visible window
-   * Now accounts for custom row heights before the visible range
-   */
-  getOffsetY(RowHeightManager?: RowHeightManager): number {
-    if (!RowHeightManager) {
-      return this.visibleRange.startIndex * this.rowHeight;
+
+  function getOffsetY(rowHeightManager?: RowHeightManager): number {
+    if (!rowHeightManager) {
+      return visibleRange.startIndex * rowHeight;
     }
-    return RowHeightManager.getOffsetY(this.visibleRange.startIndex);
+    return rowHeightManager.getOffsetY(visibleRange.startIndex);
   }
-  
-  /**
-   * Handle scroll event
-   */
-  handleScroll(e: Event) {
+
+  function handleScroll(e: Event) {
     const target = e.target as HTMLElement;
-    this.scrollTop = target.scrollTop;
+    scrollTop = target.scrollTop;
   }
-  
-  /**
-   * Handle container resize
-   */
-  updateContainerHeight(height: number) {
-    this.containerHeight = height;
+
+  function updateContainerHeight(height: number) {
+    containerHeight = height;
   }
-  
-  /**
-   * Scroll to a specific row index
-   * Now accounts for custom row heights
-   */
-  scrollToRow(index: number, container: HTMLElement | null, RowHeightManager?: RowHeightManager) {
+
+  function scrollToRow(
+    index: number, 
+    container: HTMLElement | null, 
+    rowHeightManager?: RowHeightManager
+  ) {
     if (!container) return;
     
     let targetScrollTop: number;
     
-    if (!RowHeightManager) {
-      targetScrollTop = index * this.rowHeight;
+    if (!rowHeightManager) {
+      targetScrollTop = index * rowHeight;
     } else {
-      targetScrollTop = RowHeightManager.getOffsetY(index);
+      targetScrollTop = rowHeightManager.getOffsetY(index);
     }
     
     container.scrollTop = targetScrollTop;
-    this.scrollTop = targetScrollTop;
+    scrollTop = targetScrollTop;
   }
-  
-  /**
-   * Get the actual row index from a visible index
-   */
-  getActualIndex(visibleIndex: number): number {
-    return this.visibleRange.startIndex + visibleIndex;
+
+  function getActualIndex(visibleIndex: number): number {
+    return visibleRange.startIndex + visibleIndex;
   }
-  
-  /**
-   * Check if a row index is currently visible
-   */
-  isRowVisible(index: number): boolean {
-    const { startIndex, endIndex } = this.visibleRange;
+
+  function isRowVisible(index: number): boolean {
+    const { startIndex, endIndex } = visibleRange;
     return index >= startIndex && index < endIndex;
   }
 
-  /**
-   * Smartly scroll container so the target cell (row + col) is visible.
-   * Now accounts for custom row heights
-   */
-  ensureVisible(
+  function ensureVisible(
     rowIndex: number, 
     colIndex: number,
     container: HTMLElement | null,
     keys: string[],
     columnManager: ColumnWidthManager,
-    RowHeightManager?: RowHeightManager
+    rowHeightManager?: RowHeightManager
   ) {
     if (!container) return;
 
     // --- Vertical Scrolling ---
-    const headerHeight = 32; // Matches h-8 header
+    const headerHeight = 32;
 
     // 1. Calculate the Visual Position of the row
     let rowVisualTop: number;
-    if (!RowHeightManager) {
-      rowVisualTop = (rowIndex * this.rowHeight) + headerHeight;
+    if (!rowHeightManager) {
+      rowVisualTop = (rowIndex * rowHeight) + headerHeight;
     } else {
-      rowVisualTop = RowHeightManager.getOffsetY(rowIndex) + headerHeight;
+      rowVisualTop = rowHeightManager.getOffsetY(rowIndex) + headerHeight;
     }
     
-    const rowHeight = RowHeightManager?.getHeight(rowIndex) ?? this.rowHeight;
-    const rowVisualBottom = rowVisualTop + rowHeight;
+    const currentRowHeight = rowHeightManager?.getHeight(rowIndex) ?? rowHeight;
+    const rowVisualBottom = rowVisualTop + currentRowHeight;
 
     // 2. Calculate the Viewport boundaries
     const viewTop = container.scrollTop + headerHeight;
@@ -141,12 +116,12 @@ export class VirtualScrollManager {
     // 3. Scroll Logic (Vertical)
     if (rowVisualTop < viewTop) {
       container.scrollTop = rowVisualTop - headerHeight;
-      this.scrollTop = container.scrollTop;
+      scrollTop = container.scrollTop;
     } 
     else if (rowVisualBottom > viewBottom) {
       const scrollBuffer = 40; 
       container.scrollTop = rowVisualBottom - container.clientHeight + scrollBuffer;
-      this.scrollTop = container.scrollTop;
+      scrollTop = container.scrollTop;
     }
 
     // --- Horizontal Scrolling ---
@@ -155,7 +130,7 @@ export class VirtualScrollManager {
     // 1. Calculate Horizontal Position
     let cellLeft = 0;
     for (let i = 0; i < colIndex; i++) {
-        cellLeft += columnManager.getWidth(keys[i]);
+      cellLeft += columnManager.getWidth(keys[i]);
     }
     const cellWidth = columnManager.getWidth(keys[colIndex]);
     const cellRight = cellLeft + cellWidth;
@@ -166,11 +141,39 @@ export class VirtualScrollManager {
 
     // 3. Scroll Logic (Horizontal)
     if (cellLeft < viewLeft) {
-        // Target is hidden to the LEFT -> Scroll Left
-        container.scrollLeft = cellLeft;
+      container.scrollLeft = cellLeft;
     } else if (cellRight > viewRight) {
-        // Target is hidden to the RIGHT -> Scroll Right
-        container.scrollLeft = cellRight - container.clientWidth; 
+      container.scrollLeft = cellRight - container.clientWidth; 
     }
   }
+
+  // Return public API
+  return {
+    // Config accessors (read-only for now)
+    get rowHeight() { return rowHeight },
+    get overscan() { return overscan },
+    
+    // State accessors
+    get scrollTop() { return scrollTop },
+    get containerHeight() { return containerHeight },
+    
+    // Derived values
+    get visibleRange() { return visibleRange },
+    
+    // Actions
+    getVisibleItems,
+    getTotalHeight,
+    getOffsetY,
+    handleScroll,
+    updateContainerHeight,
+    scrollToRow,
+    getActualIndex,
+    isRowVisible,
+    ensureVisible
+  };
 }
+
+export type VirtualScrollManager = ReturnType<typeof createVirtualScrollManager>;
+
+// Export factory function for creating instances
+export const createVirtualScroll = createVirtualScrollManager;

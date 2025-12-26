@@ -1,4 +1,4 @@
-import type { SelectionManager } from './selectionManager.svelte';
+import type { selection as SelectionManager } from './selectionManager.svelte';
 import type { HistoryAction } from './historyManager.svelte'; 
 
 async function copyToClipboard(text: string): Promise<void> {
@@ -24,17 +24,13 @@ export type CopiedItem = {
   value: string;
 };
 
-export class ClipboardManager {
-  internal = $state<CopiedItem[]>([]);
-  private lastCopiedText = '';
-  private selectionManager: SelectionManager;
+function createClipboardManager(selectionManager: typeof SelectionManager) {
+  // Internal clipboard state
+  let internal = $state<CopiedItem[]>([]);
+  let lastCopiedText = $state('');
 
-  constructor(selectionManager: SelectionManager) {
-    this.selectionManager = selectionManager;
-  }
-
-  async copy(
-    selectionManager: SelectionManager,
+  // Actions
+  async function copy(
     assets: any[],
     keys: string[]
   ) {
@@ -42,7 +38,7 @@ export class ClipboardManager {
     selectionManager.snapshotAsCopied();
 
     // 2. Get selection bounds
-    const bounds = selectionManager.getBounds();
+    const bounds = selectionManager.bounds;
     if (!bounds) return;
 
     // 3. Capture data
@@ -71,10 +67,10 @@ export class ClipboardManager {
       externalRows.push(rowStrings.join('\t'));
     }
 
-    this.internal = newClipboard;
+    internal = newClipboard;
     
     const textBlock = externalRows.join('\n');
-    this.lastCopiedText = textBlock;
+    lastCopiedText = textBlock;
 
     // Copy to system clipboard (async)
     setTimeout(async () => {
@@ -82,10 +78,7 @@ export class ClipboardManager {
     }, 0);
   }
 
-  /**
-   * Paste from clipboard using Batch Recording
-   */
-  async paste(
+  async function paste(
     target: { row: number; col: number } | null,
     assets: any[],
     keys: string[],
@@ -95,7 +88,7 @@ export class ClipboardManager {
     const systemText = await readFromClipboard();
     if (systemText === null) return null;
 
-    const useInternal = this.internal.length > 0 && systemText === this.lastCopiedText;
+    const useInternal = internal.length > 0 && systemText === lastCopiedText;
     const batchChanges: HistoryAction[] = [];
 
     let copiedBlock: string[][] = [];
@@ -105,7 +98,7 @@ export class ClipboardManager {
       // Determine dimensions of the internal clipboard data
       let maxRelRow = 0;
       let maxRelCol = 0;
-      for (const item of this.internal) {
+      for (const item of internal) {
         if (item.relRow > maxRelRow) maxRelRow = item.relRow;
         if (item.relCol > maxRelCol) maxRelCol = item.relCol;
       }
@@ -116,7 +109,7 @@ export class ClipboardManager {
       }
 
       // Populate copiedBlock
-      for (const item of this.internal) {
+      for (const item of internal) {
         copiedBlock[item.relRow][item.relCol] = item.value;
       }
     } else {
@@ -132,9 +125,11 @@ export class ClipboardManager {
     const copiedBlockHeight = copiedBlock.length;
     const copiedBlockWidth = copiedBlock[0].length;
 
-    const selectionBounds = this.selectionManager.getBounds();
-    const isSingleCellSelection = selectionBounds && selectionBounds.minRow === selectionBounds.maxRow && selectionBounds.minCol === selectionBounds.maxCol;
-    const hasMultiCellSelection = selectionBounds && !(isSingleCellSelection);
+    const selectionBounds = selectionManager.bounds;
+    const isSingleCellSelection = selectionBounds && 
+      selectionBounds.minRow === selectionBounds.maxRow && 
+      selectionBounds.minCol === selectionBounds.maxCol;
+    const hasMultiCellSelection = selectionBounds && !isSingleCellSelection;
 
     let effectivePasteRows = 0;
     let effectivePasteCols = 0;
@@ -155,7 +150,7 @@ export class ClipboardManager {
           const relColInBlock = (c - pasteStartCol) % copiedBlockWidth;
           const valueToPaste = copiedBlock[relRowInBlock][relColInBlock];
           
-          const change = this.applyValue(r, c, valueToPaste, assets, keys);
+          const change = applyValue(r, c, valueToPaste, assets, keys);
           if (change) batchChanges.push(change);
         }
       }
@@ -174,7 +169,7 @@ export class ClipboardManager {
           const destCol = pasteStartCol + c;
           const valueToPaste = copiedBlock[r][c];
 
-          const change = this.applyValue(destRow, destCol, valueToPaste, assets, keys);
+          const change = applyValue(destRow, destCol, valueToPaste, assets, keys);
           if (change) batchChanges.push(change);
         }
       }
@@ -183,7 +178,7 @@ export class ClipboardManager {
     return { rows: effectivePasteRows, cols: effectivePasteCols, changes: batchChanges };
   }
 
-  private applyValue(
+  function applyValue(
     row: number, 
     col: number, 
     value: string, 
@@ -203,12 +198,25 @@ export class ClipboardManager {
     return null;
   }
 
-  clear() {
-    this.internal = [];
-    this.lastCopiedText = '';
+  function clear() {
+    internal = [];
+    lastCopiedText = '';
   }
 
-  hasData() {
-    return this.internal.length > 0;
-  }
+  // Derived
+  const hasData = $derived(internal.length > 0);
+
+  // Return public API
+  return {
+    get internal() { return internal },
+    get lastCopiedText() { return lastCopiedText },
+    get hasData() { return hasData },
+    
+    copy,
+    paste,
+    clear
+  };
 }
+
+export type ClipboardManager = ReturnType<typeof createClipboardManager>;
+export const createClipboard = createClipboardManager;

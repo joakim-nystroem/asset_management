@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
   import type { PageProps } from "./$types";
   // --- COMPONENTS ---
   import ContextMenu from "$lib/utils/ui/contextMenu/contextMenu.svelte";
@@ -11,10 +11,10 @@
   import { HistoryManager } from "$lib/utils/interaction/historyManager.svelte";
   import { HeaderMenuState } from "$lib/utils/ui/headerMenu/headerMenu.svelte.ts";
   import { selection } from "$lib/utils/interaction/selectionManager.svelte";
-  import { ClipboardManager } from "$lib/utils/interaction/clipboardManager.svelte";
+  import { createClipboard } from "$lib/utils/interaction/clipboardManager.svelte";
   import { SearchManager } from "$lib/utils/data/searchManager.svelte";
   import { SortManager } from "$lib/utils/data/sortManager.svelte";
-  import { VirtualScrollManager } from "$lib/utils/core/virtualScrollManager.svelte";
+  import { createVirtualScroll } from "$lib/utils/core/virtualScrollManager.svelte";
   import { ColumnWidthManager } from "$lib/utils/core/columnManager.svelte";
   import { RowHeightManager } from "$lib/utils/core/rowManager.svelte";
   import { EditManager } from "$lib/utils/interaction/editManager.svelte";
@@ -27,10 +27,10 @@
   const contextMenu = new ContextMenuState();
   const history = new HistoryManager();
   const headerMenu = new HeaderMenuState();
-  const clipboard = new ClipboardManager(selection);
+  const clipboard = createClipboard(selection);
   const search = new SearchManager();
   const sort = new SortManager();
-  const virtualScroll = new VirtualScrollManager();
+  const virtualScroll = createVirtualScroll();
   const columnManager = new ColumnWidthManager();
   const rowManager = new RowHeightManager();
   const editManager = new EditManager();
@@ -42,6 +42,8 @@
   let baseAssets: Record<string, any>[] = $state(data.assets);
   let assets: Record<string, any>[] = $state(data.assets);
   let locations: Record<string, any>[] = $state(data.locations || []);
+  let statuses: Record<string, any>[] = $state(data.statuses || []);
+  let conditions: Record<string, any>[] = $state(data.conditions || []);
   
   // Realtime State (Derived from Singleton)
   let otherUserSelections = $derived(
@@ -84,6 +86,24 @@
     }[];
 
     selection.setDirtyCells(dirtyCells);
+  });
+
+  $effect(() => {
+    // 1. Capture the data explicitly.
+    // This ensures the effect subscribes to 'locations', 'statuses', and 'conditions'.
+    const locNames = locations.map(l => l.location_name);
+    const statNames = statuses.map(s => s.status_name);
+    const condNames = conditions.map(c => c.condition_name);
+
+    // 2. Update the manager inside 'untrack'.
+    // This tells Svelte: "Execute this, but ignore any state reads happening inside."
+    untrack(() => {
+      changeManager.setConstraints({
+        location: locNames,
+        status: statNames,
+        condition: condNames
+      });
+    });
   });
 
   const dirtyCellOverlays = $derived(
@@ -212,7 +232,7 @@
   }
 
   async function handleCopy() {
-    await clipboard.copy(selection, assets, keys);
+    await clipboard.copy(assets, keys);
     if (contextMenu.visible) contextMenu.close();
     selection.reset();
   }
@@ -348,8 +368,13 @@
   }
 
   async function commitChanges() {
-    const changes = changeManager.getAllChanges();
-    if (changes.length === 0) return;
+    const changes = changeManager.getValidChanges(); // Only get valid changes
+    if (changes.length === 0) {
+      if (changeManager.hasInvalidChanges) {
+        alert('Cannot commit: Some changes have invalid values. Please fix the highlighted cells.');
+      }
+      return;
+    }
 
     const apiChanges = changes.map((c) => ({
       rowId: c.id,
@@ -368,6 +393,10 @@
       if (response.ok) {
         changeManager.clear();
         selection.resetAll();
+        
+        if (changeManager.hasInvalidChanges) {
+          alert(`${changes.length} changes committed successfully. ${changeManager.validChangeCount} invalid changes were skipped.`);
+        }
       } else {
         console.error("Commit failed:", await response.text());
         alert("Failed to commit changes. See console for details.");
@@ -489,6 +518,9 @@
               class="cursor-pointer bg-green-500 hover:bg-green-600 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
               Commit Changes
+              {#if changeManager.hasInvalidChanges}
+                <span class="ml-1 text-xs">({changeManager.validChangeCount} valid)</span>
+              {/if}
             </button>
             <button
               onclick={discardChanges}
@@ -496,6 +528,11 @@
             >
               Discard
             </button>
+            {#if changeManager.hasInvalidChanges}
+              <span class="text-yellow-600 dark:text-yellow-400 text-xs">
+                ⚠️ Some changes have invalid values
+              </span>
+            {/if}
           </div>
         {/if}
       </div>
@@ -661,14 +698,22 @@ min-width: {columnManager.getWidth(key)}px;"
         {/if}
 
         {#each dirtyCellOverlays as overlay}
+          {@const cellKey = `${virtualScroll.getActualIndex(Math.floor(overlay.top / virtualScroll.rowHeight))},${keys[Math.floor(overlay.left / columnManager.getWidth(keys[0]))]}`}
+          {@const isInvalid = changeManager.isInvalid(
+            assets[virtualScroll.getActualIndex(Math.floor(overlay.top / virtualScroll.rowHeight))]?.id,
+            keys[Math.floor(overlay.left / columnManager.getWidth(keys[0]))]
+          )}
           <div
-            class="absolute pointer-events-none z-40 bg-green-400/20 dark:bg-green-400/10 border border-2 border-green-400 dark:border-green-600"
+            class="absolute pointer-events-none z-40 border-2
+              {isInvalid 
+                ? 'bg-yellow-400/20 dark:bg-yellow-400/10 border-yellow-500 dark:border-yellow-600' 
+                : 'bg-green-400/20 dark:bg-green-400/10 border-green-400 dark:border-green-600'}"
             style="
-                  top: {overlay.top}px;
-                  left: {overlay.left}px;
-                  width: {overlay.width}px;
-                  height: {overlay.height}px;
-              "
+              top: {overlay.top}px;
+              left: {overlay.left}px;
+              width: {overlay.width}px;
+              height: {overlay.height}px;
+            "
           ></div>
         {/each}
 
