@@ -16,6 +16,13 @@ function createToastState() {
 
   function addToast(message: string, type: ToastType = 'info', duration = 4000) {
     const id = crypto.randomUUID();
+
+    // If we've reached the limit, remove the oldest toast
+    if (toasts.length > 4) {
+      const oldestToast = toasts[0];
+      removeToast(oldestToast.id);
+    }
+
     toasts.push({ id, message, type, duration });
     startTimer(id, duration);
   }
