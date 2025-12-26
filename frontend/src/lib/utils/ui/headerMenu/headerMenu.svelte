@@ -10,7 +10,7 @@
     assets: any[];
     onSort: (key: string, direction: SortDirection) => void;
   };
-  
+
   let { state, sortManager, searchManager, assets, onSort }: Props = $props();
 </script>
 
@@ -18,11 +18,11 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div 
+    bind:this={state.menuElement}
     class="fixed z-50 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm text-neutral-900 dark:text-neutral-100 min-w-48 font-normal normal-case cursor-default text-left flex flex-col"
-    style="top: {state.y}px; left: {state.x}px;" 
+    style="top: {state.y}px; left: {state.x}px;"
     onclick={(e) => e.stopPropagation()}
   >
-    <!-- Sort A to Z -->
     <button 
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full" 
       onclick={() => onSort(state.activeKey, 'asc')}
@@ -33,7 +33,6 @@
       <span>Sort A to Z</span>
     </button>
     
-    <!-- Sort Z to A -->
     <button 
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full" 
       onclick={() => onSort(state.activeKey, 'desc')}
@@ -46,7 +45,6 @@
   
     <div class="border-b border-neutral-200 dark:border-slate-700 my-1"></div>
   
-    <!-- Filter By Submenu -->
     <div class="relative w-full">
       <button 
         class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center justify-between group w-full" 
@@ -56,13 +54,17 @@
            <div class="w-4"></div>
            <span>Filter By</span>
         </div>
-        <span class="text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400">›</span>
+    
+        <span class="text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+           {state.submenuDirection === 'left' ? '‹' : '›'}
+        </span>
       </button>
 
       {#if state.filterOpen}
-        <div class="absolute z-50 top-0 left-full ml-0.5 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm min-w-48">
+        <div 
+          class="absolute z-50 top-0 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm min-w-48 {state.submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}"
+        >
           
-          <!-- Search Input -->
           <div class="px-2 py-1 border-b border-neutral-200 dark:border-slate-700 mb-1">
             <input 
               bind:value={state.filterSearchTerm}
@@ -78,7 +80,6 @@
             />
           </div>
 
-          <!-- Filter Options List -->
           <div class="max-h-48 overflow-y-auto no-scrollbar">
              {#each searchManager.getFilterItems(state.activeKey, assets)
                 .filter(i => i.toLowerCase().includes(state.filterSearchTerm.toLowerCase())) 

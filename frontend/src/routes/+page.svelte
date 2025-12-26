@@ -600,7 +600,15 @@
 {#if assets.length > 0}
   <div
     bind:this={scrollContainer}
-    onscroll={(e) => virtualScroll.handleScroll(e)}
+    onscroll={(e) => {
+      // 1. Handle virtual scroll (existing)
+      virtualScroll.handleScroll(e);
+      
+      // 2. Reposition header menu if it's open
+      if (headerMenu.activeKey) {
+        headerMenu.reposition();
+      }
+    }}
     class="rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
     tabindex="-1"
   >
@@ -610,19 +618,22 @@
         32}px;"
     >
       <div
-        class="sticky top-0 z-20 flex border-b
-border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-700"
+        class="sticky top-0 z-20 flex border-b border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-700"
       >
         {#each keys as key, i}
           <div
             data-header-col={i}
             class="header-interactive relative group border-r border-neutral-200 dark:border-slate-600 last:border-r-0"
-            style="width: {columnManager.getWidth(key)}px;
-min-width: {columnManager.getWidth(key)}px;"
+            style="width: {columnManager.getWidth(key)}px; min-width: {columnManager.getWidth(key)}px;"
           >
             <button
               class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
-              onclick={(e) => headerMenu.toggle(e, key)}
+              onclick={(e) =>
+                headerMenu.toggle(
+                  e,
+                  key,
+                  search.getFilterItems(key, assets),
+                )}
             >
               <span class="truncate">{key.replaceAll("_", " ")}</span>
               <span class="ml-1">
