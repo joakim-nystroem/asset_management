@@ -638,8 +638,6 @@
             <button
               class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
               onclick={(e) =>{
-                const isLast = i === keys.length - 1;
-                console.log(`Column ${i}: ${key}, isLast: ${isLast}, total columns: ${keys.length}`),
                 contextMenu.close(),
                 headerMenu.toggle(
                   e,

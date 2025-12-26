@@ -1,17 +1,16 @@
 <script lang="ts">
   import '../app.css';
   import favicon from '$lib/assets/favicon.svg';
-  import { beforeNavigate } from '$app/navigation';
+  import { beforeNavigate, afterNavigate } from '$app/navigation';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import ToastContainer from '$lib/utils/ui/toast/ToastContainer.svelte';
-
+  import { toastState } from '$lib/utils/ui/toast/toastState.svelte';
+  
   let { children, data } = $props();
   let darkMode = $state(data.theme === 'dark');
   let showUserMenu = $state(false);
   let sessionColor: string = $derived(data.session_color || '#6b7280');
-  
-  // UPDATED: Derive connection status from clientId existence
-  // In the new manager, having a clientId means we are socket-connected AND welcomed.
+
   let isWsConnected = $derived(realtime.clientId !== null);
 
   // Manage WebSocket connection in layout (persists across navigation)
@@ -25,7 +24,7 @@
 
   // Get user initials
   let userInitials = $derived(() => {
-    if (!data.user) return '';
+    if (!data.user) return 'G';
     const first = data.user.firstname?.[0] || '';
     const last = data.user.lastname?.[0] || '';
     return (first + last).toUpperCase();
@@ -59,6 +58,23 @@
   beforeNavigate(() => {
     showUserMenu = false;
   });
+
+  afterNavigate((navigation) => {
+    // 1. Check if the URL has the specific 'status' param
+    const params = new URLSearchParams(navigation.to?.url.search);
+    
+    if (params.get('status') === 'logged_out') {
+      // 2. Fire the toast
+      toastState.addToast("You have been logged out successfully.", "info");
+
+      // 3. Clean the URL (Remove the ?status=logged_out param)
+      // We use history.replaceState so it doesn't trigger a router navigation
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete('status');
+      history.replaceState({}, '', newUrl);
+    }
+  });
+
 </script>
 
 <svelte:head>
@@ -77,58 +93,89 @@
         {darkMode ? '☀️' : '🌕'}
       </button>
 
-      {#if data.user}
-        <div class="relative user-menu-container">
-          <button 
-            onclick={toggleUserMenu}
-            class="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm hover:cursor-pointer"
-            style="background-color: {sessionColor}"
-          >
-            {userInitials()}
-          </button>
+      <div class="relative user-menu-container">
+        <button
+          onclick={toggleUserMenu}
+          class="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm hover:cursor-pointer"
+          style="background-color: {sessionColor}"
+        >
+          {userInitials()}
+        </button>
 
-          {#if showUserMenu}
-            <div class="absolute right-0 mt-2 w-56 bg-white dark:bg-slate-700 rounded-lg shadow-lg py-2 z-50">
+        {#if showUserMenu}
+          <div
+            class="absolute right-0 py-2 mt-2 w-56 bg-white dark:bg-slate-700 rounded-lg shadow-md shadow-gray-900 z-50 border border-gray-200 dark:border-slate-600"
+          >
+            {#if data.user}
               <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-600 flex justify-between items-center">
                 <p class="text-sm font-semibold text-gray-900 dark:text-white">
                   {data.user.firstname} {data.user.lastname}
                 </p>
                 {#if isWsConnected}
-                  <span class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" title="Connected"></span>
+                  <span
+                    class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
+                    title="Connected"
+                  ></span>
                 {:else}
-                  <span class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" title="Disconnected"></span>
+                  <span
+                    class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+                    title="Disconnected"
+                  ></span>
                 {/if}
               </div>
-              
-              <a 
-                href="/asset" 
+
+              <a
+                href="/asset"
                 class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
               >
                 Home
               </a>
 
-              <a 
-                href="/asset/admin" 
+              <a
+                href="/asset/admin"
                 class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
               >
                 Admin Panel
               </a>
-              
-              <a 
-                href="/asset/logout" 
+
+              <a
+                href="/asset/logout"
                 data-sveltekit-preload-data="off"
-                class="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-600"
+                class="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-600" 
               >
                 Logout
               </a>
-            </div>
-          {/if}
-        </div>
-      {:else}
-         <a href="/asset/login" class="hover:cursor-pointer hover:bg-blue-900 h-12 flex justify-center items-center px-3">
-          <div>Login</div>
-        </a>
-      {/if}
+            {:else}
+              <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-600 flex justify-between items-center">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">Guest</p>
+                {#if isWsConnected}
+                  <span
+                    class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
+                    title="Connected"
+                  ></span>
+                {:else}
+                  <span
+                    class="w-2.5 h-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+                    title="Disconnected"
+                  ></span>
+                {/if}
+              </div>
+              <a
+                href="/asset"
+                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
+              >
+                Home
+              </a>
+              <a
+                href="/asset/login"
+                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
+              >
+                Login
+              </a>
+            {/if}
+          </div>
+        {/if}
+      </div>
     </div>
   </header>
   

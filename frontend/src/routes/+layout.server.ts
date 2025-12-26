@@ -10,6 +10,6 @@ export const load: LayoutServerLoad = async ({ cookies, url, locals }) => {
     url: url.pathname,
     user: locals.user,
     session_color,
-    sessionId
+    sessionId,
   };
 };
