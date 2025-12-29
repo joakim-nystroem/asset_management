@@ -18,6 +18,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
 
     // Clear the session cookie
     cookies.delete('sessionId', { path: '/' });
+    cookies.delete('session_color', { path: '/' });
     // Redirect to asset page with a query parameter
     redirect(303, '/asset?status=logged_out');
 };

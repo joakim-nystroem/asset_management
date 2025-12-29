@@ -267,6 +267,10 @@
   }
 
   async function handlePaste() {
+    if (!data.user) {
+      toastState.addToast("Log in to edit.", "warning");
+      return;
+    }
     const target = getActionTarget();
     if (!target) return;
     const pasteResult = await clipboard.paste(target, assets, keys);
@@ -301,6 +305,11 @@
   }
 
   async function handleEditAction() {
+    if (!data.user) {
+      toastState.addToast("Log in to edit.", "warning");
+      contextMenu.close();
+      return;
+    }
     // Falls back to state (ContextMenu > Selection)
     const target = getActionTarget();
 
@@ -333,6 +342,10 @@
   }
 
   async function saveEdit() {
+    if (!data.user) {
+      toastState.addToast("Log in to edit.", "warning");
+      return;
+    }
     const pos = editManager.getEditPosition();
     const change = await editManager.save(assets, columnManager, rowManager);
 
@@ -382,6 +395,10 @@
   }
 
   async function commitChanges() {
+    if (!data.user) {
+      toastState.addToast("Log in to edit.", "warning");
+      return;
+    }
     const validChanges = changeManager.getValidChanges();
     // Only get valid changes
     if (validChanges.length === 0) {
@@ -410,39 +427,18 @@
       });
 
       if (response.ok) {
-        // --- NEW LOGIC: Revert invalid changes ---
-        // 1. Capture invalid changes before clearing
-        const allChanges = changeManager.getAllChanges();
-        const invalidChanges = allChanges.filter((c) =>
-          changeManager.isInvalid(c.id, c.key),
-        );
+        const invalidChangeCount = changeManager.getAllChanges().length - validChanges.length;
 
-        // 2. Revert them in the local state to the original value
-        for (const change of invalidChanges) {
-          updateAssetInList(assets, {
-            id: change.id,
-            key: change.key,
-            value: change.oldValue,
-          });
-          updateAssetInList(baseAssets, {
-            id: change.id,
-            key: change.key,
-            value: change.oldValue,
-          });
-        }
-        // ----------------------------------------
-
-        changeManager.clear();
+        // Clear only the valid changes from the change manager
+        changeManager.clearValidChanges(); 
         selection.resetAll();
 
-        if (invalidChanges.length > 0) {
-          // REPLACE ALERT
+        if (invalidChangeCount > 0) {
           toastState.addToast(
-            `${validChanges.length} changes committed. ${invalidChanges.length} invalid changes were reverted.`,
+            `${validChanges.length} changes committed. ${invalidChangeCount} invalid edits still need to be fixed.`,
             "warning",
           );
         } else {
-          // REPLACE ALERT (or add new success message)
           toastState.addToast(
             `${validChanges.length} changes committed successfully.`,
             "success",
@@ -464,9 +460,23 @@
   }
 
   function discardChanges() {
-    const allChangesToRevert = history.undoStack.flat();
-    history.revert(allChangesToRevert, assets);
-    history.clear();
+    if (!data.user) {
+      toastState.addToast("Log in to edit.", "warning");
+      return;
+    }
+    const changesToRevert = changeManager.getAllChanges(true);
+
+    // Revert changes from changeManager
+    for (const change of changesToRevert) {
+        const item = assets.find(a => a.id === change.id);
+        if (item) {
+            item[change.key] = change.oldValue;
+        }
+    }
+    
+    // Remove the discarded changes from history
+    history.clearCommitted(changesToRevert);
+
     changeManager.clear();
     selection.resetAll();
     toastState.addToast("Changes discarded.", "info");
@@ -568,7 +578,7 @@
     <div class="flex flex-row w-full justify-between items-center">
       <div class="flex flex-row gap-2">
         <FilterPanel state={filterPanel} searchManager={search} />
-        {#if changeManager.hasChanges}
+        {#if changeManager.hasChanges && data.user}
           <div class="flex gap-2 items-center">
             <button
               onclick={commitChanges}
@@ -838,6 +848,13 @@
                   }
                 }}
                 ondblclick={(e) => {
+                  if (!data.user) {
+                    toastState.addToast(
+                      "Log in to edit.",
+                      "warning",
+                    );
+                    return;
+                  }
                   e.preventDefault();
                   e.stopPropagation();
                   if (!isEditingThisCell) {

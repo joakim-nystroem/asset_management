@@ -84,7 +84,7 @@ export function createInteractionHandler(
       const { selection } = state;
       
       // Get current anchor (last active range start/end)
-      const primary = selection.getPrimaryRange();
+      const primary = selection.primaryRange;
       if (!primary) return;
 
       // Handle Ctrl + Arrow (Jump/Extend to Edge)

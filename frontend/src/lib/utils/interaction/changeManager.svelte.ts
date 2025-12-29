@@ -152,6 +152,22 @@ function createChangeManager() {
   }
 
   /**
+   * Clears only the valid changes, retaining any invalid ones for user correction.
+   */
+  function clearValidChanges() {
+    if (invalidChanges.size === dirtyChanges.size) return; // All are invalid, nothing to clear
+
+    const remainingDirty = new Map<string, HistoryAction>();
+    for (const key of invalidChanges) {
+      if (dirtyChanges.has(key)) {
+        remainingDirty.set(key, dirtyChanges.get(key)!);
+      }
+    }
+    dirtyChanges = remainingDirty;
+    // invalidChanges remains the same as we are keeping them
+  }
+
+  /**
    * A getter to easily check if there are any pending changes.
    */
   const hasChanges = $derived(dirtyChanges.size > 0);
@@ -168,6 +184,7 @@ function createChangeManager() {
     getValidChanges,
     isInvalid,
     clear,
+    clearValidChanges,
     setConstraints
   };
 }

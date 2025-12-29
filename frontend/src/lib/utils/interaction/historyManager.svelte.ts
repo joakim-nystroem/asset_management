@@ -71,4 +71,32 @@ export class HistoryManager {
     this.undoStack = [];
     this.redoStack = [];
   }
+
+  /**
+   * Removes committed actions from the undo stack, effectively "locking them in"
+   * as the new baseline. This prevents a "Discard" from reverting successfully
+   * committed changes after a partial commit.
+   */
+  clearCommitted(committedActions: HistoryAction[]) {
+    if (committedActions.length === 0) return;
+
+    const committedKeys = new Set(
+      committedActions.map(c => `${c.id},${c.key}`)
+    );
+
+    const newUndoStack: HistoryAction[][] = [];
+
+    for (const batch of this.undoStack) {
+      const newBatch = batch.filter(
+        action => !committedKeys.has(`${action.id},${action.key}`)
+      );
+      
+      if (newBatch.length > 0) {
+        newUndoStack.push(newBatch);
+      }
+    }
+
+    this.undoStack = newUndoStack;
+    this.redoStack = []; // A new commit invalidates the entire redo stack
+  }
 }
