@@ -3,6 +3,7 @@ import { PUBLIC_WS_URL, PUBLIC_WS_PROTOCOL } from '$env/static/public';
 interface User {
     row: number;
     col: number;
+    assetId?: number | string; // ID of the asset being selected
     firstname: string;
     lastname: string;
     color: string;
@@ -29,7 +30,7 @@ function createRealtimeManager() {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let attempts = 0;
     let shouldReconnect = true;
-    let lastSentPos: { row: number; col: number } | null = null;
+    let lastSentPos: { row: number; col: number; assetId?: number | string } | null = null;
     let session: { id: string; color?: string } | null = null;
     let onAssetUpdate: ((data: any) => void) | null = null;
 
@@ -42,12 +43,12 @@ function createRealtimeManager() {
         onAssetUpdate = handler;
     }
 
-    function sendPositionUpdate(row: number, col: number) {
+    function sendPositionUpdate(row: number, col: number, assetId?: number | string) {
         if (row === -1) return sendDeselect();
-        if (lastSentPos?.row === row && lastSentPos?.col === col) return;
-        
-        lastSentPos = { row, col };
-        send('USER_POSITION_UPDATE', { row, col });
+        if (lastSentPos?.row === row && lastSentPos?.col === col && lastSentPos?.assetId === assetId) return;
+
+        lastSentPos = { row, col, assetId };
+        send('USER_POSITION_UPDATE', { row, col, assetId });
     }
 
     function sendDeselect() {
