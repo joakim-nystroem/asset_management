@@ -6,109 +6,128 @@ export type Filter = {
   value: string;
 };
 
-export class SearchManager {
+function createSearchManager() {
   // Search state
-  term = $state('');
-  inputValue = $state('');
-  
+  let term = $state('');
+  let inputValue = $state('');
+
   // Filter state
-  selectedFilters = $state<Filter[]>([]);
-  filterOptions: SvelteMap<string, any> = new SvelteMap();
-  
+  let selectedFilters = $state<Filter[]>([]);
+  const filterOptions = new SvelteMap<string, any>();
+
   // Error state
-  error = $state('');
+  let error = $state('');
 
   /**
    * Perform search against the SvelteKit API
    */
-  async search(baseData: any[]): Promise<any[]> {
+  async function search(baseData: any[]): Promise<any[]> {
     try {
       const params = new URLSearchParams();
 
-      if (this.term) {
-        params.set('q', this.term);
+      if (term) {
+        params.set('q', term);
       }
-    
-      if (this.selectedFilters.length > 0) {
-        this.selectedFilters.forEach(f => {
+
+      if (selectedFilters.length > 0) {
+        selectedFilters.forEach(f => {
           params.append('filter', `${f.key}:${f.value}`);
         });
       }
 
       // If no search term and no filters, return base data
-      if (!this.term && this.selectedFilters.length === 0) {
-        this.error = '';
+      if (!term && selectedFilters.length === 0) {
+        error = '';
         return [...baseData];
       }
 
       console.log("Performing search with params:", params.toString());
       const response = await fetch(`/asset/api/search?${params.toString()}`);
-      
+
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
-      
+
       const result = await response.json();
-      this.error = '';
-      
+      error = '';
+
       // Handle case where API returns null for empty list
       return result || [];
 
     } catch (err) {
-      this.error = err instanceof Error ? err.message : 'An unknown error occurred.';
-      console.error('Search failed:', this.error);
+      error = err instanceof Error ? err.message : 'An unknown error occurred.';
+      console.error('Search failed:', error);
       return [];
     }
   }
 
-  // ... rest of the file (executeSearch, clearSearch, etc.) remains unchanged
-  executeSearch() {
-    this.term = this.inputValue;
+  function executeSearch() {
+    term = inputValue;
   }
 
-  clearSearch() {
-    this.term = '';
-    this.inputValue = '';
+  function clearSearch() {
+    term = '';
+    inputValue = '';
   }
 
-  getFilterItems(key: string, assets: any[]): any[] {
-    if (this.filterOptions.size > 0 && this.filterOptions.has(key)) {
-      return this.filterOptions.get(key);
+  function getFilterItems(key: string, assets: any[]): any[] {
+    if (filterOptions.size > 0 && filterOptions.has(key)) {
+      return filterOptions.get(key);
     }
     return getUniqueValues(assets, key);
   }
 
-  selectFilterItem(item: string, key: string, assets: any[]) {
-    this.selectedFilters = toggleFilter(this.selectedFilters, key, item);
-    if (!this.filterOptions.has(key)) {
-      this.filterOptions.set(key, this.getFilterItems(key, assets));
+  function selectFilterItem(item: string, key: string, assets: any[]) {
+    selectedFilters = toggleFilter(selectedFilters, key, item);
+    if (!filterOptions.has(key)) {
+      filterOptions.set(key, getFilterItems(key, assets));
     }
   }
 
-  removeFilter(filter: Filter) {
-    this.selectedFilters = removeFilter(this.selectedFilters, filter);
+  function removeFilter(filter: Filter) {
+    selectedFilters = removeFilterHelper(selectedFilters, filter);
   }
 
-  clearAllFilters() {
-    this.selectedFilters = [];
+  function clearAllFilters() {
+    selectedFilters = [];
   }
 
-  cleanupFilterCache() {
-    const activeFilterKeys = new Set(this.selectedFilters.map(f => f.key));
-    for (const key of this.filterOptions.keys()) {
+  function cleanupFilterCache() {
+    const activeFilterKeys = new Set(selectedFilters.map(f => f.key));
+    for (const key of filterOptions.keys()) {
       if (!activeFilterKeys.has(key)) {
-        this.filterOptions.delete(key);
+        filterOptions.delete(key);
       }
     }
   }
 
-  isFilterSelected(key: string, value: string): boolean {
-    return this.selectedFilters.some(f => f.key === key && f.value === value);
+  function isFilterSelected(key: string, value: string): boolean {
+    return selectedFilters.some(f => f.key === key && f.value === value);
   }
 
-  getFilterCount(): number {
-    return this.selectedFilters.length;
+  function getFilterCount(): number {
+    return selectedFilters.length;
   }
+
+  return {
+    get term() { return term },
+    set term(value: string) { term = value },
+    get inputValue() { return inputValue },
+    set inputValue(value: string) { inputValue = value },
+    get selectedFilters() { return selectedFilters },
+    get error() { return error },
+
+    search,
+    executeSearch,
+    clearSearch,
+    getFilterItems,
+    selectFilterItem,
+    removeFilter,
+    clearAllFilters,
+    cleanupFilterCache,
+    isFilterSelected,
+    getFilterCount
+  };
 }
 
 // --- Internal Helper Functions ---
@@ -129,6 +148,11 @@ function toggleFilter(currentFilters: Filter[], key: string, value: string): Fil
   }
 }
 
-function removeFilter(currentFilters: Filter[], filterToRemove: Filter): Filter[] {
+function removeFilterHelper(currentFilters: Filter[], filterToRemove: Filter): Filter[] {
   return currentFilters.filter(item => item !== filterToRemove);
 }
+
+export type SearchManager = ReturnType<typeof createSearchManager>;
+
+// Export singleton instance
+export const searchManager = createSearchManager();

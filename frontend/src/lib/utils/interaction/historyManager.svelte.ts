@@ -7,30 +7,30 @@ export type HistoryAction = {
   newValue: string;
 };
 
-export class HistoryManager {
+function createHistoryManager() {
   // Stacks now hold ARRAYS of actions (batches)
-  undoStack = $state<HistoryAction[][]>([]);
-  redoStack = $state<HistoryAction[][]>([]);
+  let undoStack = $state<HistoryAction[][]>([]);
+  let redoStack = $state<HistoryAction[][]>([]);
 
   /**
    * Record a single change (wraps it in a batch of 1)
    */
-  record(id: number | string, key: string, oldValue: string, newValue: string) {
+  function record(id: number | string, key: string, oldValue: string, newValue: string) {
     if (oldValue === newValue) return;
-    this.undoStack.push([{ id, key, oldValue, newValue }]);
-    this.redoStack = []; 
+    undoStack.push([{ id, key, oldValue, newValue }]);
+    redoStack = [];
   }
 
   /**
    * Record multiple changes as a single history event
    */
-  recordBatch(actions: HistoryAction[]) {
+  function recordBatch(actions: HistoryAction[]) {
     if (actions.length === 0) return;
-    this.undoStack.push(actions);
-    this.redoStack = [];
+    undoStack.push(actions);
+    redoStack = [];
   }
 
-  revert(actions: HistoryAction[], assets: any[]) {
+  function revert(actions: HistoryAction[], assets: any[]) {
     // Revert all actions in the batch (in reverse order for safety)
     for (let i = actions.length - 1; i >= 0; i--) {
       const action = actions[i];
@@ -41,18 +41,18 @@ export class HistoryManager {
     }
   }
 
-  undo(assets: any[]): HistoryAction[] | undefined {
-    const batch = this.undoStack.pop();
+  function undo(assets: any[]): HistoryAction[] | undefined {
+    const batch = undoStack.pop();
     if (!batch) return;
 
-    this.revert(batch, assets);
-    
-    this.redoStack.push(batch);
+    revert(batch, assets);
+
+    redoStack.push(batch);
     return batch;
   }
 
-  redo(assets: any[]): HistoryAction[] | undefined {
-    const batch = this.redoStack.pop();
+  function redo(assets: any[]): HistoryAction[] | undefined {
+    const batch = redoStack.pop();
     if (!batch) return;
 
     // Re-apply all actions in the batch
@@ -63,13 +63,13 @@ export class HistoryManager {
       }
     }
 
-    this.undoStack.push(batch);
+    undoStack.push(batch);
     return batch;
   }
 
-  clear() {
-    this.undoStack = [];
-    this.redoStack = [];
+  function clear() {
+    undoStack = [];
+    redoStack = [];
   }
 
   /**
@@ -77,7 +77,7 @@ export class HistoryManager {
    * as the new baseline. This prevents a "Discard" from reverting successfully
    * committed changes after a partial commit.
    */
-  clearCommitted(committedActions: HistoryAction[]) {
+  function clearCommitted(committedActions: HistoryAction[]) {
     if (committedActions.length === 0) return;
 
     const committedKeys = new Set(
@@ -86,17 +86,35 @@ export class HistoryManager {
 
     const newUndoStack: HistoryAction[][] = [];
 
-    for (const batch of this.undoStack) {
+    for (const batch of undoStack) {
       const newBatch = batch.filter(
         action => !committedKeys.has(`${action.id},${action.key}`)
       );
-      
+
       if (newBatch.length > 0) {
         newUndoStack.push(newBatch);
       }
     }
 
-    this.undoStack = newUndoStack;
-    this.redoStack = []; // A new commit invalidates the entire redo stack
+    undoStack = newUndoStack;
+    redoStack = []; // A new commit invalidates the entire redo stack
   }
+
+  return {
+    get undoStack() { return undoStack },
+    get redoStack() { return redoStack },
+
+    record,
+    recordBatch,
+    revert,
+    undo,
+    redo,
+    clear,
+    clearCommitted
+  };
 }
+
+export type HistoryManager = ReturnType<typeof createHistoryManager>;
+
+// Export singleton instance
+export const historyManager = createHistoryManager();

@@ -83,7 +83,8 @@ export function createInteractionHandler(
       const { rows, cols } = callbacks.getGridSize();
       const { selection } = state;
       
-      // Get current anchor (last active range start/end)
+      // FIX: Changed from selection.getPrimaryRange() to selection.primaryRange
+      // primaryRange is a getter property, not a method
       const primary = selection.primaryRange;
       if (!primary) return;
 

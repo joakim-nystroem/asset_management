@@ -9,12 +9,12 @@ export type EditState = {
   originalColumnWidth: number;
 }
 
-export class EditManager {
-  isEditing = $state(false);
-  editState = $state<EditState | null>(null);
-  inputValue = $state('');
+function createEditManager() {
+  let isEditing = $state(false);
+  let editState = $state<EditState | null>(null);
+  let inputValue = $state('');
 
-  startEdit(
+  function startEdit(
     row: number,
     col: number,
     key: string,
@@ -23,55 +23,55 @@ export class EditManager {
     rowManager: RowHeightManager
   ) {
     const originalWidth = columnManager.getWidth(key);
-    
-    this.editState = {
+
+    editState = {
       row,
       col,
       key,
       originalValue: currentValue,
       originalColumnWidth: originalWidth
     };
-    
-    this.inputValue = currentValue;
-    this.isEditing = true;
 
-    const contentWidth = this.calculateContentWidth(currentValue);
+    inputValue = currentValue;
+    isEditing = true;
+
+    const contentWidth = calculateContentWidth(currentValue);
     const expandedWidth = Math.min(300, Math.max(originalWidth, contentWidth));
     columnManager.setWidth(key, expandedWidth);
     rowManager.setHeight(row, 32);
   }
 
-  updateRowHeight(textareaElement: HTMLTextAreaElement | null, rowManager: RowHeightManager, columnManager: ColumnWidthManager) {
-    if (!this.editState || !textareaElement) return;
-    const currentColumnWidth = columnManager.getWidth(this.editState.key);
-    
+  function updateRowHeight(textareaElement: HTMLTextAreaElement | null, rowManager: RowHeightManager, columnManager: ColumnWidthManager) {
+    if (!editState || !textareaElement) return;
+    const currentColumnWidth = columnManager.getWidth(editState.key);
+
     if (currentColumnWidth >= 300) {
       const contentHeight = textareaElement.scrollHeight;
       const paddingHeight = 16;
       const totalHeight = contentHeight + paddingHeight;
       const finalHeight = Math.max(32, totalHeight);
-      rowManager.setHeight(this.editState.row, finalHeight);
+      rowManager.setHeight(editState.row, finalHeight);
     } else {
-      rowManager.setHeight(this.editState.row, 32);
+      rowManager.setHeight(editState.row, 32);
     }
   }
 
-  private calculateContentWidth(text: string): number {
+  function calculateContentWidth(text: string): number {
     const charWidth = 8;
-    const padding = 16; 
+    const padding = 16;
     const estimatedWidth = (text.length * charWidth) + padding;
     return Math.min(300, estimatedWidth);
   }
 
-  async save(
+  async function save(
     assets: any[],
     columnManager: ColumnWidthManager,
     rowManager: RowHeightManager
   ): Promise<{ id: any; key: string; oldValue: any; newValue: any; } | null> {
-    if (!this.editState) return null;
+    if (!editState) return null;
 
-    const { row, key, originalValue, originalColumnWidth } = this.editState;
-    const newValue = this.inputValue.trim();
+    const { row, key, originalValue, originalColumnWidth } = editState;
+    const newValue = inputValue.trim();
 
     const asset = assets[row];
     if (!asset) return null;
@@ -79,9 +79,9 @@ export class EditManager {
     columnManager.setWidth(key, originalColumnWidth);
     rowManager.resetHeight(row);
 
-    this.isEditing = false;
-    this.editState = null;
-    this.inputValue = '';
+    isEditing = false;
+    editState = null;
+    inputValue = '';
 
     if (originalValue !== newValue) {
       // 1. Optimistic Update (Update UI immediately)
@@ -94,23 +94,42 @@ export class EditManager {
     return null;
   }
 
-  cancel(columnManager: ColumnWidthManager, rowManager: RowHeightManager) {
-    if (!this.editState) return;
-    const { key, originalColumnWidth, row } = this.editState;
+  function cancel(columnManager: ColumnWidthManager, rowManager: RowHeightManager) {
+    if (!editState) return;
+    const { key, originalColumnWidth, row } = editState;
     columnManager.setWidth(key, originalColumnWidth);
     rowManager.resetHeight(row);
-    this.isEditing = false;
-    this.editState = null;
-    this.inputValue = '';
+    isEditing = false;
+    editState = null;
+    inputValue = '';
   }
 
-  getEditPosition(): { row: number; col: number } | null {
-    if (!this.editState) return null;
-    return { row: this.editState.row, col: this.editState.col };
+  function getEditPosition(): { row: number; col: number } | null {
+    if (!editState) return null;
+    return { row: editState.row, col: editState.col };
   }
 
-  isEditingCell(row: number, col: number): boolean {
-    if (!this.editState) return false;
-    return this.editState.row === row && this.editState.col === col;
+  function isEditingCell(row: number, col: number): boolean {
+    if (!editState) return false;
+    return editState.row === row && editState.col === col;
   }
+
+  return {
+    get isEditing() { return isEditing },
+    get editState() { return editState },
+    get inputValue() { return inputValue },
+    set inputValue(value: string) { inputValue = value },
+
+    startEdit,
+    updateRowHeight,
+    save,
+    cancel,
+    getEditPosition,
+    isEditingCell
+  };
 }
+
+export type EditManager = ReturnType<typeof createEditManager>;
+
+// Export singleton instance
+export const editManager = createEditManager();

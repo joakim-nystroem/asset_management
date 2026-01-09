@@ -26,88 +26,88 @@ function sortData<T>(list: T[], key: keyof T, dir: SortDirection): T[] {
   });
 }
 
-export class SortManager {
+function createSortManager() {
   // State
-  key = $state('');
-  direction = $state<SortDirection>('asc');
-  defaultKey = 'id'; // [UPDATED] Default sort key
-  
+  let key = $state('');
+  let direction = $state<SortDirection>('asc');
+  const defaultKey = 'id'; // Default sort key
+
   // Cache sorted results to avoid re-sorting
-  private cache = new Map<string, any[]>();
-  private lastDataRef: any[] = [];
+  let cache = new Map<string, any[]>();
+  let lastDataRef: any[] = [];
 
   /**
    * Generate cache key for current sort state
    */
-  private getCacheKey(key: string, dir: string): string {
-    return `${key}-${dir}`;
+  function getCacheKey(sortKey: string, dir: string): string {
+    return `${sortKey}-${dir}`;
   }
 
   /**
    * Update sort state and toggle if same column
    */
-  update(columnKey: string, dir: SortDirection) {
-    if (this.key === columnKey && this.direction === dir) {
-      this.reset();
+  function update(columnKey: string, dir: SortDirection) {
+    if (key === columnKey && direction === dir) {
+      reset();
     } else {
-      this.key = columnKey;
-      this.direction = dir;
+      key = columnKey;
+      direction = dir;
     }
   }
 
-  reset() {
-    this.key = '';
-    this.direction = 'asc';
-    this.cache.clear();
-    this.lastDataRef = [];
+  function reset() {
+    key = '';
+    direction = 'asc';
+    cache.clear();
+    lastDataRef = [];
   }
 
   /**
    * Apply sort synchronously with caching
    */
-  apply(data: any[]): any[] {
-    if (this.lastDataRef !== data) {
-      this.cache.clear();
-      this.lastDataRef = data;
+  function apply(data: any[]): any[] {
+    if (lastDataRef !== data) {
+      cache.clear();
+      lastDataRef = data;
     }
 
-    // [UPDATED] Determine effective key (Active OR Default)
-    const effectiveKey = this.key || this.defaultKey;
-    const effectiveDir = this.key ? this.direction : 'asc'; // Default to ASC for default key
+    // Determine effective key (Active OR Default)
+    const effectiveKey = key || defaultKey;
+    const effectiveDir = key ? direction : 'asc'; // Default to ASC for default key
 
     if (!effectiveKey) return data;
 
-    const cacheKey = this.getCacheKey(effectiveKey, effectiveDir);
-    
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey)!;
+    const cacheKey = getCacheKey(effectiveKey, effectiveDir);
+
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey)!;
     }
 
     const sorted = sortData(data, effectiveKey as any, effectiveDir);
-    this.cache.set(cacheKey, sorted);
-    
+    cache.set(cacheKey, sorted);
+
     return sorted;
   }
 
   /**
    * Apply sort asynchronously to avoid blocking UI
    */
-  async applyAsync(data: any[]): Promise<any[]> {
-    if (this.lastDataRef !== data) {
-      this.cache.clear();
-      this.lastDataRef = data;
+  async function applyAsync(data: any[]): Promise<any[]> {
+    if (lastDataRef !== data) {
+      cache.clear();
+      lastDataRef = data;
     }
 
-    // [UPDATED] Determine effective key (Active OR Default)
-    const effectiveKey = this.key || this.defaultKey;
-    const effectiveDir = this.key ? this.direction : 'asc'; 
+    // Determine effective key (Active OR Default)
+    const effectiveKey = key || defaultKey;
+    const effectiveDir = key ? direction : 'asc';
 
     if (!effectiveKey) return data;
 
-    const cacheKey = this.getCacheKey(effectiveKey, effectiveDir);
-    
-    if (this.cache.has(cacheKey)) {
-      return this.cache.get(cacheKey)!;
+    const cacheKey = getCacheKey(effectiveKey, effectiveDir);
+
+    if (cache.has(cacheKey)) {
+      return cache.get(cacheKey)!;
     }
 
     const sorted = await new Promise<any[]>((resolve) => {
@@ -117,25 +117,42 @@ export class SortManager {
       }, 0);
     });
 
-    this.cache.set(cacheKey, sorted);
-    
+    cache.set(cacheKey, sorted);
+
     return sorted;
   }
 
-  // ... rest of the class (invalidateCache, isActive, etc.) remains the same
-  invalidateCache() {
-    this.cache.clear();
-    this.lastDataRef = [];
+  function invalidateCache() {
+    cache.clear();
+    lastDataRef = [];
   }
 
-  isActive(columnKey: string): boolean {
-    return this.key === columnKey;
+  function isActive(columnKey: string): boolean {
+    return key === columnKey;
   }
 
-  getState(columnKey: string): { active: boolean; direction: SortDirection } {
+  function getState(columnKey: string): { active: boolean; direction: SortDirection } {
     return {
-      active: this.key === columnKey,
-      direction: this.direction
+      active: key === columnKey,
+      direction: direction
     };
   }
+
+  return {
+    get key() { return key },
+    get direction() { return direction },
+
+    update,
+    reset,
+    apply,
+    applyAsync,
+    invalidateCache,
+    isActive,
+    getState
+  };
 }
+
+export type SortManager = ReturnType<typeof createSortManager>;
+
+// Export singleton instance
+export const sortManager = createSortManager();

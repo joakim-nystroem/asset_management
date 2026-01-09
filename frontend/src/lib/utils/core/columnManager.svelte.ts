@@ -1,93 +1,93 @@
 // $lib/utils/columnWidthManager.svelte.ts
 import { SvelteMap } from 'svelte/reactivity';
 
-export class ColumnWidthManager {
+function createColumnWidthManager() {
   // Default width for all columns
-  private defaultWidth = 150;
-  
+  const defaultWidth = 150;
+
   // Store widths per column key - Using SvelteMap for granular reactivity
-  private widths = new SvelteMap<string, number>();
-  
+  const widths = new SvelteMap<string, number>();
+
   // Currently resizing column
-  resizingColumn = $state<string | null>(null);
-  startX = $state(0);
-  startWidth = $state(0);
+  let resizingColumn = $state<string | null>(null);
+  let startX = $state(0);
+  let startWidth = $state(0);
 
   /**
    * Get width for a specific column
    */
-  getWidth(key: string): number {
-    return this.widths.get(key) ?? this.defaultWidth;
+  function getWidth(key: string): number {
+    return widths.get(key) ?? defaultWidth;
   }
 
   /**
    * Set width for a specific column
    */
-  setWidth(key: string, width: number) {
+  function setWidth(key: string, width: number) {
     // Enforce minimum width
     const minWidth = 50;
     const clampedWidth = Math.max(minWidth, width);
-    this.widths.set(key, clampedWidth);
+    widths.set(key, clampedWidth);
   }
 
   /**
    * Reset a specific column width to default
    */
-  resetWidth(key: string) {
-    this.widths.delete(key);
+  function resetWidth(key: string) {
+    widths.delete(key);
   }
 
   /**
    * Start resizing a column
    */
-  startResize(key: string, startX: number) {
-    console.log(`[ColumnManager] Start resize: ${key} at X=${startX}`);
-    this.resizingColumn = key;
-    this.startX = startX;
-    this.startWidth = this.getWidth(key);
+  function startResize(key: string, clientX: number) {
+    console.log(`[ColumnManager] Start resize: ${key} at X=${clientX}`);
+    resizingColumn = key;
+    startX = clientX;
+    startWidth = getWidth(key);
   }
 
   /**
    * Update width during resize
    */
-  updateResize(currentX: number) {
-    if (!this.resizingColumn) return;
-    
-    const delta = currentX - this.startX;
-    const newWidth = this.startWidth + delta;
-    
-    console.log(`[ColumnManager] Resizing ${this.resizingColumn}: delta=${delta}, newWidth=${newWidth}`);
-    this.setWidth(this.resizingColumn, newWidth);
+  function updateResize(currentX: number) {
+    if (!resizingColumn) return;
+
+    const delta = currentX - startX;
+    const newWidth = startWidth + delta;
+
+    console.log(`[ColumnManager] Resizing ${resizingColumn}: delta=${delta}, newWidth=${newWidth}`);
+    setWidth(resizingColumn, newWidth);
   }
 
   /**
    * End resize
    */
-  endResize() {
-    if (this.resizingColumn) {
-        console.log(`[ColumnManager] End resize: ${this.resizingColumn}`);
+  function endResize() {
+    if (resizingColumn) {
+      console.log(`[ColumnManager] End resize: ${resizingColumn}`);
     }
-    this.resizingColumn = null;
+    resizingColumn = null;
   }
 
   /**
    * Reset all widths to default
    */
-  resetAll() {
-    this.widths.clear();
+  function resetAll() {
+    widths.clear();
   }
 
   /**
    * Load widths from localStorage
    */
-  loadFromStorage(storageKey: string) {
+  function loadFromStorage(storageKey: string) {
     try {
       const stored = localStorage.getItem(storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
         // Re-populate SvelteMap
         for (const [key, value] of Object.entries(parsed)) {
-            this.widths.set(key, Number(value));
+          widths.set(key, Number(value));
         }
       }
     } catch (err) {
@@ -98,10 +98,10 @@ export class ColumnWidthManager {
   /**
    * Save widths to localStorage
    */
-  saveToStorage(storageKey: string) {
+  function saveToStorage(storageKey: string) {
     try {
       // Convert SvelteMap to standard object for JSON
-      const obj = Object.fromEntries(this.widths.entries());
+      const obj = Object.fromEntries(widths.entries());
       localStorage.setItem(storageKey, JSON.stringify(obj));
     } catch (err) {
       console.error('Failed to save column widths:', err);
@@ -111,7 +111,27 @@ export class ColumnWidthManager {
   /**
    * Get all widths as an object (for debugging or export)
    */
-  getAllWidths(): Record<string, number> {
-    return Object.fromEntries(this.widths.entries());
+  function getAllWidths(): Record<string, number> {
+    return Object.fromEntries(widths.entries());
   }
+
+  return {
+    get resizingColumn() { return resizingColumn },
+
+    getWidth,
+    setWidth,
+    resetWidth,
+    startResize,
+    updateResize,
+    endResize,
+    resetAll,
+    loadFromStorage,
+    saveToStorage,
+    getAllWidths
+  };
 }
+
+export type ColumnWidthManager = ReturnType<typeof createColumnWidthManager>;
+
+// Export singleton instance
+export const columnManager = createColumnWidthManager();

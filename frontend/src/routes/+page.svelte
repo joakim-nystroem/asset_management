@@ -8,16 +8,16 @@
   import { createInteractionHandler } from "$lib/utils/interaction/interactionHandler";
   // --- STATE CLASSES ---
   import { ContextMenuState } from "$lib/utils/ui/contextMenu/contextMenu.svelte.ts";
-  import { HistoryManager } from "$lib/utils/interaction/historyManager.svelte";
+  import { historyManager } from "$lib/utils/interaction/historyManager.svelte";
   import { createHeaderMenu } from "$lib/utils/ui/headerMenu/headerMenu.svelte.ts";
   import { selection } from "$lib/utils/interaction/selectionManager.svelte";
   import { createClipboard } from "$lib/utils/interaction/clipboardManager.svelte";
-  import { SearchManager } from "$lib/utils/data/searchManager.svelte";
-  import { SortManager } from "$lib/utils/data/sortManager.svelte";
+  import { searchManager } from "$lib/utils/data/searchManager.svelte";
+  import { sortManager } from "$lib/utils/data/sortManager.svelte";
   import { createVirtualScroll } from "$lib/utils/core/virtualScrollManager.svelte";
-  import { ColumnWidthManager } from "$lib/utils/core/columnManager.svelte";
-  import { RowHeightManager } from "$lib/utils/core/rowManager.svelte";
-  import { EditManager } from "$lib/utils/interaction/editManager.svelte";
+  import { columnManager } from "$lib/utils/core/columnManager.svelte";
+  import { rowManager } from "$lib/utils/core/rowManager.svelte";
+  import { editManager } from "$lib/utils/interaction/editManager.svelte";
   import FilterPanel from "$lib/utils/ui/filterPanel/filterPanel.svelte";
   import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.ts";
   import { changeManager } from "$lib/utils/interaction/changeManager.svelte";
@@ -26,15 +26,9 @@
 
   // Initialize State Classes
   const contextMenu = new ContextMenuState();
-  const history = new HistoryManager();
   const headerMenu = createHeaderMenu();
   const clipboard = createClipboard(selection);
-  const search = new SearchManager();
-  const sort = new SortManager();
   const virtualScroll = createVirtualScroll();
-  const columnManager = new ColumnWidthManager();
-  const rowManager = new RowHeightManager();
-  const editManager = new EditManager();
   const filterPanel = new FilterPanelState();
 
   let { data }: PageProps = $props();
@@ -181,7 +175,7 @@
       },
       onPaste: handlePaste,
       onUndo: () => {
-        const undoneBatch = history.undo(assets);
+        const undoneBatch = historyManager.undo(assets);
         if (undoneBatch) {
           for (const action of undoneBatch) {
             changeManager.update({
@@ -194,7 +188,7 @@
         }
       },
       onRedo: () => {
-        const redoneBatch = history.redo(assets);
+        const redoneBatch = historyManager.redo(assets);
         if (redoneBatch) {
           for (const action of redoneBatch) {
             changeManager.update(action);
@@ -230,17 +224,17 @@
     },
   );
   async function handleSearch() {
-    const result = await search.search(baseAssets);
+    const result = await searchManager.search(baseAssets);
     assets = result;
     selection.reset();
-    sort.invalidateCache();
-    sort.reset();
+    sortManager.invalidateCache();
+    sortManager.reset();
   }
 
   async function applySort(key: string, dir: "asc" | "desc") {
     selection.reset();
-    sort.update(key, dir);
-    assets = await sort.applyAsync(assets);
+    sortManager.update(key, dir);
+    assets = await sortManager.applyAsync(assets);
     headerMenu.close();
   }
 
@@ -276,7 +270,7 @@
     const pasteResult = await clipboard.paste(target, assets, keys);
 
     if (pasteResult && pasteResult.changes.length > 0) {
-      history.recordBatch(pasteResult.changes);
+      historyManager.recordBatch(pasteResult.changes);
       for (const action of pasteResult.changes) {
         changeManager.update(action);
       }
@@ -300,7 +294,7 @@
   function handleFilterByValue() {
     if (!contextMenu.visible) return;
     const { key, value } = contextMenu;
-    search.selectFilterItem(value, key, assets);
+    searchManager.selectFilterItem(value, key, assets);
     contextMenu.close();
   }
 
@@ -356,7 +350,7 @@
         oldValue: change.oldValue,
         newValue: change.newValue,
       };
-      history.recordBatch([action]);
+      historyManager.recordBatch([action]);
       changeManager.update(action);
 
       try {
@@ -475,7 +469,7 @@
     }
     
     // Remove the discarded changes from history
-    history.clearCommitted(changesToRevert);
+    historyManager.clearCommitted(changesToRevert);
 
     changeManager.clear();
     selection.resetAll();
@@ -506,13 +500,13 @@
 
       if (resizeObserver) resizeObserver.disconnect();
       changeManager.clear();
-      history.clear();
+      historyManager.clear();
     };
   });
 
   $effect(() => {
-    search.term;
-    search.selectedFilters;
+    searchManager.term;
+    searchManager.selectedFilters;
     handleSearch();
   });
   $effect(() => {
@@ -523,8 +517,8 @@
   });
   $effect(() => {
     assets;
-    search.cleanupFilterCache();
-    sort.invalidateCache();
+    searchManager.cleanupFilterCache();
+    sortManager.invalidateCache();
   });
 
   let updatePositionTimeout: NodeJS.Timeout | null = null;
@@ -551,16 +545,16 @@
     <div class="flex gap-4 items-center">
       <div class="relative">
         <input
-          bind:value={search.inputValue}
+          bind:value={searchManager.inputValue}
           class="bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pr-7 border border-neutral-300 dark:border-none focus:outline-none"
           placeholder="Search..."
           onkeydown={(e) => {
-            if (e.key === "Enter") search.executeSearch();
+            if (e.key === "Enter") searchManager.executeSearch();
           }}
         />
-        {#if search.inputValue}
+        {#if searchManager.inputValue}
           <button
-            onclick={() => search.clearSearch()}
+            onclick={() => searchManager.clearSearch()}
             class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
             title="Clear search"
           >
@@ -569,7 +563,7 @@
         {/if}
       </div>
       <button
-        onclick={() => search.executeSearch()}
+        onclick={() => searchManager.executeSearch()}
         class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-neutral-100"
         >Search</button
       >
@@ -577,7 +571,7 @@
 
     <div class="flex flex-row w-full justify-between items-center">
       <div class="flex flex-row gap-2">
-        <FilterPanel state={filterPanel} searchManager={search} />
+        <FilterPanel state={filterPanel} {searchManager} />
         {#if changeManager.hasChanges && data.user}
           <div class="flex gap-2 items-center">
             <button
@@ -627,8 +621,8 @@
 
     <HeaderMenu
       state={headerMenu}
-      sortManager={sort}
-      searchManager={search}
+      {sortManager}
+      {searchManager}
       {assets}
       onSort={applySort}
     />
@@ -652,15 +646,15 @@
                 headerMenu.toggle(
                   e,
                   key,
-                  search.getFilterItems(key, assets),
+                  searchManager.getFilterItems(key, assets),
                   i === keys.length - 1 
                 )}
               }
             >
               <span class="truncate">{key.replaceAll("_", " ")}</span>
               <span class="ml-1">
-                {#if sort.key === key}
-                  <span>{sort.direction === "asc" ? "▲" : "▼"}</span>
+                {#if sortManager.key === key}
+                  <span>{sortManager.direction === "asc" ? "▲" : "▼"}</span>
                 {:else}
                   <span class="invisible group-hover:visible text-neutral-400">▾</span>
                 {/if}
@@ -932,8 +926,8 @@
   <p class="mt-2 ml-1 text-sm text-neutral-600 dark:text-neutral-300">
     Showing {assets.length} items.
   </p>
-{:else if search.error}
-  <p class="text-red-500">Error: {search.error}</p>
+{:else if searchManager.error}
+  <p class="text-red-500">Error: {searchManager.error}</p>
 {:else}
   <div
     class="flex items-center justify-center rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
