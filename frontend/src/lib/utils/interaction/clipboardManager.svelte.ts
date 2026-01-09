@@ -1,5 +1,15 @@
-import type { selection as SelectionManager } from './selectionManager.svelte';
-import type { HistoryAction } from './historyManager.svelte'; 
+// Local interfaces to avoid cross-imports
+interface SelectionManager {
+  bounds: { minRow: number; maxRow: number; minCol: number; maxCol: number } | null;
+  snapshotAsCopied(): void;
+}
+
+export type HistoryAction = {
+  id: number | string;
+  key: string;
+  oldValue: string;
+  newValue: string;
+};
 
 async function copyToClipboard(text: string): Promise<void> {
   try {
@@ -24,7 +34,7 @@ export type CopiedItem = {
   value: string;
 };
 
-function createClipboardManager(selectionManager: typeof SelectionManager) {
+function createClipboardManager(selectionManager: SelectionManager) {
   // Internal clipboard state
   let internal = $state<CopiedItem[]>([]);
   let lastCopiedText = $state('');

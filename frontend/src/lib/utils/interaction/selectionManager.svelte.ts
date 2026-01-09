@@ -1,5 +1,9 @@
 // src/lib/utils/interaction/selectionManager.svelte.ts
-import type { ColumnWidthManager } from '../core/columnManager.svelte';
+
+// Local interface to avoid cross-imports
+interface ColumnManager {
+  getWidth(key: string): number;
+}
 
 export type GridCell = {
   row: number;
@@ -148,7 +152,7 @@ function createSelectionManager() {
     targetEnd: GridCell,
     visibleRange: { startIndex: number; endIndex: number },
     keys: string[],
-    columnManager: ColumnWidthManager,
+    columnManager: ColumnManager,
     rowHeight: number = 32
   ): VisualSelection | null {
     if (targetStart.row === -1 || targetEnd.row === -1) return null;
@@ -203,10 +207,10 @@ function createSelectionManager() {
   function computeDirtyCellOverlays(
     visibleRange: { startIndex: number; endIndex: number },
     keys: string[],
-    columnManager: ColumnWidthManager,
+    columnManager: ColumnManager,
     rowHeight: number = 32,
     // Add this optional callback
-    isCellInvalid?: (row: number, col: number) => boolean 
+    isCellInvalid?: (row: number, col: number) => boolean
   ): VisualSelection[] {
     const overlays: VisualSelection[] = [];
     if (dirtyCells.size === 0) return overlays;

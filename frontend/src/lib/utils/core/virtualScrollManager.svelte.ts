@@ -1,5 +1,13 @@
-import type { ColumnWidthManager } from './columnManager.svelte';
-import type { RowHeightManager } from './rowManager.svelte';
+// Local interfaces to avoid cross-imports
+interface ColumnManager {
+  getWidth(key: string): number;
+}
+
+interface RowManager {
+  getHeight(rowIndex: number): number;
+  getTotalHeight(itemCount: number): number;
+  getOffsetY(targetIndex: number): number;
+}
 
 function createVirtualScrollManager() {
   // Configuration
@@ -34,14 +42,14 @@ function createVirtualScrollManager() {
     };
   }
 
-  function getTotalHeight(itemCount: number, rowHeightManager?: RowHeightManager): number {
+  function getTotalHeight(itemCount: number, rowHeightManager?: RowManager): number {
     if (!rowHeightManager) {
       return itemCount * rowHeight;
     }
     return rowHeightManager.getTotalHeight(itemCount);
   }
 
-  function getOffsetY(rowHeightManager?: RowHeightManager): number {
+  function getOffsetY(rowHeightManager?: RowManager): number {
     if (!rowHeightManager) {
       return visibleRange.startIndex * rowHeight;
     }
@@ -58,9 +66,9 @@ function createVirtualScrollManager() {
   }
 
   function scrollToRow(
-    index: number, 
-    container: HTMLElement | null, 
-    rowHeightManager?: RowHeightManager
+    index: number,
+    container: HTMLElement | null,
+    rowHeightManager?: RowManager
   ) {
     if (!container) return;
     
@@ -86,12 +94,12 @@ function createVirtualScrollManager() {
   }
 
   function ensureVisible(
-    rowIndex: number, 
+    rowIndex: number,
     colIndex: number,
     container: HTMLElement | null,
     keys: string[],
-    columnManager: ColumnWidthManager,
-    rowHeightManager?: RowHeightManager
+    columnManager: ColumnManager,
+    rowHeightManager?: RowManager
   ) {
     if (!container) return;
 

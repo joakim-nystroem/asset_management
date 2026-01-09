@@ -1,4 +1,10 @@
-import type { HistoryAction } from './historyManager.svelte';
+// Local type definition to avoid cross-imports
+export type HistoryAction = {
+  id: number | string;
+  key: string;
+  oldValue: string;
+  newValue: string;
+};
 
 export type ValidationConstraints = {
   location: string[];

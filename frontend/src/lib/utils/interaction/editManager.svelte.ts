@@ -1,5 +1,13 @@
-import type { ColumnWidthManager } from '../core/columnManager.svelte';
-import type { RowHeightManager } from '../core/rowManager.svelte';
+// Local interfaces to avoid cross-imports
+interface ColumnManager {
+  getWidth(key: string): number;
+  setWidth(key: string, width: number): void;
+}
+
+interface RowManager {
+  setHeight(rowIndex: number, height: number): void;
+  resetHeight(rowIndex: number): void;
+}
 
 export type EditState = {
   row: number;
@@ -9,7 +17,8 @@ export type EditState = {
   originalColumnWidth: number;
 }
 
-function createEditManager() {
+function createEditManager(deps?: { columnManager?: ColumnManager; rowManager?: RowManager }) {
+  const { columnManager, rowManager } = deps || {};
   let isEditing = $state(false);
   let editState = $state<EditState | null>(null);
   let inputValue = $state('');
@@ -19,10 +28,17 @@ function createEditManager() {
     col: number,
     key: string,
     currentValue: string,
-    columnManager: ColumnWidthManager,
-    rowManager: RowHeightManager
+    colMgr?: ColumnManager,
+    rowMgr?: RowManager
   ) {
-    const originalWidth = columnManager.getWidth(key);
+    const colManager = colMgr || columnManager;
+    const rManager = rowMgr || rowManager;
+
+    if (!colManager || !rManager) {
+      throw new Error('editManager requires columnManager and rowManager');
+    }
+
+    const originalWidth = colManager.getWidth(key);
 
     editState = {
       row,
@@ -37,22 +53,30 @@ function createEditManager() {
 
     const contentWidth = calculateContentWidth(currentValue);
     const expandedWidth = Math.min(300, Math.max(originalWidth, contentWidth));
-    columnManager.setWidth(key, expandedWidth);
-    rowManager.setHeight(row, 32);
+    colManager.setWidth(key, expandedWidth);
+    rManager.setHeight(row, 32);
   }
 
-  function updateRowHeight(textareaElement: HTMLTextAreaElement | null, rowManager: RowHeightManager, columnManager: ColumnWidthManager) {
+  function updateRowHeight(textareaElement: HTMLTextAreaElement | null, rowMgr?: RowManager, colMgr?: ColumnManager) {
     if (!editState || !textareaElement) return;
-    const currentColumnWidth = columnManager.getWidth(editState.key);
+
+    const rManager = rowMgr || rowManager;
+    const colManager = colMgr || columnManager;
+
+    if (!rManager || !colManager) {
+      throw new Error('editManager requires columnManager and rowManager');
+    }
+
+    const currentColumnWidth = colManager.getWidth(editState.key);
 
     if (currentColumnWidth >= 300) {
       const contentHeight = textareaElement.scrollHeight;
       const paddingHeight = 16;
       const totalHeight = contentHeight + paddingHeight;
       const finalHeight = Math.max(32, totalHeight);
-      rowManager.setHeight(editState.row, finalHeight);
+      rManager.setHeight(editState.row, finalHeight);
     } else {
-      rowManager.setHeight(editState.row, 32);
+      rManager.setHeight(editState.row, 32);
     }
   }
 
@@ -65,10 +89,17 @@ function createEditManager() {
 
   async function save(
     assets: any[],
-    columnManager: ColumnWidthManager,
-    rowManager: RowHeightManager
+    colMgr?: ColumnManager,
+    rowMgr?: RowManager
   ): Promise<{ id: any; key: string; oldValue: any; newValue: any; } | null> {
     if (!editState) return null;
+
+    const colManager = colMgr || columnManager;
+    const rManager = rowMgr || rowManager;
+
+    if (!colManager || !rManager) {
+      throw new Error('editManager requires columnManager and rowManager');
+    }
 
     const { row, key, originalValue, originalColumnWidth } = editState;
     const newValue = inputValue.trim();
@@ -76,8 +107,8 @@ function createEditManager() {
     const asset = assets[row];
     if (!asset) return null;
 
-    columnManager.setWidth(key, originalColumnWidth);
-    rowManager.resetHeight(row);
+    colManager.setWidth(key, originalColumnWidth);
+    rManager.resetHeight(row);
 
     isEditing = false;
     editState = null;
@@ -94,11 +125,19 @@ function createEditManager() {
     return null;
   }
 
-  function cancel(columnManager: ColumnWidthManager, rowManager: RowHeightManager) {
+  function cancel(colMgr?: ColumnManager, rowMgr?: RowManager) {
     if (!editState) return;
+
+    const colManager = colMgr || columnManager;
+    const rManager = rowMgr || rowManager;
+
+    if (!colManager || !rManager) {
+      throw new Error('editManager requires columnManager and rowManager');
+    }
+
     const { key, originalColumnWidth, row } = editState;
-    columnManager.setWidth(key, originalColumnWidth);
-    rowManager.resetHeight(row);
+    colManager.setWidth(key, originalColumnWidth);
+    rManager.resetHeight(row);
     isEditing = false;
     editState = null;
     inputValue = '';
@@ -131,5 +170,8 @@ function createEditManager() {
 
 export type EditManager = ReturnType<typeof createEditManager>;
 
-// Export singleton instance
+// Export factory function
+export { createEditManager };
+
+// Export singleton instance (without dependencies - will require them as method params)
 export const editManager = createEditManager();

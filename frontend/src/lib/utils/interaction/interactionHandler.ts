@@ -1,7 +1,25 @@
-import type { SelectionManager } from './selectionManager.svelte';
-import type { ColumnWidthManager } from '../core/columnManager.svelte';
-import type { ContextMenuState } from '../ui/contextMenu/contextMenu.svelte.ts';
-import type { HeaderMenuState } from '../ui/headerMenu/headerMenu.svelte.ts';
+// Local interfaces to avoid cross-imports
+interface SelectionManager {
+  primaryRange: { start: { row: number; col: number }; end: { row: number; col: number } } | null;
+  end: { row: number; col: number };
+  moveTo(row: number, col: number): void;
+  endSelection(): void;
+}
+
+interface ColumnManager {
+  resizingColumn: string | null;
+  updateResize(clientX: number): void;
+  endResize(): void;
+}
+
+interface ContextMenuState {
+  visible: boolean;
+  close(): void;
+}
+
+interface HeaderMenuState {
+  handleOutsideClick(e: MouseEvent): void;
+}
 
 export type GridCell = { row: number; col: number };
 
@@ -19,7 +37,7 @@ export type InteractionCallbacks = {
 export function createInteractionHandler(
   state: {
     selection: SelectionManager;
-    columnManager: ColumnWidthManager;
+    columnManager: ColumnManager;
     contextMenu: ContextMenuState;
     headerMenu: HeaderMenuState;
   },
