@@ -41,17 +41,36 @@
   let conditions: Record<string, any>[] = $state(data.conditions || []);
 
   // Realtime State (Derived from Singleton)
+  // Map other users' positions based on asset IDs to current filtered view
   let otherUserSelections = $derived(
     Object.entries(realtime.connectedUsers).reduce(
       (acc, [clientId, position]) => {
-        acc[clientId] = {
-          ...position,
-          initials: (
-            (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
-          ).toUpperCase(),
-          fullName:
-            `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim(),
-        };
+        // If the user has an assetId, find it in our current filtered view
+        if (position.assetId !== undefined) {
+          const rowIndex = assets.findIndex(a => a.id === position.assetId);
+          // Only include if asset exists in current filtered view
+          if (rowIndex !== -1) {
+            acc[clientId] = {
+              ...position,
+              row: rowIndex, // Use the mapped row index
+              initials: (
+                (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
+              ).toUpperCase(),
+              fullName:
+                `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim(),
+            };
+          }
+        } else {
+          // Fallback for old clients that don't send assetId
+          acc[clientId] = {
+            ...position,
+            initials: (
+              (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
+            ).toUpperCase(),
+            fullName:
+              `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim(),
+          };
+        }
         return acc;
       },
       {} as Record<string, any>,
@@ -225,6 +244,20 @@
   );
   async function handleSearch() {
     const result = await searchManager.search(baseAssets);
+
+    // Discard all pending changes when filtering
+    if (changeManager.hasChanges) {
+      const changesToRevert = changeManager.getAllChanges(true);
+      for (const change of changesToRevert) {
+        const item = baseAssets.find(a => a.id === change.id);
+        if (item) {
+          item[change.key] = change.oldValue;
+        }
+      }
+      changeManager.clear();
+      historyManager.clear();
+    }
+
     assets = result;
     selection.reset();
     sortManager.invalidateCache();
@@ -531,7 +564,9 @@
         if (selection.start.row === -1) {
           realtime.sendDeselect();
         } else {
-          realtime.sendPositionUpdate(selection.start.row, selection.start.col);
+          const asset = assets[selection.start.row];
+          const assetId = asset?.id;
+          realtime.sendPositionUpdate(selection.start.row, selection.start.col, assetId);
         }
       }, 100);
     }
