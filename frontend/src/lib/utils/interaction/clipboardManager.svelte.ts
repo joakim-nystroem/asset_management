@@ -124,9 +124,30 @@ function createClipboardManager(selectionManager: SelectionManager) {
       }
     } else {
       const rows = systemText.split(/\r?\n/);
-      for (const rowStr of rows) {
-        if (!rowStr) continue;
-        copiedBlock.push(rowStr.split('\t'));
+      // If the last line is empty string, it's a trailing newline, so remove it.
+      if (rows.length > 0 && rows[rows.length - 1] === '') {
+        rows.pop();
+      }
+
+      const rawCopiedBlock = rows.map(rowStr => rowStr.split('\t'));
+
+      if (rawCopiedBlock.length > 0) {
+          const isRectangular = rawCopiedBlock.every(row => row.length === rawCopiedBlock[0].length);
+          if (isRectangular && rawCopiedBlock[0].length > 1) {
+            const allRowsHaveTrailingEmpty = rawCopiedBlock.every(row => row[row.length-1] === '');
+            if (allRowsHaveTrailingEmpty) {
+                copiedBlock = rawCopiedBlock.map(row => {
+                    row.pop();
+                    return row;
+                });
+            } else {
+                copiedBlock = rawCopiedBlock;
+            }
+          } else {
+            copiedBlock = rawCopiedBlock;
+          }
+      } else {
+          copiedBlock = rawCopiedBlock;
       }
     }
 

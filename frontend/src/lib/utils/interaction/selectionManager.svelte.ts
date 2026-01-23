@@ -27,12 +27,13 @@ function createSelectionManager() {
   let start = $state<GridCell>({ row: -1, col: -1 });
   let end = $state<GridCell>({ row: -1, col: -1 });
   let isSelecting = $state(false);
-  
+  let isHiddenAfterCopy = $state(false);
+
   // Copy overlay state
   let copyStart = $state<GridCell>({ row: -1, col: -1 });
   let copyEnd = $state<GridCell>({ row: -1, col: -1 });
   let isCopyVisible = $state(false);
-  
+
   // Dirty cells tracking
   let dirtyCells = $state(new Set<string>());
 
@@ -47,8 +48,11 @@ function createSelectionManager() {
     };
   });
 
+  // Selection overlay is hidden after copy until selection moves
+  const isSelectionVisible = $derived(start.row !== -1 && !isHiddenAfterCopy);
+
   const hasSelection = $derived(start.row !== -1);
-  
+
   const primaryRange = $derived.by(() => {
     if (start.row === -1) return null;
     return { start, end };
@@ -72,18 +76,20 @@ function createSelectionManager() {
   function handleMouseDown(row: number, col: number, e: MouseEvent) {
     if (e.button !== 0) return;
 
+    isHiddenAfterCopy = false;
+
     isSelecting = true;
 
     if (e.shiftKey && start.row !== -1) {
       end = { row, col };
     } else {
-      const isSingleCellSelected = 
-        start.row === end.row && 
+      const isSingleCellSelected =
+        start.row === end.row &&
         start.col === end.col &&
         start.row !== -1;
-      
+
       const clickingSameCell = start.row === row && start.col === col;
-      
+
       if (isSingleCellSelected && clickingSameCell) {
         reset();
       } else {
@@ -95,6 +101,7 @@ function createSelectionManager() {
 
   function extendSelection(row: number, col: number) {
     if (isSelecting) {
+      isHiddenAfterCopy = false;
       end = { row, col };
     }
   }
@@ -104,12 +111,14 @@ function createSelectionManager() {
   }
 
   function moveTo(row: number, col: number) {
+    isHiddenAfterCopy = false;
     start = { row, col };
     end = { row, col };
   }
 
   function selectCell(row: number, col: number) {
     if (isCellSelected(row, col)) return;
+    isHiddenAfterCopy = false;
     start = { row, col };
     end = { row, col };
   }
@@ -119,6 +128,7 @@ function createSelectionManager() {
       copyStart = { ...start };
       copyEnd = { ...end };
       isCopyVisible = true;
+      isHiddenAfterCopy = true;
     }
   }
 
@@ -134,6 +144,7 @@ function createSelectionManager() {
   function resetAll() {
     reset();
     isCopyVisible = false;
+    isHiddenAfterCopy = false;
   }
 
   function isCellSelected(row: number, col: number): boolean {
@@ -296,17 +307,18 @@ function createSelectionManager() {
     get end() { return end },
     set end(val: GridCell) { end = val },
     get isSelecting() { return isSelecting },
+    get isSelectionVisible() { return isSelectionVisible },
     get copyStart() { return copyStart },
     get copyEnd() { return copyEnd },
     get isCopyVisible() { return isCopyVisible },
     get dirtyCells() { return dirtyCells },
-    
+
     // Derived values (properties, not methods)
     get bounds() { return bounds },
     get hasSelection() { return hasSelection },
     get primaryRange() { return primaryRange },
     get anchor() { return anchor },
-    
+
     // Actions
     setDirtyCells,
     clearDirtyCells,

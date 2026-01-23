@@ -35,6 +35,12 @@
 
   let { data }: PageProps = $props();
 
+  // Clear stale singleton state on page load/refresh
+  // (singletons persist across client-side navigation, causing stale data on refresh)
+  rowGenerationManager.clearNewRows();
+  changeManager.clear();
+  historyManager.clear();
+
   // --- Data State ---
   let baseAssets: Record<string, any>[] = $state(data.assets);
   let filteredAssets: Record<string, any>[] = $state(data.assets);
@@ -94,47 +100,30 @@
     });
   });
 
+  // Track dirty cells for existing row changes (new row validation is triggered manually on commit)
   $effect(() => {
     const changes = changeManager.getAllChanges();
+
+    if (changes.length === 0) {
+      selection.clearDirtyCells();
+      return;
+    }
+
     const keyMap = new Map(keys.map((key, index) => [key, index]));
+    const assetIdMap = new Map(
+      assets.map((asset, index) => [asset.id.toString(), index]),
+    );
 
-    const dirtyCells: { row: number; col: number }[] = [];
-
-    // Add dirty cells from existing row changes
-    if (changes.length > 0) {
-      const assetIdMap = new Map(
-        assets.map((asset, index) => [asset.id.toString(), index]),
-      );
-
-      const changedCells = changes
-        .map((change) => {
-          const row = assetIdMap.get(String(change.id));
-          const col = keyMap.get(change.key);
-          return { row, col };
-        })
-        .filter((c) => c.row !== undefined && c.col !== undefined) as {
-        row: number;
-        col: number;
-      }[];
-
-      dirtyCells.push(...changedCells);
-    }
-
-    // Add dirty cells from new rows (all fields with non-empty values)
-    const newRows = rowGenerationManager.newRows;
-    for (let i = 0; i < newRows.length; i++) {
-      const newRow = newRows[i];
-      const rowIndex = filteredAssets.length + i;
-
-      for (const [key, value] of Object.entries(newRow)) {
-        if (key !== 'id' && value !== '' && value !== null && value !== undefined) {
-          const col = keyMap.get(key);
-          if (col !== undefined) {
-            dirtyCells.push({ row: rowIndex, col });
-          }
-        }
-      }
-    }
+    const dirtyCells = changes
+      .map((change) => {
+        const row = assetIdMap.get(String(change.id));
+        const col = keyMap.get(change.key);
+        return { row, col };
+      })
+      .filter((c) => c.row !== undefined && c.col !== undefined) as {
+      row: number;
+      col: number;
+    }[];
 
     if (dirtyCells.length === 0) {
       selection.clearDirtyCells();
@@ -255,7 +244,7 @@
       // Ensure the last row is visible
       virtualScroll.ensureVisible(
         lastRowIndex,
-        0,
+        1,
         scrollContainer,
         keys,
         columnManager,
@@ -263,7 +252,7 @@
       );
 
       // Select the first cell of the new row
-      selection.selectCell(lastRowIndex, 0);
+      selection.selectCell(lastRowIndex, 1);
     }
   }
 
@@ -392,7 +381,8 @@
   async function handleCopy() {
     await clipboard.copy(assets, keys);
     if (contextMenu.visible) contextMenu.close();
-    selection.reset();
+    // Selection overlay visibility is now automatically derived:
+    // hidden when selection is within copy bounds, shown when outside
   }
 
   function handleContextMenu(e: MouseEvent, visibleIndex: number, col: number) {
@@ -433,6 +423,14 @@
     }
     const target = getActionTarget();
     if (!target) return;
+
+    if (rowGenerationManager.hasNewRows && target.row < filteredAssets.length) {
+      toastState.addToast(
+        "Please save or discard new rows before pasting into existing rows.",
+        "warning",
+      );
+      return;
+    }
 
     // Create a mutable copy of assets for the paste operation
     const mutableAssets = [...assets];
@@ -662,6 +660,24 @@
       const isValid = rowGenerationManager.validateAll();
 
       if (!isValid) {
+        // Manually set dirty cells for invalid new row fields
+        const keyMap = new Map(keys.map((key, index) => [key, index]));
+        const invalidCells: { row: number; col: number }[] = [];
+        const newRows = rowGenerationManager.newRows;
+
+        for (let i = 0; i < newRows.length; i++) {
+          const rowIndex = filteredAssets.length + i;
+          for (const key of keys) {
+            if (key !== 'id' && rowGenerationManager.isNewRowFieldInvalid(i, key)) {
+              const col = keyMap.get(key);
+              if (col !== undefined) {
+                invalidCells.push({ row: rowIndex, col });
+              }
+            }
+          }
+        }
+        selection.setDirtyCells(invalidCells);
+
         toastState.addToast(
           "Invalid values in new rows.",
           "warning",
@@ -746,6 +762,22 @@
           "warning",
         );
         rowGenerationManager.clearNewRows();
+        selection.clearDirtyCells();
+
+        // Scroll to the new bottom row (after new rows are removed)
+        if (scrollContainer) {
+          const lastRowIndex = filteredAssets.length - 1;
+          if (lastRowIndex >= 0) {
+            virtualScroll.ensureVisible(
+              lastRowIndex,
+              0,
+              scrollContainer,
+              keys,
+              columnManager,
+              rowManager
+            );
+          }
+        }
       }
 
       if (invalidChangeCount > 0) {
@@ -787,7 +819,24 @@
     // Clear all changes and new rows
     changeManager.clear();
     rowGenerationManager.clearNewRows();
+    selection.clearDirtyCells();
     selection.resetAll();
+
+    // Scroll to the new bottom row (after new rows are removed)
+    if (scrollContainer) {
+      const lastRowIndex = filteredAssets.length - 1;
+      if (lastRowIndex >= 0) {
+        virtualScroll.ensureVisible(
+          lastRowIndex,
+          0,
+          scrollContainer,
+          keys,
+          columnManager,
+          rowManager
+        );
+      }
+    }
+
     toastState.addToast("Changes discarded.", "info");
   }
 
@@ -815,6 +864,10 @@
   $effect(() => {
     let resizeObserver: ResizeObserver | null = null;
     if (scrollContainer) {
+      // Reset scroll position to top on page load/refresh
+      // (browser may preserve scroll position, but virtual scroller won't have loaded that data)
+      scrollContainer.scrollTop = 0;
+
       resizeObserver = new ResizeObserver((entries) => {
         for (const entry of entries) {
           virtualScroll.updateContainerHeight(entry.contentRect.height);
@@ -901,9 +954,10 @@
         {#if data.user}
           <button
             onclick={handleAddNewRow}
-            class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
+            class="flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
           >
-            + New Row
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path></svg>
+            <span>New Row</span>
           </button>
         {/if}
         {#if (changeManager.hasChanges || rowGenerationManager.hasNewRows) && data.user}
@@ -981,7 +1035,7 @@
     <div
       class="w-max min-w-full bg-white dark:bg-slate-800 text-left relative"
       style="height: {virtualScroll.getTotalHeight(assets.length, rowManager) +
-        32}px;"
+        32 + 16}px;"
     >
       <div class="sticky top-0 z-20 flex border-b border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-700">
         {#each keys as key, i}
@@ -1110,14 +1164,14 @@
           ></div>
         {/if}
 
-        {#if selectionOverlay}
+        {#if selectionOverlay && selection.isSelectionVisible}
           <div
             class="absolute pointer-events-none z-10 border-blue-600 dark:border-blue-500 bg-blue-900/10"
             style="
                 top: {selectionOverlay.top}px;
-                left: {selectionOverlay.left}px; 
-       
-                width: {selectionOverlay.width}px; 
+                left: {selectionOverlay.left}px;
+
+                width: {selectionOverlay.width}px;
                 height: {selectionOverlay.height}px;
                 border-top-style: {selectionOverlay.showTopBorder
               ? 'solid'
@@ -1128,7 +1182,7 @@
                 border-left-style: {selectionOverlay.showLeftBorder
               ? 'solid'
               : 'none'};
-         
+
                 border-right-style: {selectionOverlay.showRightBorder
               ? 'solid'
               : 'none'};
@@ -1137,15 +1191,22 @@
         {/if}
 
         {#each dirtyCellOverlays as overlay}
-          {@const cellKey = `${virtualScroll.getActualIndex(Math.floor(overlay.top / virtualScroll.rowHeight))},${keys[Math.floor(overlay.left / columnManager.getWidth(keys[0]))]}`}
-          {@const isInvalid = changeManager.isInvalid(
-            assets[
-              virtualScroll.getActualIndex(
-                Math.floor(overlay.top / virtualScroll.rowHeight),
-              )
-            ]?.id,
-            keys[Math.floor(overlay.left / columnManager.getWidth(keys[0]))],
-          )}
+          {@const overlayRowIndex = virtualScroll.visibleRange.startIndex + Math.floor(overlay.top / virtualScroll.rowHeight)}
+          {@const overlayColIndex = (() => {
+            let accWidth = 0;
+            for (let c = 0; c < keys.length; c++) {
+              const colWidth = columnManager.getWidth(keys[c]);
+              if (overlay.left < accWidth + colWidth) return c;
+              accWidth += colWidth;
+            }
+            return 0;
+          })()}
+          {@const overlayKey = keys[overlayColIndex]}
+          {@const overlayAsset = assets[overlayRowIndex]}
+          {@const isNewRowOverlay = overlayRowIndex >= filteredAssets.length}
+          {@const isInvalid = isNewRowOverlay
+            ? rowGenerationManager.isNewRowFieldInvalid(overlayRowIndex - filteredAssets.length, overlayKey)
+            : changeManager.isInvalid(overlayAsset?.id, overlayKey)}
           <div
             class="absolute pointer-events-none z-40 border-2
               {isInvalid
@@ -1166,7 +1227,7 @@
           {@const isNewRow = actualIndex >= filteredAssets.length}
 
           <div
-            class="flex border-b border-neutral-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 {isNewRow ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}"
+            class="flex border-b border-neutral-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 {isNewRow ? 'bg-blue-200 dark:bg-blue-500/20' : ''}"
             style="height: {rowHeight}px;"
           >
             {#each keys as key, j}

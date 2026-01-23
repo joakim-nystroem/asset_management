@@ -48,9 +48,24 @@ function createRowGenerationManager() {
         ...template,
         id: getNextId(),
       };
+      const newRowIndex = newRows.length;
       newRows.push(newRow);
       created.push(newRow);
+
+      // Eagerly validate the new empty row
+      const rowErrors = new Set<string>();
+      Object.keys(newRow).forEach((key) => {
+        if (key === 'id') return;
+        if (!validationManager.isValidValue(key, newRow[key])) {
+          rowErrors.add(key);
+        }
+      });
+      if (rowErrors.size > 0) {
+        invalidFields.set(newRowIndex, rowErrors);
+      }
     }
+    // Trigger reactivity for invalidFields map
+    invalidFields = new Map(invalidFields);
 
     return created;
   }
@@ -76,16 +91,23 @@ function createRowGenerationManager() {
     // Update the field value
     newRows[newRowIndex][key] = value;
 
-    // Clear any validation error for this field (will be re-validated on commit)
-    const fieldErrors = invalidFields.get(newRowIndex);
-    if (fieldErrors) {
-      fieldErrors.delete(key);
-      if (fieldErrors.size === 0) {
-        invalidFields.delete(newRowIndex);
-      }
-      // Trigger reactivity
-      invalidFields = new Map(invalidFields);
+    // Re-validate the field and update invalid status
+    const rowErrors = invalidFields.get(newRowIndex) || new Set<string>();
+    const isValid = validationManager.isValidValue(key, value);
+
+    if (isValid) {
+      rowErrors.delete(key);
+    } else {
+      rowErrors.add(key);
     }
+
+    if (rowErrors.size === 0) {
+      invalidFields.delete(newRowIndex);
+    } else {
+      invalidFields.set(newRowIndex, rowErrors);
+    }
+    // Trigger reactivity
+    invalidFields = new Map(invalidFields);
   }
 
   /**
