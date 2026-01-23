@@ -329,6 +329,12 @@
   async function handleSearch() {
     const result = await searchManager.search(baseAssets);
 
+    // Defensive check: don't clear data if search returned empty unexpectedly
+    if (result.length === 0 && baseAssets.length > 0 && searchManager.term === '' && searchManager.selectedFilters.length === 0) {
+      console.warn('Search returned empty results when it should return all data. Keeping current filtered assets.');
+      return;
+    }
+
     // Discard all pending changes when filtering
     if (changeManager.hasChanges) {
       const changesToRevert = changeManager.getAllChanges(true);
@@ -740,12 +746,28 @@
     toastState.addToast("Changes discarded.", "info");
   }
 
+  // Separate effect for one-time setup (runs only once)
   $effect(() => {
     const cleanupInteraction = mountInteraction(window);
 
     // Register this page's handler
     realtime.setAssetUpdateHandler(handleRealtimeUpdate);
 
+    return () => {
+      cleanupInteraction();
+
+      // CHANGED: Overwrite with an empty function to "remove" the handler
+      realtime.setAssetUpdateHandler(() => {});
+
+      // Only clear managers on actual component unmount
+      changeManager.clear();
+      historyManager.clear();
+      rowGenerationManager.clearNewRows();
+    };
+  });
+
+  // Separate effect for resize observer (depends on scrollContainer)
+  $effect(() => {
     let resizeObserver: ResizeObserver | null = null;
     if (scrollContainer) {
       resizeObserver = new ResizeObserver((entries) => {
@@ -757,15 +779,7 @@
     }
 
     return () => {
-      cleanupInteraction();
-
-      // CHANGED: Overwrite with an empty function to "remove" the handler
-      realtime.setAssetUpdateHandler(() => {});
-
       if (resizeObserver) resizeObserver.disconnect();
-      changeManager.clear();
-      historyManager.clear();
-      rowGenerationManager.clearNewRows();
     };
   });
 
@@ -1120,13 +1134,14 @@
               <div
                 data-row={actualIndex}
                 data-col={j}
-                onmousedown={(e) => {
+                onmousedown={async (e) => {
                   if (isEditingThisCell) return;
                   // Don't interfere if we're about to double-click
                   if (e.detail === 2) return;
 
                   if (editManager.isEditing) {
-                    editManager.cancel(columnManager, rowManager);
+                    // Save the current edit before selecting the new cell
+                    await saveEdit();
                     setTimeout(() => {
                       selection.handleMouseDown(actualIndex, j, e);
                     }, 0);
