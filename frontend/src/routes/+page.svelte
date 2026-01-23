@@ -23,6 +23,8 @@
   import { changeManager } from "$lib/utils/interaction/changeManager.svelte";
   import { realtime } from "$lib/utils/interaction/realtimeManager.svelte";
   import { toastState } from "$lib/utils/ui/toast/toastState.svelte";
+  import { rowGenerationManager } from "$lib/utils/interaction/rowGenerationManager.svelte";
+  import { validationManager } from "$lib/utils/data/validationManager.svelte";
 
   // Initialize State Classes
   const contextMenu = new ContextMenuState();
@@ -35,10 +37,13 @@
 
   // --- Data State ---
   let baseAssets: Record<string, any>[] = $state(data.assets);
-  let assets: Record<string, any>[] = $state(data.assets);
+  let filteredAssets: Record<string, any>[] = $state(data.assets);
   let locations: Record<string, any>[] = $state(data.locations || []);
   let statuses: Record<string, any>[] = $state(data.statuses || []);
   let conditions: Record<string, any>[] = $state(data.conditions || []);
+
+  // Combine filtered assets with new rows at the bottom
+  let assets = $derived([...filteredAssets, ...rowGenerationManager.newRows]);
 
   // Realtime State (Derived from Singleton)
   // Map other users' positions based on asset IDs to current filtered view
@@ -80,6 +85,15 @@
 
   let keys = $derived(assets.length > 0 ? Object.keys(assets[0]) : []);
 
+  // Set up the next ID provider for new rows (based on full original array, not filtered)
+  $effect(() => {
+    rowGenerationManager.setNextIdProvider(() => {
+      if (baseAssets.length === 0) return 1;
+      const maxId = Math.max(...baseAssets.map(a => typeof a.id === 'number' ? a.id : 0));
+      return maxId + 1 + rowGenerationManager.newRowCount;
+    });
+  });
+
   $effect(() => {
     const changes = changeManager.getAllChanges();
     if (changes.length === 0) {
@@ -113,7 +127,7 @@
     const statNames = statuses.map((s) => s.status_name);
     const condNames = conditions.map((c) => c.condition_name);
 
-    // 2. Update the manager inside 'untrack'.
+    // 2. Update the managers inside 'untrack'.
     // This tells Svelte: "Execute this, but ignore any state reads happening inside."
     untrack(() => {
       changeManager.setConstraints({
@@ -121,6 +135,8 @@
         status: statNames,
         condition: condNames,
       });
+
+      // Note: Validation for new rows now happens only on commit
     });
   });
 
@@ -135,7 +151,15 @@
         const asset = assets[row];
         if (!asset) return false;
         const key = keys[col];
-        // Use your existing changeManager to check validity
+
+        // Check if it's a new row (row index >= filtered assets length)
+        const isNewRow = row >= filteredAssets.length;
+        if (isNewRow) {
+          const newRowIndex = row - filteredAssets.length;
+          return rowGenerationManager.isNewRowFieldInvalid(newRowIndex, key);
+        }
+
+        // Use changeManager for existing rows
         return changeManager.isInvalid(asset.id, key);
       },
     ),
@@ -156,9 +180,56 @@
     key: string;
     value: any;
   }) => {
-    updateAssetInList(assets, payload);
+    updateAssetInList(filteredAssets, payload);
     updateAssetInList(baseAssets, payload);
   };
+
+  async function handleAddNewRow() {
+    if (!data.user) {
+      toastState.addToast("Log in to add new rows.", "warning");
+      return;
+    }
+
+    // Block if there are unsaved changes
+    if (changeManager.hasChanges || rowGenerationManager.hasNewRows) {
+      toastState.addToast(
+        "Please save or discard your changes before adding new rows.",
+        "warning"
+      );
+      return;
+    }
+
+    // Create a template with empty values for all columns
+    const template: Record<string, any> = {};
+    keys.forEach(key => {
+      if (key !== 'id') {
+        template[key] = '';
+      }
+    });
+
+    // Add a new row with empty values for all columns
+    const newRows = rowGenerationManager.addNewRows(1, template);
+
+    // Scroll to the bottom of the grid
+    await tick();
+    if (scrollContainer) {
+      const totalRows = assets.length;
+      const lastRowIndex = totalRows - 1;
+
+      // Ensure the last row is visible
+      virtualScroll.ensureVisible(
+        lastRowIndex,
+        0,
+        scrollContainer,
+        keys,
+        columnManager,
+        rowManager
+      );
+
+      // Select the first cell of the new row
+      selection.selectCell(lastRowIndex, 0);
+    }
+  }
 
   let scrollContainer: HTMLDivElement | null = $state(null);
   let textareaRef: HTMLTextAreaElement | null = $state(null);
@@ -258,7 +329,12 @@
       historyManager.clear();
     }
 
-    assets = result;
+    // Discard new rows when filtering
+    if (rowGenerationManager.hasNewRows) {
+      rowGenerationManager.clearNewRows();
+    }
+
+    filteredAssets = result;
     selection.reset();
     sortManager.invalidateCache();
     sortManager.reset();
@@ -267,7 +343,7 @@
   async function applySort(key: string, dir: "asc" | "desc") {
     selection.reset();
     sortManager.update(key, dir);
-    assets = await sortManager.applyAsync(assets);
+    filteredAssets = await sortManager.applyAsync(filteredAssets);
     headerMenu.close();
   }
 
@@ -286,6 +362,21 @@
     headerMenu.close();
   }
 
+  function handleDeleteNewRow() {
+    if (!contextMenu.visible) return;
+    const { row } = contextMenu;
+
+    // Check if this is a new row (row index >= filtered assets length)
+    const isNewRow = row >= filteredAssets.length;
+    if (isNewRow) {
+      const newRowIndex = row - filteredAssets.length;
+      rowGenerationManager.deleteNewRow(newRowIndex);
+      contextMenu.close();
+      selection.reset();
+      toastState.addToast("New row deleted.", "info");
+    }
+  }
+
   function getActionTarget() {
     if (contextMenu.visible) {
       return { row: contextMenu.row, col: contextMenu.col };
@@ -300,12 +391,41 @@
     }
     const target = getActionTarget();
     if (!target) return;
-    const pasteResult = await clipboard.paste(target, assets, keys);
+
+    // Create a mutable copy of assets for the paste operation
+    const mutableAssets = [...assets];
+    const pasteResult = await clipboard.paste(target, mutableAssets, keys);
 
     if (pasteResult && pasteResult.changes.length > 0) {
-      historyManager.recordBatch(pasteResult.changes);
-      for (const action of pasteResult.changes) {
-        changeManager.update(action);
+      // Process each change and route to the appropriate manager
+      for (const change of pasteResult.changes) {
+        const rowIndex = mutableAssets.findIndex(a => a.id === change.id);
+        if (rowIndex === -1) continue;
+
+        // Check if this is a new row (row index >= filtered assets length)
+        const isNewRow = rowIndex >= filteredAssets.length;
+
+        if (isNewRow) {
+          // Don't allow pasting into ID column
+          if (change.key === 'id') continue;
+
+          // Update new row in the manager
+          const newRowIndex = rowIndex - filteredAssets.length;
+          rowGenerationManager.updateNewRowField(newRowIndex, change.key, change.newValue);
+        } else {
+          // Don't allow pasting into ID column
+          if (change.key === 'id') continue;
+
+          // Update existing row
+          const itemInFiltered = filteredAssets.find(a => a.id === change.id);
+          if (itemInFiltered) {
+            itemInFiltered[change.key] = change.newValue;
+          }
+
+          // Track change
+          historyManager.recordBatch([change]);
+          changeManager.update(change);
+        }
       }
     }
 
@@ -347,6 +467,13 @@
     const asset = assets[row];
     if (!asset || !key) return;
 
+    // Don't allow editing ID column
+    if (key === 'id') {
+      toastState.addToast("ID column cannot be edited.", "warning");
+      contextMenu.close();
+      return;
+    }
+
     const currentValue = String(asset[key] ?? "");
 
     editManager.startEdit(
@@ -374,41 +501,60 @@
       return;
     }
     const pos = editManager.getEditPosition();
-    const change = await editManager.save(assets, columnManager, rowManager);
+    if (!pos) return;
 
-    if (change && pos) {
-      const action = {
-        id: change.id,
-        key: change.key,
-        oldValue: change.oldValue,
-        newValue: change.newValue,
-      };
-      historyManager.recordBatch([action]);
-      changeManager.update(action);
+    // Check if this is a new row (row index >= filtered assets length)
+    const isNewRow = pos.row >= filteredAssets.length;
 
-      try {
-        const response = await fetch("/asset/api/update", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify([
-            {
-              rowId: change.id,
-              columnId: change.key,
-              newValue: change.newValue,
+    if (isNewRow) {
+      // Handle new row editing
+      const key = keys[pos.col];
+      const newValue = editManager.inputValue.trim();
+
+      // Update the new row field directly in the manager
+      const newRowIndex = pos.row - filteredAssets.length;
+      rowGenerationManager.updateNewRowField(newRowIndex, key, newValue);
+
+      // Reset the edit manager
+      editManager.cancel(columnManager, rowManager);
+    } else {
+      // Existing row - use normal flow
+      const change = await editManager.save(filteredAssets, columnManager, rowManager);
+
+      if (change) {
+        const action = {
+          id: change.id,
+          key: change.key,
+          oldValue: change.oldValue,
+          newValue: change.newValue,
+        };
+        historyManager.recordBatch([action]);
+        changeManager.update(action);
+
+        try {
+          const response = await fetch("/asset/api/update", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
             },
-          ]),
-        });
+            body: JSON.stringify([
+              {
+                rowId: change.id,
+                columnId: change.key,
+                newValue: change.newValue,
+              },
+            ]),
+          });
 
-        if (!response.ok) {
-          const errorData = await response.json();
-          console.error("Failed to save edit to server:", errorData.error);
-        } else {
-          console.log("Edit saved successfully to server.");
+          if (!response.ok) {
+            const errorData = await response.json();
+            console.error("Failed to save edit to server:", errorData.error);
+          } else {
+            console.log("Edit saved successfully to server.");
+          }
+        } catch (error) {
+          console.error("Network error while saving edit:", error);
         }
-      } catch (error) {
-        console.error("Network error while saving edit:", error);
       }
     }
 
@@ -426,11 +572,46 @@
       toastState.addToast("Log in to edit.", "warning");
       return;
     }
+
+    const hasNewRows = rowGenerationManager.hasNewRows;
+
+    // Validate new rows if any exist
+    if (hasNewRows) {
+      const isValid = rowGenerationManager.validateAll();
+
+      if (!isValid) {
+        toastState.addToast(
+          "Invalid values in new rows.",
+          "warning",
+        );
+        return;
+      }
+
+      // Check if any new rows are incomplete (have empty required fields)
+      const newRows = rowGenerationManager.newRows;
+      const incompleteRows = newRows.filter(row => {
+        // A row is incomplete if it has no meaningful data beyond the ID
+        const hasData = Object.entries(row).some(([key, value]) => {
+          return key !== 'id' && value !== undefined && value !== null && value !== '';
+        });
+        return !hasData;
+      });
+
+      if (incompleteRows.length > 0) {
+        toastState.addToast(
+          `Cannot commit: ${incompleteRows.length} new ${incompleteRows.length === 1 ? 'row is' : 'rows are'} incomplete. Please fill in data or delete empty rows.`,
+          "error",
+        );
+        rowGenerationManager.clearValidation();
+        return;
+      }
+    }
+
     const validChanges = changeManager.getValidChanges();
+
     // Only get valid changes
-    if (validChanges.length === 0) {
+    if (validChanges.length === 0 && !hasNewRows) {
       if (changeManager.hasInvalidChanges) {
-        // REPLACE ALERT
         toastState.addToast(
           "Cannot commit: Some changes have invalid values. Please fix the highlighted cells.",
           "warning",
@@ -447,42 +628,59 @@
     }));
 
     try {
-      const response = await fetch("/asset/api/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(apiChanges),
-      });
+      // Save existing row updates if any
+      if (validChanges.length > 0) {
+        const response = await fetch("/asset/api/update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(apiChanges),
+        });
 
-      if (response.ok) {
-        const invalidChangeCount = changeManager.getAllChanges().length - validChanges.length;
-
-        // Clear only the valid changes from the change manager
-        changeManager.clearValidChanges(); 
-        selection.resetAll();
-
-        if (invalidChangeCount > 0) {
+        if (!response.ok) {
+          console.error("Commit failed:", await response.text());
           toastState.addToast(
-            `${validChanges.length} changes committed. ${invalidChangeCount} invalid edits still need to be fixed.`,
-            "warning",
+            "Failed to commit changes. See console for details.",
+            "error",
           );
-        } else {
-          toastState.addToast(
-            `${validChanges.length} changes committed successfully.`,
-            "success",
-          );
+          rowGenerationManager.clearValidation();
+          return;
         }
-      } else {
-        console.error("Commit failed:", await response.text());
-        // REPLACE ALERT
+      }
+
+      const invalidChangeCount = changeManager.getAllChanges().length - validChanges.length;
+
+      // Clear only the valid changes from the change manager
+      changeManager.clearValidChanges();
+      selection.resetAll();
+
+      // TODO: Save new rows via API (not implemented yet)
+      if (hasNewRows) {
+        const newRows = rowGenerationManager.newRows;
+        console.log("New rows to save:", newRows);
+
+        // For now, just notify that new row saving is not implemented
         toastState.addToast(
-          "Failed to commit changes. See console for details.",
-          "error",
+          "New row saving not yet implemented. New rows have been discarded.",
+          "warning",
+        );
+        rowGenerationManager.clearNewRows();
+      }
+
+      if (invalidChangeCount > 0) {
+        toastState.addToast(
+          `${validChanges.length} changes committed. ${invalidChangeCount} invalid edits still need to be fixed.`,
+          "warning",
+        );
+      } else if (validChanges.length > 0) {
+        toastState.addToast(
+          `${validChanges.length} changes committed successfully.`,
+          "success",
         );
       }
     } catch (error) {
       console.error("Commit failed:", error);
-      // REPLACE ALERT
       toastState.addToast("Network error while committing changes.", "error");
+      rowGenerationManager.clearValidation();
     }
   }
 
@@ -495,16 +693,18 @@
 
     // Revert changes from changeManager
     for (const change of changesToRevert) {
-        const item = assets.find(a => a.id === change.id);
+        const item = filteredAssets.find(a => a.id === change.id);
         if (item) {
             item[change.key] = change.oldValue;
         }
     }
-    
+
     // Remove the discarded changes from history
     historyManager.clearCommitted(changesToRevert);
 
+    // Clear all changes and new rows
     changeManager.clear();
+    rowGenerationManager.clearNewRows();
     selection.resetAll();
     toastState.addToast("Changes discarded.", "info");
   }
@@ -534,6 +734,7 @@
       if (resizeObserver) resizeObserver.disconnect();
       changeManager.clear();
       historyManager.clear();
+      rowGenerationManager.clearNewRows();
     };
   });
 
@@ -549,7 +750,7 @@
     if (headerMenu.activeKey) filterPanel.close();
   });
   $effect(() => {
-    assets;
+    filteredAssets;
     searchManager.cleanupFilterCache();
     sortManager.invalidateCache();
   });
@@ -607,6 +808,14 @@
     <div class="flex flex-row w-full justify-between items-center">
       <div class="flex flex-row gap-2">
         <FilterPanel state={filterPanel} {searchManager} />
+        {#if data.user}
+          <button
+            onclick={handleAddNewRow}
+            class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
+          >
+            + New Row
+          </button>
+        {/if}
         {#if changeManager.hasChanges && data.user}
           <div class="flex gap-2 items-center">
             <button
@@ -631,6 +840,18 @@
                 ⚠️ Some changes have invalid values
               </span>
             {/if}
+          </div>
+        {/if}
+        {#if rowGenerationManager.hasNewRows && data.user}
+          <div class="flex gap-2 items-center">
+            <span class="text-blue-600 dark:text-blue-400 text-xs">
+              {rowGenerationManager.newRowCount} new {rowGenerationManager.newRowCount === 1 ? 'row' : 'rows'}
+              {#if rowGenerationManager.hasInvalidNewRows}
+                <span class="text-yellow-600 dark:text-yellow-400">
+                  ({rowGenerationManager.invalidNewRowCount} invalid)
+                </span>
+              {/if}
+            </span>
           </div>
         {/if}
       </div>
@@ -847,9 +1068,10 @@
         {#each visibleData.items as asset, i (asset.id || visibleData.startIndex + i)}
           {@const actualIndex = visibleData.startIndex + i}
           {@const rowHeight = rowManager.getHeight(actualIndex)}
+          {@const isNewRow = actualIndex >= filteredAssets.length}
 
           <div
-            class="flex border-b border-neutral-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700"
+            class="flex border-b border-neutral-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 {isNewRow ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}"
             style="height: {rowHeight}px;"
           >
             {#each keys as key, j}
@@ -884,6 +1106,13 @@
                     );
                     return;
                   }
+
+                  // Don't allow editing ID column
+                  if (key === 'id') {
+                    toastState.addToast("ID column cannot be edited.", "warning");
+                    return;
+                  }
+
                   e.preventDefault();
                   e.stopPropagation();
                   if (!isEditingThisCell) {
@@ -977,4 +1206,6 @@
   onCopy={handleCopy}
   onPaste={handlePaste}
   onFilterByValue={handleFilterByValue}
+  onDelete={handleDeleteNewRow}
+  showDelete={contextMenu.row >= filteredAssets.length}
 />
