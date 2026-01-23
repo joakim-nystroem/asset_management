@@ -130,11 +130,14 @@
     // 2. Update the managers inside 'untrack'.
     // This tells Svelte: "Execute this, but ignore any state reads happening inside."
     untrack(() => {
-      changeManager.setConstraints({
+      const constraints = {
         location: locNames,
         status: statNames,
         condition: condNames,
-      });
+      };
+
+      changeManager.setConstraints(constraints);
+      validationManager.setConstraints(constraints);
 
       // Note: Validation for new rows now happens only on commit
     });
@@ -190,10 +193,11 @@
       return;
     }
 
-    // Block if there are unsaved changes
-    if (changeManager.hasChanges || rowGenerationManager.hasNewRows) {
+    // Block only if there are unsaved changes to existing rows
+    // Allow adding multiple new rows
+    if (changeManager.hasChanges) {
       toastState.addToast(
-        "Please save or discard your changes before adding new rows.",
+        "Please save or discard your changes to existing rows before adding new rows.",
         "warning"
       );
       return;
@@ -522,6 +526,13 @@
       const change = await editManager.save(filteredAssets, columnManager, rowManager);
 
       if (change) {
+        // Also update baseAssets to keep them in sync
+        updateAssetInList(baseAssets, {
+          id: change.id,
+          key: change.key,
+          value: change.newValue,
+        });
+
         const action = {
           id: change.id,
           key: change.key,
