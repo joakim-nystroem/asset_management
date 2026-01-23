@@ -59,7 +59,7 @@ function createRowGenerationManager() {
    * Update a field in a new row
    * @param newRowIndex Index in the newRows array
    * @param key Field name
-   * @param value New value (can be any value, validation happens immediately)
+   * @param value New value (can be any value, validation happens on commit)
    */
   function updateNewRowField(newRowIndex: number, key: string, value: any) {
     if (newRowIndex < 0 || newRowIndex >= newRows.length) {
@@ -76,23 +76,16 @@ function createRowGenerationManager() {
     // Update the field value
     newRows[newRowIndex][key] = value;
 
-    // Validate the new value immediately
-    const fieldErrors = invalidFields.get(newRowIndex) || new Set<string>();
-
-    if (!validationManager.isValidValue(key, value)) {
-      // Value is invalid - add to error set
-      fieldErrors.add(key);
-      invalidFields.set(newRowIndex, fieldErrors);
-    } else {
-      // Value is valid - remove from error set if it exists
+    // Clear any validation error for this field (will be re-validated on commit)
+    const fieldErrors = invalidFields.get(newRowIndex);
+    if (fieldErrors) {
       fieldErrors.delete(key);
       if (fieldErrors.size === 0) {
         invalidFields.delete(newRowIndex);
       }
+      // Trigger reactivity
+      invalidFields = new Map(invalidFields);
     }
-
-    // Trigger reactivity
-    invalidFields = new Map(invalidFields);
   }
 
   /**

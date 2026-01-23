@@ -96,28 +96,51 @@
 
   $effect(() => {
     const changes = changeManager.getAllChanges();
-    if (changes.length === 0) {
-      selection.clearDirtyCells();
-      return;
-    }
-
-    const assetIdMap = new Map(
-      assets.map((asset, index) => [asset.id.toString(), index]),
-    );
     const keyMap = new Map(keys.map((key, index) => [key, index]));
 
-    const dirtyCells = changes
-      .map((change) => {
-        const row = assetIdMap.get(String(change.id));
-        const col = keyMap.get(change.key);
-        return { row, col };
-      })
-      .filter((c) => c.row !== undefined && c.col !== undefined) as {
-      row: number;
-      col: number;
-    }[];
+    const dirtyCells: { row: number; col: number }[] = [];
 
-    selection.setDirtyCells(dirtyCells);
+    // Add dirty cells from existing row changes
+    if (changes.length > 0) {
+      const assetIdMap = new Map(
+        assets.map((asset, index) => [asset.id.toString(), index]),
+      );
+
+      const changedCells = changes
+        .map((change) => {
+          const row = assetIdMap.get(String(change.id));
+          const col = keyMap.get(change.key);
+          return { row, col };
+        })
+        .filter((c) => c.row !== undefined && c.col !== undefined) as {
+        row: number;
+        col: number;
+      }[];
+
+      dirtyCells.push(...changedCells);
+    }
+
+    // Add dirty cells from new rows (all fields with non-empty values)
+    const newRows = rowGenerationManager.newRows;
+    for (let i = 0; i < newRows.length; i++) {
+      const newRow = newRows[i];
+      const rowIndex = filteredAssets.length + i;
+
+      for (const [key, value] of Object.entries(newRow)) {
+        if (key !== 'id' && value !== '' && value !== null && value !== undefined) {
+          const col = keyMap.get(key);
+          if (col !== undefined) {
+            dirtyCells.push({ row: rowIndex, col });
+          }
+        }
+      }
+    }
+
+    if (dirtyCells.length === 0) {
+      selection.clearDirtyCells();
+    } else {
+      selection.setDirtyCells(dirtyCells);
+    }
   });
 
   $effect(() => {
@@ -548,6 +571,20 @@
       // Reset the edit manager
       editManager.cancel(columnManager, rowManager);
     } else {
+      // Existing row - validate first
+      const key = keys[pos.col];
+      const newValue = editManager.inputValue.trim();
+
+      // Validate the value before saving
+      if (!validationManager.isValidValue(key, newValue)) {
+        toastState.addToast(
+          `Invalid value for ${key}. Please check constraints.`,
+          "warning"
+        );
+        // Don't save, keep editing
+        return;
+      }
+
       // Existing row - use normal flow
       const change = await editManager.save(filteredAssets, columnManager, rowManager);
 
@@ -586,11 +623,19 @@
           if (!response.ok) {
             const errorData = await response.json();
             console.error("Failed to save edit to server:", errorData.error);
+            toastState.addToast(
+              "Failed to save edit to server.",
+              "error"
+            );
           } else {
             console.log("Edit saved successfully to server.");
           }
         } catch (error) {
           console.error("Network error while saving edit:", error);
+          toastState.addToast(
+            "Network error while saving edit.",
+            "error"
+          );
         }
       }
     }
