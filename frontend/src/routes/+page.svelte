@@ -193,6 +193,15 @@
       return;
     }
 
+    // Block if an edit is in progress
+    if (editManager.isEditing) {
+      toastState.addToast(
+        "Please finish or cancel your current edit before adding new rows.",
+        "warning"
+      );
+      return;
+    }
+
     // Block only if there are unsaved changes to existing rows
     // Allow adding multiple new rows
     if (changeManager.hasChanges) {
@@ -466,6 +475,17 @@
 
     if (!target) return;
     const { row, col } = target;
+
+    // Check if trying to edit an existing row while new rows exist
+    const isExistingRow = row < filteredAssets.length;
+    if (isExistingRow && rowGenerationManager.hasNewRows) {
+      toastState.addToast(
+        "Please save or discard new rows before editing existing rows.",
+        "warning"
+      );
+      contextMenu.close();
+      return;
+    }
 
     const key = keys[col];
     const asset = assets[row];
@@ -827,7 +847,7 @@
             + New Row
           </button>
         {/if}
-        {#if changeManager.hasChanges && data.user}
+        {#if (changeManager.hasChanges || rowGenerationManager.hasNewRows) && data.user}
           <div class="flex gap-2 items-center">
             <button
               onclick={commitChanges}
@@ -837,6 +857,11 @@
               {#if changeManager.hasInvalidChanges}
                 <span class="ml-1 text-xs"
                   >({changeManager.validChangeCount} valid)</span
+                >
+              {/if}
+              {#if rowGenerationManager.hasNewRows}
+                <span class="ml-1 text-xs"
+                  >({rowGenerationManager.newRowCount} new {rowGenerationManager.newRowCount === 1 ? 'row' : 'rows'})</span
                 >
               {/if}
             </button>
@@ -1173,17 +1198,12 @@
                       e.stopPropagation();
                     }}
                     onblur={(e) => {
-                      const relatedTarget = e.relatedTarget as HTMLElement;
-                      if (
-                        !relatedTarget ||
-                        relatedTarget.closest("[data-row]")
-                      ) {
-                        setTimeout(() => {
-                          cancelEdit();
-                        }, 0);
-                      } else {
-                        saveEdit();
-                      }
+                      // Always save on blur (clicking outside)
+                      setTimeout(() => {
+                        if (editManager.isEditing) {
+                          saveEdit();
+                        }
+                      }, 0);
                     }}
                     class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
                     style="overflow: hidden;"
