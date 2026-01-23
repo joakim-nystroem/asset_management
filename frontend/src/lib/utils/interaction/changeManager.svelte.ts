@@ -1,15 +1,15 @@
+import { validationManager } from '$lib/utils/data/validationManager.svelte';
+import type { ValidationConstraints } from '$lib/utils/data/validationManager.svelte';
+
+// Re-export ValidationConstraints for backward compatibility
+export type { ValidationConstraints };
+
 // Local type definition to avoid cross-imports
 export type HistoryAction = {
   id: number | string;
   key: string;
   oldValue: string;
   newValue: string;
-};
-
-export type ValidationConstraints = {
-  location: string[];
-  status: string[];
-  condition: string[];
 };
 
 /**
@@ -20,54 +20,29 @@ function createChangeManager() {
   // The key is a string "{id},{key}" for a unique cell identifier.
   // The value is the action representing the *net change* from the original value.
   let dirtyChanges = $state(new Map<string, HistoryAction>());
-  
+
   // Track invalid changes separately
   let invalidChanges = $state(new Set<string>());
-  
-  // Validation constraints
-  let constraints = $state<ValidationConstraints>({
-    location: [],
-    status: [],
-    condition: []
-  });
 
   /**
    * Set validation constraints for lookup columns
+   * Delegates to validationManager and re-validates all changes
    */
   function setConstraints(newConstraints: Partial<ValidationConstraints>) {
-    // Update constraints
-    constraints = { ...constraints, ...newConstraints };
-    
+    // Update constraints in the validation manager
+    validationManager.setConstraints(newConstraints);
+
     // Re-validate all current dirty changes against new constraints
     for (const [key, action] of dirtyChanges) {
-      if (!isValidValue(action.key, action.newValue)) {
+      if (!validationManager.isValidValue(action.key, action.newValue)) {
         invalidChanges.add(key);
       } else {
         invalidChanges.delete(key);
       }
     }
-    
+
     // Force reactivity update
     invalidChanges = new Set(invalidChanges);
-  }
-
-  /**
-   * Check if a value is valid for a given column
-   */
-  function isValidValue(key: string, value: any): boolean {
-    // Check if this column has constraints
-    if (key === 'location' && constraints.location.length > 0) {
-      return constraints.location.includes(value);
-    }
-    if (key === 'status' && constraints.status.length > 0) {
-      return constraints.status.includes(value);
-    }
-    if (key === 'condition' && constraints.condition.length > 0) {
-      return constraints.condition.includes(value);
-    }
-    
-    // No constraints or not a constrained column
-    return true;
   }
 
   /**
@@ -88,9 +63,9 @@ function createChangeManager() {
       } else {
         // It's just a new dirty value. Update the newValue in the existing record.
         existingChange.newValue = action.newValue;
-        
-        // Re-validate
-        if (!isValidValue(action.key, action.newValue)) {
+
+        // Re-validate using validationManager
+        if (!validationManager.isValidValue(action.key, action.newValue)) {
           invalidChanges.add(key);
         } else {
           invalidChanges.delete(key);
@@ -102,14 +77,14 @@ function createChangeManager() {
       // We only add it if the new value is actually different.
       if (action.oldValue !== action.newValue) {
         dirtyChanges.set(key, { ...action });
-        
-        // Validate the new value
-        if (!isValidValue(action.key, action.newValue)) {
+
+        // Validate the new value using validationManager
+        if (!validationManager.isValidValue(action.key, action.newValue)) {
           invalidChanges.add(key);
         }
       }
     }
-    
+
     // Trigger reactivity
     dirtyChanges = new Map(dirtyChanges);
     invalidChanges = new Set(invalidChanges);
