@@ -28,6 +28,7 @@
 	},
 	"dependencies": {
 		"bcrypt": "^6.0.0",
+		"html5-qrcode": "^2.3.8",
 		"kysely": "^0.28.8",
 		"uuid": "^13.0.0"
 	}

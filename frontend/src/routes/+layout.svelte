@@ -86,7 +86,7 @@
 <ToastContainer />
 
 <div class="bg-neutral-100 dark:bg-slate-600 text-neutral-700 dark:text-neutral-100 flex flex-col min-h-screen">
-  <header class="h-12 w-full bg-blue-500 dark:bg-blue-600 text-neutral-100 dark:text-neutral-50 flex justify-between items-center pl-4 px-10">
+  <header class="h-12 w-full bg-blue-500 dark:bg-blue-600 text-neutral-100 dark:text-neutral-50 flex justify-between items-center pl-4 px-4">
     <a href="/asset" class="font-bold text-lg hover:cursor-pointer">Asset Master</a>
     <div class="flex gap-4 items-center align-middle">
       <button onclick={toggleTheme} class="w-12 h-12 text-2xl text-neutral-100 cursor-pointer hover:bg-blue-900 text-center">
