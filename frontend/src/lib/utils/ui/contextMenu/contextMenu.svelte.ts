@@ -24,9 +24,9 @@ export class ContextMenuState {
       this.x = e.clientX;
     }
 
-    // Vertical positioning - grow upward if near bottom
+    // Vertical positioning - grow upward if near bottom, stay close to cursor
     if (e.clientY + estimatedHeight > windowHeight) {
-      this.y = e.clientY - estimatedHeight;
+      this.y = Math.max(4, windowHeight - estimatedHeight - 8);
     } else {
       this.y = e.clientY;
     }

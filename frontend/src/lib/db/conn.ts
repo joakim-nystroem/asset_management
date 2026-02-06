@@ -79,14 +79,61 @@ export interface ChangeLogTable {
     modified_by: string;
 }
 
+export interface ComputerDetailsTable {
+    asset_id: number;
+    operating_system: string | null;
+    os_version: string | null;
+    in_cmdb: string | null;
+}
+
+export interface ComputerGalaxyTable {
+    asset_id: number;
+    galaxy_version: string | null;
+    role: string | null;
+}
+
+export interface ComputerRetailTable {
+    asset_id: number;
+    retail_software: string | null;
+    retail_version: string | null;
+    terminal_id: string | null;
+}
+
+export interface NetworkDetailsTable {
+    asset_id: number;
+    ip_address: string | null;
+    mac_address: string | null;
+    ip_configuration: string | null;
+    network_connection_type: string | null;
+    ssid: string | null;
+    network_vpn: string | null;
+    ethernet_patch_port: string | null;
+    switch_port: string | null;
+}
+
+export interface PedDetailsTable {
+    asset_id: number;
+    hardware_ped_emv: string | null;
+    appm_ped_emv: string | null;
+    vfop_ped_emv: string | null;
+    vfsred_ped_emv: string | null;
+    vault_ped_emv: string | null;
+    physical_security_method_ped_emv: string | null;
+}
+
 export interface Database {
     asset_inventory: AssetTable;
     asset_locations: LocationTable;
     asset_status: StatusTable;
     asset_condition: ConditionTable;
-    users: UserTable; // Add this
-    sessions: SessionTable; // Add this
+    users: UserTable;
+    sessions: SessionTable;
     change_log: ChangeLogTable;
+    asset_computer_details: ComputerDetailsTable;
+    asset_computer_galaxy: ComputerGalaxyTable;
+    asset_computer_retail: ComputerRetailTable;
+    asset_network_details: NetworkDetailsTable;
+    asset_ped_details: PedDetailsTable;
 }
 
 const dialect = new MysqlDialect({

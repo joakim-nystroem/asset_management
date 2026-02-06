@@ -11,7 +11,7 @@
 
 </script>
 
-<div class="h-[calc(100dvh-5rem)] flex items-center justify-center">
+<div class="h-[calc(100dvh-5rem)] flex items-center justify-center px-4 py-2">
   <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-2xl shadow-xl p-8 space-y-8">
   <div class="text-center">
     <h2 class="text-3xl font-bold text-gray-900 dark:text-white">

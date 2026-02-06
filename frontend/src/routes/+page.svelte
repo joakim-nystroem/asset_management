@@ -19,6 +19,7 @@
   import { createVirtualScroll } from "$lib/utils/core/virtualScrollManager.svelte";
   import { columnManager } from "$lib/utils/core/columnManager.svelte";
   import { rowManager } from "$lib/utils/core/rowManager.svelte";
+  import { viewManager } from "$lib/utils/core/viewManager.svelte";
   import { editManager } from "$lib/utils/interaction/editManager.svelte";
   import FilterPanel from "$lib/utils/ui/filterPanel/filterPanel.svelte";
   import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.ts";
@@ -371,6 +372,52 @@
     selection.reset();
     sortManager.invalidateCache();
     sortManager.reset();
+  }
+
+  // --- View Switching ---
+  let viewDropdownOpen = $state(false);
+
+  async function handleViewChange(viewName: string) {
+    viewDropdownOpen = false;
+    if (viewName === viewManager.currentView) return;
+
+    viewManager.setView(viewName);
+
+    if (viewName === 'default') {
+      // Switch back to default - reload original data
+      try {
+        const response = await fetch('/asset/api/assets/view?view=default');
+        if (response.ok) {
+          const result = await response.json();
+          baseAssets = result.assets;
+          filteredAssets = result.assets;
+        }
+      } catch (err) {
+        console.error('Failed to load default view:', err);
+      }
+    } else {
+      // All other views (audit, ped, computer, network) require server data
+      try {
+        const response = await fetch(`/asset/api/assets/view?view=${viewName}`);
+        if (response.ok) {
+          const result = await response.json();
+          baseAssets = result.assets;
+          filteredAssets = result.assets;
+        }
+      } catch (err) {
+        console.error(`Failed to load ${viewName} view:`, err);
+      }
+    }
+
+    // Reset state after view switch
+    selection.reset();
+    sortManager.invalidateCache();
+    sortManager.reset();
+    changeManager.clear();
+    historyManager.clear();
+    rowGenerationManager.clearNewRows();
+    searchManager.clearSearch();
+    searchManager.clearAllFilters();
   }
 
   async function applySort(key: string, dir: "asc" | "desc") {
@@ -729,32 +776,47 @@
       changeManager.clearValidChanges();
       selection.resetAll();
 
-      // TODO: Save new rows via API (not implemented yet)
+      // Save new rows via API
       if (hasNewRows) {
         const newRows = rowGenerationManager.newRows;
 
-        // For now, just notify that new row saving is not implemented
-        toastState.addToast(
-          "New row saving not yet implemented. New rows have been discarded.",
-          "warning",
-        );
+        // Prepare rows for API (strip the temporary ID, include all fields)
+        const rowsToSave = newRows.map((row) => {
+          const { id, ...fields } = row;
+          return fields;
+        });
+
+        const newRowResponse = await fetch("/asset/api/create/asset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(rowsToSave),
+        });
+
+        if (!newRowResponse.ok) {
+          const errorData = await newRowResponse.json();
+          toastState.addToast(
+            errorData.error || "Failed to save new rows.",
+            "error",
+          );
+          rowGenerationManager.clearValidation();
+          return;
+        }
+
+        const { createdRows } = await newRowResponse.json();
+
+        // Add the newly created rows to baseAssets and filteredAssets
+        if (createdRows && createdRows.length > 0) {
+          baseAssets = [...baseAssets, ...createdRows];
+          filteredAssets = [...filteredAssets, ...createdRows];
+        }
+
         rowGenerationManager.clearNewRows();
         selection.clearDirtyCells();
 
-        // Scroll to the new bottom row (after new rows are removed)
-        if (scrollContainer) {
-          const lastRowIndex = filteredAssets.length - 1;
-          if (lastRowIndex >= 0) {
-            virtualScroll.ensureVisible(
-              lastRowIndex,
-              0,
-              scrollContainer,
-              keys,
-              columnManager,
-              rowManager
-            );
-          }
-        }
+        toastState.addToast(
+          `${newRows.length} new ${newRows.length === 1 ? "row" : "rows"} saved successfully.`,
+          "success",
+        );
       }
 
       if (invalidChangeCount > 0) {
@@ -879,9 +941,9 @@
   });
 </script>
 
+<div class="px-4 py-2 flex-grow flex flex-col">
 <div class="flex flex-col gap-2 mb-3">
   <div class="flex flex-row gap-4 items-center">
-    <!-- WS Indicator Moved to Layout, H2 removed here -->
 
     <div class="flex gap-4 items-center">
       <div class="relative">
@@ -963,6 +1025,35 @@
                 </span>
               {/if}
             </span>
+          </div>
+        {/if}
+      </div>
+
+      <!-- View Selector Dropdown -->
+      <div class="relative">
+        <button
+          onclick={() => viewDropdownOpen = !viewDropdownOpen}
+          class="flex items-center gap-1 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
+        >
+          <span>{viewManager.currentLabel}</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+        </button>
+        {#if viewDropdownOpen}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <div
+            class="fixed inset-0 z-40"
+            onclick={() => viewDropdownOpen = false}
+          ></div>
+          <div class="absolute right-0 mt-1 w-40 bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 rounded shadow-lg z-50">
+            {#each viewManager.views as view}
+              <button
+                onclick={() => handleViewChange(view.name)}
+                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {viewManager.currentView === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
+              >
+                {view.label}
+              </button>
+            {/each}
           </div>
         {/if}
       </div>
@@ -1360,3 +1451,4 @@
   onDelete={handleDeleteNewRow}
   showDelete={contextMenu.row >= filteredAssets.length}
 />
+</div>

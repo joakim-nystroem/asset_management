@@ -5,7 +5,7 @@
   const menuItems = ["locations", "status", "conditions"]
 </script>
 
-<div class="flex h-full bg-gray-100 mt-2 dark:bg-slate-600 text-gray-900 dark:text-gray-100">
+<div class="flex h-full bg-gray-100 mt-2 dark:bg-slate-600 text-gray-900 dark:text-gray-100 px-4 py-2">
   <div class="w-64 h-[calc(100dvh-5rem)] bg-white dark:bg-slate-800 p-6 shadow-lg">
     <h2 class="text-2xl font-bold mb-6">Admin Menu</h2>
     <ul class="space-y-2">
