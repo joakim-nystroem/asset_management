@@ -35,8 +35,8 @@ function createValidationManager() {
    * Set validation constraints for specific fields
    * @param newConstraints Object mapping field names to arrays of valid values
    */
-  function setConstraints(newConstraints: Constraints) {
-    constraints = { ...newConstraints };
+  function setConstraints(newConstraints: Partial<Constraints>) {
+    constraints = { ...constraints, ...(newConstraints as Constraints) };
   }
 
   /**
