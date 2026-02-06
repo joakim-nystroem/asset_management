@@ -26,7 +26,9 @@ const (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true
+		origin := r.Header.Get("Origin")
+		return origin == "http://localhost:5173" ||
+		       origin == "http://asset-management:3000"
 	},
 }
 

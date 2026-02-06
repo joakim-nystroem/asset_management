@@ -32,3 +32,9 @@ docker-compose.yml
 metadata
 frontend/metadata
 *.md
+.prettierrc
+.npmrc
+package-lock.json
+package.json
+/.omc
+/.claude
