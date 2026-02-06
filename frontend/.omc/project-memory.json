@@ -1,0 +1,187 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1770349326900,
+  "projectRoot": "/home/joakim/asset_management/frontend",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "@sveltejs/kit",
+        "version": "2.43.2",
+        "category": "fullstack"
+      },
+      {
+        "name": "svelte",
+        "version": "5.39.5",
+        "category": "frontend"
+      },
+      {
+        "name": "vite",
+        "version": "7.1.7",
+        "category": "build"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "vite dev",
+      "build": "vite build",
+      "preview": "vite preview",
+      "prepare": "svelte-kit sync || echo ''",
+      "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+      "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+    }
+  },
+  "conventions": {
+    "namingStyle": "camelCase",
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "src",
+      "static"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "metadata": {
+      "path": "metadata",
+      "purpose": null,
+      "fileCount": 2,
+      "lastAccessed": 1770349326887,
+      "keyFiles": [
+        "overview.md",
+        "utils.md"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 4,
+      "lastAccessed": 1770349326887,
+      "keyFiles": [
+        "app.css",
+        "app.d.ts",
+        "app.html",
+        "hooks.server.ts"
+      ]
+    },
+    "static": {
+      "path": "static",
+      "purpose": "Static files",
+      "fileCount": 1,
+      "lastAccessed": 1770349326894,
+      "keyFiles": [
+        "robots.txt"
+      ]
+    },
+    "src/lib": {
+      "path": "src/lib",
+      "purpose": "Library code",
+      "fileCount": 1,
+      "lastAccessed": 1770349326897,
+      "keyFiles": [
+        "types.ts"
+      ]
+    },
+    "src/routes": {
+      "path": "src/routes",
+      "purpose": "Route handlers",
+      "fileCount": 4,
+      "lastAccessed": 1770349326897,
+      "keyFiles": [
+        "+layout.server.ts",
+        "+layout.svelte",
+        "+page.server.ts"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/routes/+page.svelte",
+      "accessCount": 2,
+      "lastAccessed": 1770350007365,
+      "type": "directory"
+    },
+    {
+      "path": "src/lib/db/migrations/createChangeLog.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770349994385,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/db/create/logChange.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770349994976,
+      "type": "file"
+    },
+    {
+      "path": "src/routes/api/update/+server.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770349995568,
+      "type": "file"
+    },
+    {
+      "path": "src/hooks.server.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770349996134,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/db/conn.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770349996574,
+      "type": "file"
+    },
+    {
+      "path": "src/lib/utils",
+      "accessCount": 1,
+      "lastAccessed": 1770350003148,
+      "type": "directory"
+    },
+    {
+      "path": "src/lib/utils/interaction/changeManager.svelte.ts",
+      "accessCount": 1,
+      "lastAccessed": 1770350007861,
+      "type": "file"
+    },
+    {
+      "path": ".env.development",
+      "accessCount": 1,
+      "lastAccessed": 1770350143740,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

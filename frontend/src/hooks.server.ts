@@ -3,6 +3,20 @@ import type { Handle } from '@sveltejs/kit';
 import { findSessionById } from '$lib/db/auth/findSessionById';
 import { db } from '$lib/db/conn';
 import { cleanupExpiredSessions } from '$lib/db/auth/cleanupExpiredSessions';
+import { createChangeLogTable } from '$lib/db/migrations/createChangeLog';
+
+// Run migrations once on startup
+let migrationsRun = false;
+async function runMigrations() {
+    if (migrationsRun) return;
+    migrationsRun = true;
+    try {
+        await createChangeLogTable();
+    } catch (_) {
+        // Table likely already exists
+    }
+}
+runMigrations();
 
 // Track last cleanup time
 let lastCleanup = 0;

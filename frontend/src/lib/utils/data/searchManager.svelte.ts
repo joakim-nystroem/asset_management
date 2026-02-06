@@ -41,7 +41,6 @@ function createSearchManager() {
         return [...baseData];
       }
 
-      console.log("Performing search with params:", params.toString());
       const response = await fetch(`/asset/api/search?${params.toString()}`);
 
       if (!response.ok) {

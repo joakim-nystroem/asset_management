@@ -42,6 +42,5 @@ export async function updateAsset(id: number, key: string, value: any) {
     }
     
     // TODO: Handle extension tables
-    console.warn(`Unhandled asset update for key: ${key}`);
     return Promise.resolve();
 }

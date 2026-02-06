@@ -14,10 +14,6 @@ export async function cleanupExpiredSessions(): Promise<number> {
     
     const deletedCount = Number(result.numDeletedRows || 0);
     
-    if (deletedCount > 0) {
-        console.log(`🧹 Cleaned up ${deletedCount} expired sessions`);
-    }
-    
     return deletedCount;
 }
 

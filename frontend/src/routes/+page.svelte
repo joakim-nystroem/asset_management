@@ -4,6 +4,7 @@
   // --- COMPONENTS ---
   import ContextMenu from "$lib/utils/ui/contextMenu/contextMenu.svelte";
   import HeaderMenu from "$lib/utils/ui/headerMenu/headerMenu.svelte";
+  import EditDropdownComponent from "$lib/utils/ui/editDropdown/editDropdown.svelte";
   // --- UTILS IMPORTS ---
   import { createInteractionHandler } from "$lib/utils/interaction/interactionHandler";
   // --- STATE CLASSES ---
@@ -12,6 +13,7 @@
   import { createHeaderMenu } from "$lib/utils/ui/headerMenu/headerMenu.svelte.ts";
   import { selection } from "$lib/utils/interaction/selectionManager.svelte";
   import { createClipboard } from "$lib/utils/interaction/clipboardManager.svelte";
+  import { createEditDropdown } from "$lib/utils/ui/editDropdown/editDropdown.svelte.ts";
   import { searchManager } from "$lib/utils/data/searchManager.svelte";
   import { sortManager } from "$lib/utils/data/sortManager.svelte";
   import { createVirtualScroll } from "$lib/utils/core/virtualScrollManager.svelte";
@@ -32,6 +34,7 @@
   const clipboard = createClipboard(selection);
   const virtualScroll = createVirtualScroll();
   const filterPanel = new FilterPanelState();
+  const editDropdown = createEditDropdown();
 
   let { data }: PageProps = $props();
 
@@ -343,7 +346,6 @@
 
     // Defensive check: don't clear data if search returned empty unexpectedly
     if (result.length === 0 && baseAssets.length > 0 && searchManager.term === '' && searchManager.selectedFilters.length === 0) {
-      console.warn('Search returned empty results when it should return all data. Keeping current filtered assets.');
       return;
     }
 
@@ -527,6 +529,14 @@
 
     const currentValue = String(asset[key] ?? "");
 
+    // Show dropdown for columns with value restrictions
+    if (validationManager.hasConstraints(key)) {
+      const validValues = validationManager.getValidValues(key);
+      editDropdown.show(validValues, currentValue);
+    } else {
+      editDropdown.hide();
+    }
+
     editManager.startEdit(
       row,
       col,
@@ -602,39 +612,6 @@
         };
         historyManager.recordBatch([action]);
         changeManager.update(action);
-
-        try {
-          const response = await fetch("/asset/api/update", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify([
-              {
-                rowId: change.id,
-                columnId: change.key,
-                newValue: change.newValue,
-              },
-            ]),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            console.error("Failed to save edit to server:", errorData.error);
-            toastState.addToast(
-              "Failed to save edit to server.",
-              "error"
-            );
-          } else {
-            console.log("Edit saved successfully to server.");
-          }
-        } catch (error) {
-          console.error("Network error while saving edit:", error);
-          toastState.addToast(
-            "Network error while saving edit.",
-            "error"
-          );
-        }
       }
     }
 
@@ -643,6 +620,7 @@
 
   function cancelEdit() {
     const pos = editManager.getEditPosition();
+    editDropdown.hide();
     editManager.cancel(columnManager, rowManager);
     if (pos) selection.selectCell(pos.row, pos.col);
   }
@@ -754,7 +732,6 @@
       // TODO: Save new rows via API (not implemented yet)
       if (hasNewRows) {
         const newRows = rowGenerationManager.newRows;
-        console.log("New rows to save:", newRows);
 
         // For now, just notify that new row saving is not implemented
         toastState.addToast(
@@ -821,21 +798,6 @@
     rowGenerationManager.clearNewRows();
     selection.clearDirtyCells();
     selection.resetAll();
-
-    // Scroll to the new bottom row (after new rows are removed)
-    if (scrollContainer) {
-      const lastRowIndex = filteredAssets.length - 1;
-      if (lastRowIndex >= 0) {
-        virtualScroll.ensureVisible(
-          lastRowIndex,
-          0,
-          scrollContainer,
-          keys,
-          columnManager,
-          rowManager
-        );
-      }
-    }
 
     toastState.addToast("Changes discarded.", "info");
   }
@@ -1246,11 +1208,10 @@
                   if (e.detail === 2) return;
 
                   if (editManager.isEditing) {
-                    // Save the current edit before selecting the new cell
+                    // Save the current edit and select new cell without drag mode
                     await saveEdit();
-                    setTimeout(() => {
-                      selection.handleMouseDown(actualIndex, j, e);
-                    }, 0);
+                    selection.selectCell(actualIndex, j);
+                    return;
                   } else {
                     selection.handleMouseDown(actualIndex, j, e);
                   }
@@ -1297,38 +1258,76 @@
                 )}px; min-width: {columnManager.getWidth(key)}px;"
               >
                 {#if isEditingThisCell}
-                  <textarea
-                    bind:this={textareaRef}
-                    bind:value={editManager.inputValue}
-                    oninput={() =>
-                      editManager.updateRowHeight(
-                        textareaRef,
-                        rowManager,
-                        columnManager,
-                      )}
-                    onkeydown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        saveEdit();
-                      } else if (e.key === "Escape") {
-                        e.preventDefault();
-                        cancelEdit();
-                      }
-                    }}
-                    onmousedown={(e) => {
-                      e.stopPropagation();
-                    }}
-                    onblur={(e) => {
-                      // Always save on blur (clicking outside)
-                      setTimeout(() => {
-                        if (editManager.isEditing) {
-                          saveEdit();
+                  <div class="relative w-full h-full">
+                    <textarea
+                      bind:this={textareaRef}
+                      bind:value={editManager.inputValue}
+                      oninput={() =>
+                        editManager.updateRowHeight(
+                          textareaRef,
+                          rowManager,
+                          columnManager,
+                        )}
+                      onkeydown={(e) => {
+                        // Handle dropdown navigation if visible
+                        if (editDropdown.isVisible) {
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            editDropdown.selectNext();
+                            return;
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            editDropdown.selectPrevious();
+                            return;
+                          } else if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            const selectedValue = editDropdown.getSelectedValue();
+                            if (selectedValue !== null) {
+                              editManager.inputValue = selectedValue;
+                            }
+                            editDropdown.hide();
+                            saveEdit();
+                            return;
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            editDropdown.hide();
+                            cancelEdit();
+                            return;
+                          }
                         }
-                      }, 0);
-                    }}
-                    class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
-                    style="overflow: hidden;"
-                  ></textarea>
+
+                        // Normal keyboard handling when dropdown not visible
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          saveEdit();
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          cancelEdit();
+                        }
+                      }}
+                      onmousedown={(e) => {
+                        e.stopPropagation();
+                      }}
+                      onblur={(e) => {
+                        // Always save on blur (clicking outside)
+                        setTimeout(() => {
+                          if (editManager.isEditing) {
+                            saveEdit();
+                          }
+                        }, 0);
+                      }}
+                      class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
+                      style="overflow: hidden;"
+                    ></textarea>
+                    <EditDropdownComponent
+                      dropdown={editDropdown}
+                      onSelect={(value) => {
+                        editManager.inputValue = value;
+                        editDropdown.hide();
+                        saveEdit();
+                      }}
+                    />
+                  </div>
                 {:else}
                   <span class="truncate w-full">{asset[key]}</span>
                 {/if}

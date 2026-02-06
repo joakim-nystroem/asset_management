@@ -19,7 +19,6 @@ export async function POST({ request, params, locals }) {
     const name = body[propName];
 
     if (!name) {
-        console.error('Missing fields. Expected:', { [propName]: 'value' }, 'Received:', body);
         return json({ error: `Missing required field: ${propName}` }, { status: 400 });
     }
 

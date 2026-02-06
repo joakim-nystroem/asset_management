@@ -15,14 +15,24 @@
     state.handleOutsideClick(e, panelRef);
   }
   
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      state.close();
+    }
+  }
+
   $effect(() => {
     if (state.isOpen) {
       // Delay to avoid immediate close from the same click that opened it
       setTimeout(() => {
         window.addEventListener('click', handleClick);
       }, 0);
-      
-      return () => window.removeEventListener('click', handleClick);
+      window.addEventListener('keydown', handleKeydown);
+
+      return () => {
+        window.removeEventListener('click', handleClick);
+        window.removeEventListener('keydown', handleKeydown);
+      };
     }
   });
 </script>

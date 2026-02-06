@@ -65,8 +65,6 @@ function createRealtimeManager() {
         if (socket?.readyState === WebSocket.OPEN) {
             socket.send(msg);
         } else {
-            console.log('[Realtime] Socket not ready, queuing message:', type);
-            
             // Cap the queue and prioritize position updates
             if (messageQueue.length >= MAX_QUEUE_SIZE) {
                 // Remove oldest position update if possible, otherwise oldest message
@@ -124,12 +122,10 @@ function createRealtimeManager() {
         url.searchParams.set('session_id', sessionId);
         if (color) url.searchParams.set('color', color);
 
-        console.log('[Realtime] Connecting...');
         const ws = new WebSocket(url.toString());
         socket = ws;
 
         ws.onopen = () => {
-            console.log('[Realtime] Connected');
             attempts = 0;
             
             // 1. RESTORE PRESENCE FIRST (before queue)
@@ -142,7 +138,6 @@ function createRealtimeManager() {
             
             // 2. FLUSH QUEUE
             if (messageQueue.length > 0) {
-                console.log(`[Realtime] Flushing ${messageQueue.length} queued messages`);
                 while (messageQueue.length > 0 && ws.readyState === WebSocket.OPEN) {
                     const msg = messageQueue.shift();
                     if (msg) ws.send(msg);
@@ -152,8 +147,6 @@ function createRealtimeManager() {
 
         ws.onclose = (e) => {
             if (socket !== ws) return;
-            console.log('[Realtime] Disconnected', e.code);
-            
             socket = null;
             state.clientId = null;
             
@@ -180,7 +173,6 @@ function createRealtimeManager() {
         if (reconnectTimer) return; // Don't schedule multiple timers
 
         const delay = Math.min(1000 * 2 ** attempts++, 10000); // Cap at 10s
-        console.log(`[Realtime] Reconnecting in ${delay}ms...`);
         reconnectTimer = setTimeout(() => {
             reconnectTimer = null;
             if (session) connect(session.id, session.color);
@@ -265,7 +257,7 @@ function createRealtimeManager() {
                 break;
                 
             default:
-                console.warn('[Realtime] Unknown message type:', type);
+                break;
         }
     }
 
@@ -275,7 +267,6 @@ function createRealtimeManager() {
             if (document.visibilityState === 'visible' && session && shouldReconnect) {
                 // Check if socket is dead and wake it up immediately
                 if (!socket || socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
-                    console.log('[Realtime] Tab active, waking up socket...');
                     attempts = 0; // Reset backoff for immediate retry
                     connect(session.id, session.color);
                 }

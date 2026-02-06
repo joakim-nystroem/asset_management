@@ -41,7 +41,6 @@ function createColumnWidthManager() {
    * Start resizing a column
    */
   function startResize(key: string, clientX: number) {
-    console.log(`[ColumnManager] Start resize: ${key} at X=${clientX}`);
     resizingColumn = key;
     startX = clientX;
     startWidth = getWidth(key);
@@ -56,7 +55,6 @@ function createColumnWidthManager() {
     const delta = currentX - startX;
     const newWidth = startWidth + delta;
 
-    console.log(`[ColumnManager] Resizing ${resizingColumn}: delta=${delta}, newWidth=${newWidth}`);
     setWidth(resizingColumn, newWidth);
   }
 
@@ -64,9 +62,6 @@ function createColumnWidthManager() {
    * End resize
    */
   function endResize() {
-    if (resizingColumn) {
-      console.log(`[ColumnManager] End resize: ${resizingColumn}`);
-    }
     resizingColumn = null;
   }
 

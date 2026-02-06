@@ -18,7 +18,6 @@ export async function PUT({ request, params, locals }) {
   const name = body[propName];
   
   if (!id || !name) {
-    console.error('Missing fields. Expected:', { id, [propName]: 'value' }, 'Received:', body);
     return json({ error: `Missing required fields: id and ${propName}` }, { status: 400 });
   }
   

@@ -6,22 +6,19 @@ import type { ColumnType } from 'kysely';
 
 export interface AssetTable {
     id: ColumnType<number, never, never>;
-    location_id: number | null;
-    status_id: number | null;
-    condition_id: number | null;
-    bu_estate: string;
-    department: string;
-    location: string | null;
-    shelf_cabinet_table: string | null;
-    node: string;
     asset_type: string;
-    asset_set_type: string;
     manufacturer: string;
     model: string;
-    wbd_tag: string;
     serial_number: string;
-    status: string | null;
-    condition: string | null;
+    wbd_tag: string;
+    asset_set_type: string;
+    bu_estate: string;
+    department: string;
+    location_id: number;
+    node: string;
+    shelf_cabinet_table: string | null;
+    status_id: number;
+    condition_id: number;
     comment: string | null;
     under_warranty_until: string | null;
     warranty_details: string | null;
@@ -33,6 +30,10 @@ export interface AssetTable {
     to_be_audited_by_date: string | null;
     to_be_audited_by: string | null;
     audit_result: string | null;
+    created: ColumnType<Date, string | undefined, never>;
+    created_by: string | null;
+    modified: ColumnType<Date, string | undefined, never>;
+    modified_by: string | null;
 }
 
 export interface LocationTable {
@@ -68,6 +69,16 @@ export interface SessionTable {
     expires_at: ColumnType<Date, string, string>;
 }
 
+export interface ChangeLogTable {
+    id: ColumnType<number, never, never>;
+    asset_id: number;
+    column_name: string;
+    old_value: string | null;
+    new_value: string | null;
+    modified_at: ColumnType<Date, string | undefined, never>;
+    modified_by: string;
+}
+
 export interface Database {
     asset_inventory: AssetTable;
     asset_locations: LocationTable;
@@ -75,6 +86,7 @@ export interface Database {
     asset_condition: ConditionTable;
     users: UserTable; // Add this
     sessions: SessionTable; // Add this
+    change_log: ChangeLogTable;
 }
 
 const dialect = new MysqlDialect({
