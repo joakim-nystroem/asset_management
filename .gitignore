@@ -36,5 +36,5 @@ frontend/metadata
 .npmrc
 package-lock.json
 package.json
-/.omc
-/.claude
+.omc
+.claude
