@@ -7,7 +7,7 @@ export async function createSession(sessionData: Omit<Session, 'created_at'>): P
         .values({
             session_id: sessionData.session_id,
             user_id: sessionData.user_id,
-            expires_at: sessionData.expires_at.toISOString(),
+            expires_at: sessionData.expires_at.toISOString().slice(0, 19).replace('T', ' '),
         })
         .execute();
 }
