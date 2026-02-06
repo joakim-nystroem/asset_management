@@ -400,25 +400,6 @@
             </div>
         </div>
 
-        {#if isScanning}
-            <div class="relative overflow-hidden rounded-lg border-2 border-blue-500 bg-black">
-                <div id={scannerId}></div>
-                <!-- Red alignment bar -->
-                <div class="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-0.5 bg-red-500 opacity-70 pointer-events-none z-10"></div>
-            </div>
-            <!-- Zoom controls -->
-            <div class="flex gap-2 justify-center">
-                <button onclick={() => applyZoom(0.5)} class="px-4 py-2 text-sm font-medium rounded-lg {currentZoom === 0.5 ? 'bg-blue-600 text-white' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'}">
-                    x0.5
-                </button>
-                <button onclick={() => applyZoom(1)} class="px-4 py-2 text-sm font-medium rounded-lg {currentZoom === 1 ? 'bg-blue-600 text-white' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'}">
-                    x1
-                </button>
-                <button onclick={() => applyZoom(2)} class="px-4 py-2 text-sm font-medium rounded-lg {currentZoom === 2 ? 'bg-blue-600 text-white' : 'bg-neutral-200 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300'}">
-                    x2
-                </button>
-            </div>
-        {/if}
 
         {#if results.length === 0}
             <div class="flex flex-col items-center justify-center py-12 text-neutral-500 dark:text-neutral-400">
@@ -693,6 +674,49 @@
                 class="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 {saving ? 'Saving...' : 'Save'}
+            </button>
+        </div>
+    </div>
+{/if}
+
+{#if isScanning}
+    <!-- FULL-SCREEN SCANNER OVERLAY -->
+    <div class="fixed inset-0 z-50 bg-black flex flex-col">
+        <!-- Header bar -->
+        <div class="flex items-center justify-between px-4 py-3 bg-black/80">
+            <h2 class="text-white font-semibold text-lg">Scan Barcode</h2>
+            <button
+                onclick={toggleScanner}
+                class="px-4 py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 active:bg-red-800"
+            >
+                Close
+            </button>
+        </div>
+
+        <!-- Camera feed -->
+        <div class="flex-grow relative overflow-hidden">
+            <div id={scannerId} class="w-full h-full"></div>
+            <!-- Red alignment bar -->
+            <div class="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-red-500 opacity-80 pointer-events-none z-10"></div>
+            <!-- Corner guides -->
+            <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-44 pointer-events-none z-10">
+                <div class="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-white/60 rounded-tl"></div>
+                <div class="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-white/60 rounded-tr"></div>
+                <div class="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-white/60 rounded-bl"></div>
+                <div class="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-white/60 rounded-br"></div>
+            </div>
+        </div>
+
+        <!-- Zoom controls at bottom -->
+        <div class="flex gap-3 justify-center px-4 py-4 bg-black/80">
+            <button onclick={() => applyZoom(0.5)} class="px-5 py-2.5 text-sm font-medium rounded-lg {currentZoom === 0.5 ? 'bg-blue-600 text-white' : 'bg-neutral-700 text-neutral-300'}">
+                x0.5
+            </button>
+            <button onclick={() => applyZoom(1)} class="px-5 py-2.5 text-sm font-medium rounded-lg {currentZoom === 1 ? 'bg-blue-600 text-white' : 'bg-neutral-700 text-neutral-300'}">
+                x1
+            </button>
+            <button onclick={() => applyZoom(2)} class="px-5 py-2.5 text-sm font-medium rounded-lg {currentZoom === 2 ? 'bg-blue-600 text-white' : 'bg-neutral-700 text-neutral-300'}">
+                x2
             </button>
         </div>
     </div>
