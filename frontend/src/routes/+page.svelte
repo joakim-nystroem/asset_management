@@ -46,11 +46,13 @@
   historyManager.clear();
 
   // --- Data State ---
+  // svelte-ignore state_referenced_locally
   let baseAssets: Record<string, any>[] = $state(data.assets);
+  // svelte-ignore state_referenced_locally
   let filteredAssets: Record<string, any>[] = $state(data.assets);
-  let locations: Record<string, any>[] = $state(data.locations || []);
-  let statuses: Record<string, any>[] = $state(data.statuses || []);
-  let conditions: Record<string, any>[] = $state(data.conditions || []);
+  let locations = $derived(data.locations || []);
+  let statuses = $derived(data.statuses || []);
+  let conditions = $derived(data.conditions || []);
 
   // Combine filtered assets with new rows at the bottom
   let assets = $derived([...filteredAssets, ...rowGenerationManager.newRows]);

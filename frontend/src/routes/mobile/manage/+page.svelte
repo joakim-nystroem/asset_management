@@ -4,10 +4,11 @@
     import { onDestroy } from 'svelte';
 
     let { data }: { data: PageData } = $props();
+    // svelte-ignore state_referenced_locally
     let assets = $state(data.assets);
-    let locations: string[] = $state(data.locations);
-    let statuses: string[] = $state(data.statuses);
-    let conditions: string[] = $state(data.conditions);
+    let locations: string[] = $derived(data.locations);
+    let statuses: string[] = $derived(data.statuses);
+    let conditions: string[] = $derived(data.conditions);
     let user = $derived(data.user);
 
     // Search state
