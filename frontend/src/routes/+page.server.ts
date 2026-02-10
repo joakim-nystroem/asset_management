@@ -17,6 +17,13 @@ export const load: PageServerLoad = async ({ request, url }) => {
     redirect(302, '/asset/mobile');
   }
 
+  // If no view is specified, redirect to the default view
+  if (!url.searchParams.has('view')) {
+    const newUrl = new URL(url);
+    newUrl.searchParams.set('view', 'default');
+    redirect(302, newUrl.toString());
+  }
+
   const viewParam = url.searchParams.get('view') || 'default';
   const qParam = url.searchParams.get('q') || '';
   const filterParams = url.searchParams.getAll('filter');
