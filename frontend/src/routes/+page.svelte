@@ -72,6 +72,24 @@
   // Combine filtered assets with new rows at the bottom
   let assets = $derived([...filteredAssets, ...rowGenerationManager.newRows]);
 
+  // Check logged in status
+  let isLoggedIn = $derived(!!data.user);
+  // svelte-ignore state_referenced_locally
+  let wasLoggedIn = $state(!!data.user);
+
+  function logOutToast() {
+    toastState.addToast("You have been logged out.", "info");
+  }
+
+  $effect(() => {
+    if (!isLoggedIn && wasLoggedIn) {
+      untrack(() => {
+        logOutToast();
+      });
+    }
+  })
+
+
   // Realtime State (Derived from Singleton)
   // Map other users' positions based on asset IDs to current filtered view
   let otherUserSelections = $derived(

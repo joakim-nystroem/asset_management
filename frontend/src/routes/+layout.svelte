@@ -2,6 +2,7 @@
   import '../app.css';
   import favicon from '$lib/assets/favicon.svg';
   import { beforeNavigate, afterNavigate } from '$app/navigation';
+  import { enhance } from '$app/forms';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import ToastContainer from '$lib/utils/ui/toast/ToastContainer.svelte';
   import { toastState } from '$lib/utils/ui/toast/toastState.svelte';
@@ -71,21 +72,6 @@
     showUserMenu = false;
   });
 
-  afterNavigate((navigation) => {
-    // 1. Check if the URL has the specific 'status' param
-    const params = new URLSearchParams(navigation.to?.url.search);
-    
-    if (params.get('status') === 'logged_out') {
-      // 2. Fire the toast
-      toastState.addToast("You have been logged out successfully.", "info");
-
-      // 3. Clean the URL (Remove the ?status=logged_out param)
-      // We use history.replaceState so it doesn't trigger a router navigation
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete('status');
-      history.replaceState({}, '', newUrl);
-    }
-  });
 
 </script>
 
@@ -166,13 +152,14 @@
                 Admin Panel
               </a>
 
-              <a
-                href="/asset/logout"
-                data-sveltekit-preload-data="off"
-                class="block px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-600" 
-              >
-                Logout
-              </a>
+              <form action="/asset/logout" method="POST" use:enhance class="w-full">
+                <button
+                  type="submit"
+                  class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer"
+                >
+                  Logout
+                </button>
+              </form>
             {:else}
               <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-600 flex justify-between items-center">
                 <p class="text-sm font-semibold text-gray-900 dark:text-white">Guest</p>
