@@ -7,6 +7,7 @@
   import { toastState } from '$lib/utils/ui/toast/toastState.svelte';
   
   let { children, data } = $props();
+  // svelte-ignore state_referenced_locally
   let darkMode = $state(data.theme === 'dark');
   let showUserMenu = $state(false);
   let sessionColor: string = $derived(data.session_color || '#6b7280');

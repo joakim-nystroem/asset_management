@@ -108,12 +108,17 @@ function createSearchManager() {
     return selectedFilters.length;
   }
 
+  function setSelectedFilters(value: Filter[]) {
+    selectedFilters = value;
+  }
+
   return {
     get term() { return term },
     set term(value: string) { term = value },
     get inputValue() { return inputValue },
     set inputValue(value: string) { inputValue = value },
     get selectedFilters() { return selectedFilters },
+    set selectedFilters(value: Filter[]) { selectedFilters = value },
     get error() { return error },
 
     search,
@@ -125,7 +130,8 @@ function createSearchManager() {
     clearAllFilters,
     cleanupFilterCache,
     isFilterSelected,
-    getFilterCount
+    getFilterCount,
+    setSelectedFilters
   };
 }
 
@@ -148,7 +154,7 @@ function toggleFilter(currentFilters: Filter[], key: string, value: string): Fil
 }
 
 function removeFilterHelper(currentFilters: Filter[], filterToRemove: Filter): Filter[] {
-  return currentFilters.filter(item => item !== filterToRemove);
+  return currentFilters.filter(f => f.key !== filterToRemove.key || f.value !== filterToRemove.value);
 }
 
 export type SearchManager = ReturnType<typeof createSearchManager>;

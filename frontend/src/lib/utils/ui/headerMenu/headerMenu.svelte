@@ -9,9 +9,10 @@
     searchManager: SearchManager;
     assets: any[];
     onSort: (key: string, direction: SortDirection) => void;
+    onFilterSelect?: (item: string, key: string) => void;
   };
 
-  let { state, sortManager, searchManager, assets, onSort }: Props = $props();
+  let { state, sortManager, searchManager, assets, onSort, onFilterSelect }: Props = $props();
 
   $effect(() => {
     if (state.activeKey) {
@@ -93,8 +94,12 @@
              }
               <button 
                 class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full" 
-                onclick={() => { 
-                  searchManager.selectFilterItem(item, state.activeKey, assets);
+                onclick={() => {
+                  if (onFilterSelect) {
+                    onFilterSelect(item, state.activeKey);
+                  } else {
+                    searchManager.selectFilterItem(item, state.activeKey, assets);
+                  }
                 }}
               >
                 <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">

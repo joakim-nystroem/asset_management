@@ -1,5 +1,6 @@
 // src/routes/+page.server.ts
-import { getDefaultAssets } from '$lib/db/select/getAssets';
+import { getAssetsByView } from '$lib/db/select/getAssetsByView';
+import { searchAssets } from '$lib/db/select/searchAssets';
 import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -9,12 +10,19 @@ import { getConditions } from '$lib/db/select/getConditions';
 
 const MOBILE_UA_REGEX = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
 
-export const load: PageServerLoad = async ({ request }) => {
+export const load: PageServerLoad = async ({ request, url }) => {
   // Redirect mobile users to the mobile page
   const userAgent = request.headers.get('user-agent') || '';
   if (MOBILE_UA_REGEX.test(userAgent)) {
     redirect(302, '/asset/mobile');
   }
+
+  const viewParam = url.searchParams.get('view') || 'default';
+  const qParam = url.searchParams.get('q') || '';
+  const filterParams = url.searchParams.getAll('filter');
+
+  const validViews = ['default', 'audit', 'ped', 'computer', 'network'];
+  const resolvedView = validViews.includes(viewParam) ? viewParam : 'default';
 
   let assets: Record<string, any>[] = [];
   let dbError: string | null = null;
@@ -23,10 +31,40 @@ export const load: PageServerLoad = async ({ request }) => {
   let conditions: any[] = [];
 
   try {
-    assets = await getDefaultAssets();
-    locations = await getLocations();
-    statuses = await getStatuses();
-    conditions = await getConditions();
+    // Load the correct view's assets based on URL
+    assets = await getAssetsByView(resolvedView);
+
+    // Load metadata in parallel
+    [locations, statuses, conditions] = await Promise.all([
+      getLocations(),
+      getStatuses(),
+      getConditions(),
+    ]);
+
+    // If there are search/filter params, also fetch filtered results
+    if (qParam || filterParams.length > 0) {
+      const filterMap: Record<string, string[]> = {};
+      for (const filter of filterParams) {
+        const colonIndex = filter.indexOf(':');
+        if (colonIndex === -1) continue;
+        const key = filter.slice(0, colonIndex);
+        const value = filter.slice(colonIndex + 1);
+        if (key && value) {
+          if (!filterMap[key]) filterMap[key] = [];
+          filterMap[key].push(value);
+        }
+      }
+      const searchResults = await searchAssets(qParam || null, filterMap);
+      return {
+        assets,
+        searchResults,
+        dbError,
+        locations,
+        statuses,
+        conditions,
+        initialView: resolvedView,
+      };
+    }
   } catch (err: unknown) {
     if (err instanceof Error) {
       dbError = err.message;
@@ -36,5 +74,5 @@ export const load: PageServerLoad = async ({ request }) => {
     }
   }
 
-  return { assets, dbError, locations, statuses, conditions };
+  return { assets, dbError, locations, statuses, conditions, initialView: resolvedView };
 };

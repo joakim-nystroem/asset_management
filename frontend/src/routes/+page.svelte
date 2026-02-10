@@ -1,12 +1,23 @@
 <script lang="ts">
+
   import { tick, untrack } from "svelte";
+  import { page } from '$app/state';
+  import { replaceState } from '$app/navigation';
+  import { SvelteURL } from 'svelte/reactivity';
+
+  // --- TYPES ---
   import type { PageProps } from "./$types";
+  import type { Filter } from '$lib/utils/data/searchManager.svelte';
+  
   // --- COMPONENTS ---
   import ContextMenu from "$lib/utils/ui/contextMenu/contextMenu.svelte";
   import HeaderMenu from "$lib/utils/ui/headerMenu/headerMenu.svelte";
   import EditDropdownComponent from "$lib/utils/ui/editDropdown/editDropdown.svelte";
+  import FilterPanel from "$lib/utils/ui/filterPanel/filterPanel.svelte";
+
   // --- UTILS IMPORTS ---
   import { createInteractionHandler } from "$lib/utils/interaction/interactionHandler";
+  
   // --- STATE CLASSES ---
   import { ContextMenuState } from "$lib/utils/ui/contextMenu/contextMenu.svelte.ts";
   import { historyManager } from "$lib/utils/interaction/historyManager.svelte";
@@ -21,7 +32,6 @@
   import { rowManager } from "$lib/utils/core/rowManager.svelte";
   import { viewManager } from "$lib/utils/core/viewManager.svelte";
   import { editManager } from "$lib/utils/interaction/editManager.svelte";
-  import FilterPanel from "$lib/utils/ui/filterPanel/filterPanel.svelte";
   import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.ts";
   import { changeManager } from "$lib/utils/interaction/changeManager.svelte";
   import { realtime } from "$lib/utils/interaction/realtimeManager.svelte";
@@ -45,11 +55,16 @@
   changeManager.clear();
   historyManager.clear();
 
+  // Always sync view from server data (prevents singleton stale state on navigation)
+  // svelte-ignore state_referenced_locally
+  viewManager.setView(data.initialView || 'default');
+
   // --- Data State ---
   // svelte-ignore state_referenced_locally
   let baseAssets: Record<string, any>[] = $state(data.assets);
   // svelte-ignore state_referenced_locally
-  let filteredAssets: Record<string, any>[] = $state(data.assets);
+  let filteredAssets: Record<string, any>[] = $state(data.searchResults ?? data.assets);
+  let searchError = $state('');
   let locations = $derived(data.locations || []);
   let statuses = $derived(data.statuses || []);
   let conditions = $derived(data.conditions || []);
@@ -344,82 +359,51 @@
       getGridSize: () => ({ rows: assets.length, cols: keys.length }),
     },
   );
-  async function handleSearch() {
-    const result = await searchManager.search(baseAssets);
+  // Reactive URL — SvelteURL makes searchParams deeply reactive
+  // (page.url uses $state.raw which is shallow — doesn't react to replaceState changes)
+  const reactiveUrl = new SvelteURL(page.url);
 
-    // Defensive check: don't clear data if search returned empty unexpectedly
-    if (result.length === 0 && baseAssets.length > 0 && searchManager.term === '' && searchManager.selectedFilters.length === 0) {
-      return;
+  // --- URL-driven search helpers ---
+  function updateSearchUrl(params: { q?: string; filters?: Filter[]; view?: string }) {
+    // Clear known search params (delete only specific keys to preserve SvelteURL reactive tracking)
+    reactiveUrl.searchParams.delete('q');
+    reactiveUrl.searchParams.delete('filter');
+    reactiveUrl.searchParams.delete('view');
+    if (params.q) reactiveUrl.searchParams.set('q', params.q);
+    if (params.filters && params.filters.length > 0) {
+      params.filters.forEach(f => reactiveUrl.searchParams.append('filter', `${f.key}:${f.value}`));
     }
+    // Always include view in URL to prevent flicker on reload
+    reactiveUrl.searchParams.set('view', params.view || 'default');
+    // Sync to browser URL bar (non-reactive, just visual)
+    replaceState(new URL(reactiveUrl), {});
+  }
 
-    // Discard all pending changes when filtering
-    if (changeManager.hasChanges) {
-      const changesToRevert = changeManager.getAllChanges(true);
-      for (const change of changesToRevert) {
-        const item = baseAssets.find(a => a.id === change.id);
-        if (item) {
-          item[change.key] = change.oldValue;
-        }
-      }
-      changeManager.clear();
-      historyManager.clear();
-    }
+  function parseUrlFilters(filterParams: string[]): Filter[] {
+    return filterParams
+      .map(f => {
+        const colonIndex = f.indexOf(':');
+        if (colonIndex === -1) return null;
+        return { key: f.slice(0, colonIndex), value: f.slice(colonIndex + 1) };
+      })
+      .filter((f): f is Filter => f !== null);
+  }
 
-    // Discard new rows when filtering
-    if (rowGenerationManager.hasNewRows) {
-      rowGenerationManager.clearNewRows();
-    }
-
-    filteredAssets = result;
-    selection.reset();
-    sortManager.invalidateCache();
-    sortManager.reset();
+  function getCurrentUrlState() {
+    const q = reactiveUrl.searchParams.get('q') || '';
+    const filters = parseUrlFilters(reactiveUrl.searchParams.getAll('filter'));
+    const view = reactiveUrl.searchParams.get('view') || 'default';
+    return { q, filters, view };
   }
 
   // --- View Switching ---
   let viewDropdownOpen = $state(false);
 
-  async function handleViewChange(viewName: string) {
+  function handleViewChange(viewName: string) {
     viewDropdownOpen = false;
     if (viewName === viewManager.currentView) return;
-
-    viewManager.setView(viewName);
-
-    if (viewName === 'default') {
-      // Switch back to default - reload original data
-      try {
-        const response = await fetch('/asset/api/assets/view?view=default');
-        if (response.ok) {
-          const result = await response.json();
-          baseAssets = result.assets;
-          filteredAssets = result.assets;
-        }
-      } catch (err) {
-        console.error('Failed to load default view:', err);
-      }
-    } else {
-      // All other views (audit, ped, computer, network) require server data
-      try {
-        const response = await fetch(`/asset/api/assets/view?view=${viewName}`);
-        if (response.ok) {
-          const result = await response.json();
-          baseAssets = result.assets;
-          filteredAssets = result.assets;
-        }
-      } catch (err) {
-        console.error(`Failed to load ${viewName} view:`, err);
-      }
-    }
-
-    // Reset state after view switch
-    selection.reset();
-    sortManager.invalidateCache();
-    sortManager.reset();
-    changeManager.clear();
-    historyManager.clear();
-    rowGenerationManager.clearNewRows();
-    searchManager.clearSearch();
-    searchManager.clearAllFilters();
+    // Just update URL — the URL-driven effect handles view loading, state reset, etc.
+    updateSearchUrl({ view: viewName });
   }
 
   async function applySort(key: string, dir: "asc" | "desc") {
@@ -537,8 +521,14 @@
 
   function handleFilterByValue() {
     if (!contextMenu.visible) return;
-    const { key, value } = contextMenu;
-    searchManager.selectFilterItem(value, key, assets);
+    const { key, value: filterValue } = contextMenu;
+    const { q, filters, view } = getCurrentUrlState();
+    // Toggle the filter
+    const exists = filters.some(f => f.key === key && f.value === filterValue);
+    const newFilters = exists
+      ? filters.filter(f => !(f.key === key && f.value === filterValue))
+      : [...filters, { key, value: filterValue }];
+    updateSearchUrl({ q, filters: newFilters, view });
     contextMenu.close();
   }
 
@@ -907,10 +897,120 @@
     };
   });
 
+  let skipInitialFetch = true; // Server already returned correct data for initial load
   $effect(() => {
-    searchManager.term;
-    searchManager.selectedFilters;
-    handleSearch();
+    // Read from reactiveUrl (SvelteURL) — deeply reactive, triggers on searchParams changes
+    const q = reactiveUrl.searchParams.get('q') || '';
+    const filterParams = reactiveUrl.searchParams.getAll('filter');
+    const filters = parseUrlFilters(filterParams);
+    const urlView = reactiveUrl.searchParams.get('view') || 'default';
+
+    // Sync searchManager UI state from URL (one-way: URL -> manager)
+    // Use untrack to prevent searchManager reactive writes from re-triggering this effect
+    untrack(() => {
+      searchManager.inputValue = q;
+      const currentFiltersJson = JSON.stringify(searchManager.selectedFilters.slice().sort((a, b) => a.key.localeCompare(b.key) || a.value.localeCompare(b.value)));
+      const urlFiltersJson = JSON.stringify(filters.slice().sort((a, b) => a.key.localeCompare(b.key) || a.value.localeCompare(b.value)));
+      if (currentFiltersJson !== urlFiltersJson) {
+        searchManager.setSelectedFilters(filters);
+      }
+    });
+
+    // On initial mount, server already returned correct data — skip fetching
+    if (skipInitialFetch) {
+      skipInitialFetch = false;
+      return;
+    }
+
+    // Stale request guard
+    let cancelled = false;
+
+    (async () => {
+      // Handle view change if needed (load view data FIRST before search)
+      // Use untrack for viewManager reads/writes — we only want this effect to react to URL changes,
+      // not to viewManager state changes (which would cancel the async fetch)
+      const validViews = untrack(() => viewManager.views.map(v => v.name));
+      const currentView = untrack(() => viewManager.currentView);
+      if (urlView !== currentView) {
+        if (validViews.includes(urlView)) {
+          untrack(() => viewManager.setView(urlView));
+          try {
+            const response = await fetch(`/asset/api/assets/view?view=${urlView}`);
+            if (cancelled) return;
+            if (response.ok) {
+              const result = await response.json();
+              baseAssets = result.assets;
+              // If no search params, show view data directly and we're done
+              if (!q && filters.length === 0) {
+                filteredAssets = result.assets;
+                searchError = '';
+                selection.reset();
+                sortManager.invalidateCache();
+                sortManager.reset();
+                changeManager.clear();
+                historyManager.clear();
+                rowGenerationManager.clearNewRows();
+                return;
+              }
+            }
+          } catch (err) {
+            if (cancelled) return;
+            console.error(`Failed to load ${urlView} view:`, err);
+          }
+        } else {
+          untrack(() => viewManager.setView('default'));
+        }
+      }
+
+      // Handle search/filter state
+      if (!q && filters.length === 0) {
+        // No search params — show all base data
+        filteredAssets = [...baseAssets];
+        searchError = '';
+        sortManager.invalidateCache();
+        sortManager.reset();
+        selection.reset();
+      } else {
+        // Has search params — fetch from search API
+        const params = new URLSearchParams();
+        if (q) params.set('q', q);
+        filters.forEach(f => params.append('filter', `${f.key}:${f.value}`));
+
+        try {
+          const response = await fetch(`/asset/api/search?${params.toString()}`);
+          if (cancelled) return;
+          if (!response.ok) throw new Error(`API Error: ${response.status}`);
+          const result = await response.json();
+
+          // Discard pending changes when search results change
+          if (changeManager.hasChanges) {
+            const changesToRevert = changeManager.getAllChanges(true);
+            for (const change of changesToRevert) {
+              const item = baseAssets.find(a => a.id === change.id);
+              if (item) {
+                item[change.key] = change.oldValue;
+              }
+            }
+            changeManager.clear();
+            historyManager.clear();
+          }
+          if (rowGenerationManager.hasNewRows) {
+            rowGenerationManager.clearNewRows();
+          }
+          filteredAssets = result || [];
+          searchError = '';
+          selection.reset();
+          sortManager.invalidateCache();
+          sortManager.reset();
+        } catch (err) {
+          if (cancelled) return;
+          searchError = err instanceof Error ? err.message : 'Search failed';
+          console.error('Search failed:', err);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
   });
   $effect(() => {
     if (filterPanel.isOpen) headerMenu.close();
@@ -954,12 +1054,19 @@
           class="bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pr-7 border border-neutral-300 dark:border-none focus:outline-none"
           placeholder="Search..."
           onkeydown={(e) => {
-            if (e.key === "Enter") searchManager.executeSearch();
+            if (e.key === "Enter") {
+              const { filters, view } = getCurrentUrlState();
+              updateSearchUrl({ q: searchManager.inputValue, filters, view });
+            }
           }}
         />
         {#if searchManager.inputValue}
           <button
-            onclick={() => searchManager.clearSearch()}
+            onclick={() => {
+              searchManager.inputValue = '';
+              const { filters, view } = getCurrentUrlState();
+              updateSearchUrl({ q: '', filters, view });
+            }}
             class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
             title="Clear search"
           >
@@ -968,7 +1075,10 @@
         {/if}
       </div>
       <button
-        onclick={() => searchManager.executeSearch()}
+        onclick={() => {
+          const { filters, view } = getCurrentUrlState();
+          updateSearchUrl({ q: searchManager.inputValue, filters, view });
+        }}
         class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-neutral-100"
         >Search</button
       >
@@ -976,7 +1086,19 @@
 
     <div class="flex flex-row w-full justify-between items-center">
       <div class="flex flex-row gap-2">
-        <FilterPanel state={filterPanel} {searchManager} />
+        <FilterPanel
+          state={filterPanel}
+          {searchManager}
+          onRemoveFilter={(filter) => {
+            const { q, filters, view } = getCurrentUrlState();
+            const newFilters = filters.filter(f => !(f.key === filter.key && f.value === filter.value));
+            updateSearchUrl({ q, filters: newFilters, view });
+          }}
+          onClearAllFilters={() => {
+            const { q, view } = getCurrentUrlState();
+            updateSearchUrl({ q, filters: [], view });
+          }}
+        />
         {#if data.user}
           <button
             onclick={handleAddNewRow}
@@ -1085,6 +1207,14 @@
       {searchManager}
       {assets}
       onSort={applySort}
+      onFilterSelect={(item, key) => {
+        const { q, filters, view } = getCurrentUrlState();
+        const exists = filters.some(f => f.key === key && f.value === item);
+        const newFilters = exists
+          ? filters.filter(f => !(f.key === key && f.value === item))
+          : [...filters, { key, value: item }];
+        updateSearchUrl({ q, filters: newFilters, view });
+      }}
     />
 
     <div
@@ -1434,8 +1564,8 @@
   <p class="mt-2 ml-1 text-sm text-neutral-600 dark:text-neutral-300">
     Showing {assets.length} items.
   </p>
-{:else if searchManager.error}
-  <p class="text-red-500">Error: {searchManager.error}</p>
+{:else if searchError}
+  <p class="text-red-500">Error: {searchError}</p>
 {:else}
   <div
     class="flex items-center justify-center rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"

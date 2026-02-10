@@ -5,9 +5,11 @@
   type Props = {
     state: FilterPanelState;
     searchManager: SearchManager;
+    onRemoveFilter?: (filter: { key: string; value: string }) => void;
+    onClearAllFilters?: () => void;
   };
-  
-  let { state, searchManager }: Props = $props();
+
+  let { state, searchManager, onRemoveFilter, onClearAllFilters }: Props = $props();
   let panelRef: HTMLDivElement | null = null;
   
   // Handle outside clicks
@@ -66,9 +68,13 @@
       <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-slate-700">
         <h3 class="font-semibold text-sm text-neutral-900 dark:text-neutral-100">Active Filters</h3>
         {#if searchManager.getFilterCount() > 0}
-          <button 
+          <button
             onclick={() => {
-              searchManager.clearAllFilters();
+              if (onClearAllFilters) {
+                onClearAllFilters();
+              } else {
+                searchManager.clearAllFilters();
+              }
               state.close();
             }}
             class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium cursor-pointer"
@@ -97,7 +103,13 @@
                   </div>
                 </div>
                 <button
-                  onclick={() => searchManager.removeFilter(filter)}
+                  onclick={() => {
+                    if (onRemoveFilter) {
+                      onRemoveFilter(filter);
+                    } else {
+                      searchManager.removeFilter(filter);
+                    }
+                  }}
                   class="ml-2 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 cursor-pointer"
                   aria-label="Remove filter"
                 >

@@ -7,7 +7,10 @@ export async function GET({ url }) {
 
     const filterMap: Record<string, string[]> = {};
     for (const filter of filters) {
-        const [key, value] = filter.split(':');
+        const colonIndex = filter.indexOf(':');
+        if (colonIndex === -1) continue;
+        const key = filter.slice(0, colonIndex);
+        const value = filter.slice(colonIndex + 1);
         if (key && value) {
             if (!filterMap[key]) {
                 filterMap[key] = [];
