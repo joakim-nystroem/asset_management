@@ -1,11 +1,10 @@
 <script lang="ts">
   import '../app.css';
   import favicon from '$lib/assets/favicon.svg';
-  import { beforeNavigate, afterNavigate } from '$app/navigation';
+  import { beforeNavigate } from '$app/navigation';
   import { enhance } from '$app/forms';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import ToastContainer from '$lib/utils/ui/toast/ToastContainer.svelte';
-  import { toastState } from '$lib/utils/ui/toast/toastState.svelte';
   
   let { children, data } = $props();
   // svelte-ignore state_referenced_locally
