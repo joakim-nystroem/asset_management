@@ -63,7 +63,7 @@ func main() {
 	// Parse allowed origins from environment variable
 	allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
 	if allowedOriginsStr == "" {
-		allowedOriginsStr = "http://localhost:5173"
+		allowedOriginsStr = "http://localhost:5173, https://10.236.133.207"
 	}
 	allowedOrigins := strings.Split(allowedOriginsStr, ",")
 	for i := range allowedOrigins {
