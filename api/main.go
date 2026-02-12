@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"asset-api/internal"
@@ -59,9 +60,19 @@ func main() {
 
 	log.Println("✅ Database connection established")
 
+	// Parse allowed origins from environment variable
+	allowedOriginsStr := os.Getenv("ALLOWED_ORIGINS")
+	if allowedOriginsStr == "" {
+		allowedOriginsStr = "http://localhost:5173"
+	}
+	allowedOrigins := strings.Split(allowedOriginsStr, ",")
+	for i := range allowedOrigins {
+		allowedOrigins[i] = strings.TrimSpace(allowedOrigins[i])
+	}
+
 	// Realtime WebSocket Hub with database connection
 	log.Println("🔌 Initializing WebSocket hub...")
-	hub := internal.NewHub(db)
+	hub := internal.NewHub(db, allowedOrigins)
 	go hub.Run()
 	log.Println("✅ WebSocket hub running")
 
@@ -78,12 +89,12 @@ func main() {
 	// CORS setup
 	log.Println("🌐 Configuring CORS...")
 	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://asset-management:3000", "http://localhost:5173"},
+		AllowedOrigins:   allowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Content-Type", "Authorization"},
 		AllowCredentials: true,
 	})
-	log.Println("✅ CORS configured for origins: http://asset-management:3000, http://localhost:5173")
+	log.Printf("✅ CORS configured for origins: %s", strings.Join(allowedOrigins, ", "))
 
 	handler := c.Handler(r)
 

@@ -17,20 +17,12 @@ const (
 	writeWait  = 10 * time.Second
 	pongWait   = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10
-	
+
 	healthCheckInterval = 30 * time.Second
-	
+
 	clientSendBuffer = 256
 	hubChannelBuffer = 100
 )
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		origin := r.Header.Get("Origin")
-		return origin == "http://localhost:5173" ||
-		       origin == "http://asset-management:3000"
-	},
-}
 
 type Message struct {
 	Type    string      `json:"type"`
@@ -143,18 +135,20 @@ type Hub struct {
 	shutdown        chan struct{}
 	wg              sync.WaitGroup
 	db              *sql.DB
+	allowedOrigins  []string
 }
 
-func NewHub(db *sql.DB) *Hub {
+func NewHub(db *sql.DB, allowedOrigins []string) *Hub {
 	return &Hub{
-		broadcast:   make(chan BroadcastData, hubChannelBuffer),
-		register:    make(chan *Client, hubChannelBuffer),
-		unregister:  make(chan *Client, hubChannelBuffer),
-		clients:     make(map[*Client]bool),
-		userClients: make(map[string]map[*Client]bool),
-		presence:    NewUserPresence(),
-		shutdown:    make(chan struct{}),
-		db:          db,
+		broadcast:      make(chan BroadcastData, hubChannelBuffer),
+		register:       make(chan *Client, hubChannelBuffer),
+		unregister:     make(chan *Client, hubChannelBuffer),
+		clients:        make(map[*Client]bool),
+		userClients:    make(map[string]map[*Client]bool),
+		presence:       NewUserPresence(),
+		shutdown:       make(chan struct{}),
+		db:             db,
+		allowedOrigins: allowedOrigins,
 	}
 }
 
@@ -555,6 +549,20 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 		color = "#6b7280"
 	}
 	userInfo.Color = color
+
+	// Create upgrader with dynamic origin checking
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			for _, allowed := range h.allowedOrigins {
+				if origin == allowed {
+					return true
+				}
+			}
+			log.Printf("WebSocket origin rejected: %s (allowed: %v)", origin, h.allowedOrigins)
+			return false
+		},
+	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
