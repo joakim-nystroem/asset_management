@@ -85,10 +85,15 @@
     if (!isLoggedIn && wasLoggedIn) {
       untrack(() => {
         logOutToast();
+        // Reset reactive URL to clean state — the redirect already updated the browser URL,
+        // but reactiveUrl (SvelteURL) is a separate object that still holds stale params.
+        // This triggers the URL effect to clear filters and show unfiltered data.
+        reactiveUrl.searchParams.delete('q');
+        reactiveUrl.searchParams.delete('filter');
+        reactiveUrl.searchParams.set('view', 'default');
       });
     }
   })
-
 
   // Realtime State (Derived from Singleton)
   // Map other users' positions based on asset IDs to current filtered view

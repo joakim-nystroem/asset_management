@@ -8,7 +8,6 @@ export type Filter = {
 
 function createSearchManager() {
   // Search state
-  let term = $state('');
   let inputValue = $state('');
 
   // Filter state
@@ -17,57 +16,6 @@ function createSearchManager() {
 
   // Error state
   let error = $state('');
-
-  /**
-   * Perform search against the SvelteKit API
-   */
-  async function search(baseData: any[]): Promise<any[]> {
-    try {
-      const params = new URLSearchParams();
-
-      if (term) {
-        params.set('q', term);
-      }
-
-      if (selectedFilters.length > 0) {
-        selectedFilters.forEach(f => {
-          params.append('filter', `${f.key}:${f.value}`);
-        });
-      }
-
-      // If no search term and no filters, return base data
-      if (!term && selectedFilters.length === 0) {
-        error = '';
-        return [...baseData];
-      }
-
-      const response = await fetch(`/asset/api/search?${params.toString()}`);
-
-      if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      error = '';
-
-      // Handle case where API returns null for empty list
-      return result || [];
-
-    } catch (err) {
-      error = err instanceof Error ? err.message : 'An unknown error occurred.';
-      console.error('Search failed:', error);
-      return [];
-    }
-  }
-
-  function executeSearch() {
-    term = inputValue;
-  }
-
-  function clearSearch() {
-    term = '';
-    inputValue = '';
-  }
 
   function getFilterItems(key: string, assets: any[]): any[] {
     if (filterOptions.size > 0 && filterOptions.has(key)) {
@@ -113,17 +61,12 @@ function createSearchManager() {
   }
 
   return {
-    get term() { return term },
-    set term(value: string) { term = value },
     get inputValue() { return inputValue },
     set inputValue(value: string) { inputValue = value },
     get selectedFilters() { return selectedFilters },
     set selectedFilters(value: Filter[]) { selectedFilters = value },
     get error() { return error },
 
-    search,
-    executeSearch,
-    clearSearch,
     getFilterItems,
     selectFilterItem,
     removeFilter,

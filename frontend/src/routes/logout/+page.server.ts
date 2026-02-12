@@ -15,6 +15,7 @@ export const load: PageServerLoad = async ({ cookies }) => {
   }
   cookies.delete('sessionId', { path: '/' });
   cookies.delete('session_color', { path: '/' });
+  redirect(302, '/asset');
 };
 
 export const actions: Actions = {
@@ -34,5 +35,6 @@ export const actions: Actions = {
     // Clear the session cookie
     cookies.delete('sessionId', { path: '/' });
     cookies.delete('session_color', { path: '/' });
+    redirect(303, '/asset');
   }
 };
