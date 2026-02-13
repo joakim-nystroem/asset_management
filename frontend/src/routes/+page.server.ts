@@ -14,7 +14,7 @@ export const load: PageServerLoad = async ({ request, url }) => {
   // Redirect mobile users to the mobile page
   const userAgent = request.headers.get('user-agent') || '';
   if (MOBILE_UA_REGEX.test(userAgent)) {
-    redirect(302, '/asset/mobile');
+    redirect(302, '/mobile');
   }
 
   // If no view is specified, redirect to the default view

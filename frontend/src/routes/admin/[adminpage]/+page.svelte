@@ -26,7 +26,7 @@
 
   async function refetchData() {
     try {
-      const res = await fetch(`/asset/api/meta/${pathname}`);
+      const res = await fetch(`/api/meta/${pathname}`);
       if (res.ok) {
         const result = await res.json();
         pageItems = result[pathname] || [];
@@ -57,7 +57,7 @@
 
     try {
       const propName = getDynamicPropertyName(pathname);
-      const res = await fetch(`/asset/api/update/${pathname}`, {
+      const res = await fetch(`/api/update/${pathname}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: editingId, [propName]: editValue.trim() }),
@@ -80,7 +80,7 @@
 
     try {
       const propName = getDynamicPropertyName(pathname);
-      const res = await fetch(`/asset/api/delete/${pathname}`, {
+      const res = await fetch(`/api/delete/${pathname}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id, [propName]: getDynamicName(item, pathname) }),
@@ -111,7 +111,7 @@
 
     try {
       const propName = getDynamicPropertyName(pathname);
-      const res = await fetch(`/asset/api/create/${pathname}`, {
+      const res = await fetch(`/api/create/${pathname}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [propName]: newItemName.trim() }),

@@ -100,6 +100,6 @@ export const actions = {
       });
     }
 
-    redirect(303, '/asset');
+    redirect(303, '/');
   },
 };

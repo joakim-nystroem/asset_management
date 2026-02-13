@@ -768,7 +768,7 @@
     try {
       // Save existing row updates if any
       if (validChanges.length > 0) {
-        const response = await fetch("/asset/api/update", {
+        const response = await fetch("/api/update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(apiChanges),
@@ -801,7 +801,7 @@
           return fields;
         });
 
-        const newRowResponse = await fetch("/asset/api/create/asset", {
+        const newRowResponse = await fetch("/api/create/asset", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(rowsToSave),
@@ -958,7 +958,7 @@
         if (validViews.includes(urlView)) {
           untrack(() => viewManager.setView(urlView));
           try {
-            const response = await fetch(`/asset/api/assets/view?view=${urlView}`);
+            const response = await fetch(`/api/assets/view?view=${urlView}`);
             if (cancelled) return;
             if (response.ok) {
               const result = await response.json();
@@ -1000,7 +1000,7 @@
         filters.forEach(f => params.append('filter', `${f.key}:${f.value}`));
 
         try {
-          const response = await fetch(`/asset/api/search?${params.toString()}`);
+          const response = await fetch(`/api/search?${params.toString()}`);
           if (cancelled) return;
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
           const result = await response.json();

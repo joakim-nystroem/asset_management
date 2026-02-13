@@ -84,7 +84,7 @@
 
 <div class="bg-neutral-100 dark:bg-slate-600 text-neutral-700 dark:text-neutral-100 flex flex-col min-h-screen">
   <header class="h-12 w-full bg-blue-500 dark:bg-blue-600 text-neutral-100 dark:text-neutral-50 flex justify-between items-center pl-4 px-4">
-    <a href="/asset" class="font-bold text-lg hover:cursor-pointer">Asset Master</a>
+    <a href="/" class="font-bold text-lg hover:cursor-pointer">Asset Master</a>
     <div class="flex gap-4 items-center align-middle">
       <button onclick={toggleTheme} class="w-10 h-10 flex items-center justify-center text-neutral-100 cursor-pointer hover:bg-blue-400 dark:hover:bg-blue-700 rounded-lg transition-colors" title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
         {#if darkMode}
@@ -138,20 +138,20 @@
               </div>
 
               <a
-                href="/asset"
+                href="/"
                 class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
               >
                 Home
               </a>
 
               <a
-                href="/asset/admin"
+                href="/admin"
                 class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
               >
                 Admin Panel
               </a>
 
-              <form action="/asset/logout" method="POST" use:enhance class="w-full">
+              <form action="/logout" method="POST" use:enhance class="w-full">
                 <button
                   type="submit"
                   class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer"
@@ -175,13 +175,13 @@
                 {/if}
               </div>
               <a
-                href="/asset"
+                href="/"
                 class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
               >
                 Home
               </a>
               <a
-                href="/asset/login"
+                href="/login"
                 class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
               >
                 Login
