@@ -1,29 +1,13 @@
 import { db } from '$lib/db/conn';
-
-// Core identifying columns (shared by all views)
-const CORE_COLUMNS = [
-    'ai.id', 'ai.bu_estate', 'ai.department', 'al.location_name as location',
-    'ai.shelf_cabinet_table', 'ai.node', 'ai.asset_type', 'ai.asset_set_type',
-    'ai.manufacturer', 'ai.model', 'ai.wbd_tag', 'ai.serial_number',
-    'ast.status_name as status', 'ac.condition_name as condition',
-    'ai.comment',
-] as const;
-
-// Warranty columns (Default + extension views only)
-const WARRANTY_COLUMNS = [
-    'ai.under_warranty_until', 'ai.warranty_details',
-] as const;
-
-// Audit columns (Audit view only)
-const AUDIT_COLUMNS = [
-    'ai.last_audited_on', 'ai.last_audited_by', 'ai.next_audit_on',
-    'ai.to_be_audited_by_date', 'ai.to_be_audited_by', 'ai.audit_result',
-] as const;
-
-// Change history columns (always rightmost, except on audit where audit is rightmost)
-const HISTORY_COLUMNS = [
-    'ai.modified', 'ai.modified_by',
-] as const;
+import {
+	CORE_COLUMNS,
+	WARRANTY_COLUMNS,
+	AUDIT_COLUMNS,
+	HISTORY_COLUMNS,
+	PED_COLUMNS,
+	COMPUTER_COLUMNS,
+	NETWORK_COLUMNS
+} from './columnDefinitions';
 
 export async function getAssetsByView(viewName: string) {
     switch (viewName) {
@@ -69,12 +53,7 @@ async function getPedAssets() {
         .select([
             ...CORE_COLUMNS,
             ...WARRANTY_COLUMNS,
-            'apd.hardware_ped_emv',
-            'apd.appm_ped_emv',
-            'apd.vfop_ped_emv',
-            'apd.vfsred_ped_emv',
-            'apd.vault_ped_emv',
-            'apd.physical_security_method_ped_emv',
+            ...PED_COLUMNS,
             ...HISTORY_COLUMNS,
         ])
         .where('ai.asset_type', '=', 'PED / EMV')
@@ -93,14 +72,7 @@ async function getComputerAssets() {
         .select([
             ...CORE_COLUMNS,
             ...WARRANTY_COLUMNS,
-            'acd.operating_system',
-            'acd.os_version',
-            'acd.in_cmdb',
-            'acg.galaxy_version',
-            'acg.role as galaxy_role',
-            'acr.retail_software',
-            'acr.retail_version',
-            'acr.terminal_id',
+            ...COMPUTER_COLUMNS,
             ...HISTORY_COLUMNS,
         ])
         .orderBy('ai.id')
@@ -116,14 +88,7 @@ async function getNetworkAssets() {
         .select([
             ...CORE_COLUMNS,
             ...WARRANTY_COLUMNS,
-            'and_.ip_address',
-            'and_.mac_address',
-            'and_.ip_configuration',
-            'and_.network_connection_type',
-            'and_.ssid',
-            'and_.network_vpn',
-            'and_.ethernet_patch_port',
-            'and_.switch_port',
+            ...NETWORK_COLUMNS,
             ...HISTORY_COLUMNS,
         ])
         .orderBy('ai.id')

@@ -1,23 +1,47 @@
 import { db } from '$lib/db/conn';
+import {
+    CORE_COLUMNS, WARRANTY_COLUMNS, AUDIT_COLUMNS, HISTORY_COLUMNS,
+    PED_COLUMNS, COMPUTER_COLUMNS, NETWORK_COLUMNS
+} from './columnDefinitions';
 
-export async function searchAssets(searchTerm: string | null, filters: Record<string, string[]>) {
+export async function searchAssets(searchTerm: string | null, filters: Record<string, string[]>, view: string = 'default') {
+  // Start with base query — all views share these joins
   let query = db.selectFrom('asset_inventory as ai')
     .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
     .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
-    .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
-    .select([
-      'ai.id', 'ai.bu_estate', 'ai.department', 'al.location_name as location',
-      'ai.shelf_cabinet_table', 'ai.node', 'ai.asset_type', 'ai.asset_set_type',
-      'ai.manufacturer', 'ai.model', 'ai.wbd_tag', 'ai.serial_number',
-      'ast.status_name as status', 'ac.condition_name as condition',
-      'ai.comment', 'ai.under_warranty_until', 'ai.warranty_details',
-      'ai.modified', 'ai.modified_by'
-    ]);
+    .leftJoin('asset_locations as al', 'ai.location_id', 'al.id') as any;
+
+  // Add view-specific joins and select columns
+  switch (view) {
+    case 'audit':
+      query = query.select([...CORE_COLUMNS, ...HISTORY_COLUMNS, ...AUDIT_COLUMNS]);
+      break;
+    case 'ped':
+      query = query
+        .leftJoin('asset_ped_details as apd', 'ai.id', 'apd.asset_id')
+        .select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...PED_COLUMNS, ...HISTORY_COLUMNS]);
+      break;
+    case 'computer':
+      query = query
+        .innerJoin('asset_computer_details as acd', 'ai.id', 'acd.asset_id')
+        .leftJoin('asset_computer_galaxy as acg', 'acd.asset_id', 'acg.asset_id')
+        .leftJoin('asset_computer_retail as acr', 'acd.asset_id', 'acr.asset_id')
+        .select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...COMPUTER_COLUMNS, ...HISTORY_COLUMNS]);
+      break;
+    case 'network':
+      query = query
+        .innerJoin('asset_network_details as and_', 'ai.id', 'and_.asset_id')
+        .select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...NETWORK_COLUMNS, ...HISTORY_COLUMNS]);
+      break;
+    default:
+      query = query.select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...HISTORY_COLUMNS]);
+      break;
+  }
 
   if (searchTerm) {
     const escaped = searchTerm.replace(/[%_\\]/g, '\\$&');
     const searchTermLike = `%${escaped}%`;
-    query = query.where(eb => eb.or([
+    query = query.where((eb: any) => eb.or([
       eb('ai.serial_number', 'like', searchTermLike),
       eb('ai.wbd_tag', 'like', searchTermLike),
       eb('ai.manufacturer', 'like', searchTermLike),

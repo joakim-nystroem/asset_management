@@ -61,7 +61,7 @@ export const load: PageServerLoad = async ({ request, url }) => {
           filterMap[key].push(value);
         }
       }
-      const searchResults = await searchAssets(qParam || null, filterMap);
+      const searchResults = await searchAssets(qParam || null, filterMap, resolvedView);
       return {
         assets,
         searchResults,

@@ -28,6 +28,31 @@ const ALLOWED_COLUMNS = [
     'status',
     'condition',
     'location',
+    // PED extension columns
+    'hardware_ped_emv',
+    'appm_ped_emv',
+    'vfop_ped_emv',
+    'vfsred_ped_emv',
+    'vault_ped_emv',
+    'physical_security_method_ped_emv',
+    // Computer extension columns
+    'operating_system',
+    'os_version',
+    'in_cmdb',
+    'galaxy_version',
+    'role',
+    'retail_software',
+    'retail_version',
+    'terminal_id',
+    // Network extension columns
+    'ip_address',
+    'mac_address',
+    'ip_configuration',
+    'network_connection_type',
+    'ssid',
+    'network_vpn',
+    'ethernet_patch_port',
+    'switch_port',
 ] as const;
 
 export const POST: RequestHandler = async ({ request, locals }) => {
@@ -79,6 +104,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                 parseInt(change.rowId),
                 change.columnId,
                 change.newValue,
+                locals.user.username,
             );
             await logChange(
                 parseInt(change.rowId),

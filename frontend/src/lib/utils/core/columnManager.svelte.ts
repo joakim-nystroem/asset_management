@@ -121,8 +121,7 @@ function createColumnWidthManager() {
     endResize,
     resetAll,
     loadFromStorage,
-    saveToStorage,
-    getAllWidths
+    saveToStorage
   };
 }
 

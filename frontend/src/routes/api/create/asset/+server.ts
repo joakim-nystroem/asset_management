@@ -59,9 +59,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                     'ai.manufacturer', 'ai.model', 'ai.wbd_tag', 'ai.serial_number',
                     'ast.status_name as status', 'ac.condition_name as condition',
                     'ai.comment', 'ai.under_warranty_until', 'ai.warranty_details',
-                    'ai.last_audited_on', 'ai.last_audited_by', 'ai.next_audit_on',
-                    'ai.ready_for_audit', 'ai.include_in_current_audit',
-                    'ai.to_be_audited_by_date', 'ai.to_be_audited_by', 'ai.audit_result'
+                    'ai.modified', 'ai.modified_by'
                 ])
                 .where('ai.id', '=', insertedId)
                 .executeTakeFirst();

@@ -12,8 +12,10 @@
   // --- COMPONENTS ---
   import ContextMenu from "$lib/utils/ui/contextMenu/contextMenu.svelte";
   import HeaderMenu from "$lib/utils/ui/headerMenu/headerMenu.svelte";
-  import EditDropdownComponent from "$lib/utils/ui/editDropdown/editDropdown.svelte";
-  import FilterPanel from "$lib/utils/ui/filterPanel/filterPanel.svelte";
+  import Toolbar from "$lib/components/grid/Toolbar.svelte";
+  import GridHeader from "$lib/components/grid/GridHeader.svelte";
+  import GridOverlays from "$lib/components/grid/GridOverlays.svelte";
+  import GridRow from "$lib/components/grid/GridRow.svelte";
 
   // --- UTILS IMPORTS ---
   import { createInteractionHandler } from "$lib/utils/interaction/interactionHandler";
@@ -420,10 +422,7 @@
   }
 
   // --- View Switching ---
-  let viewDropdownOpen = $state(false);
-
   function handleViewChange(viewName: string) {
-    viewDropdownOpen = false;
     if (viewName === viewManager.currentView) return;
     // Just update URL — the URL-driven effect handles view loading, state reset, etc.
     updateSearchUrl({ view: viewName });
@@ -685,6 +684,11 @@
     editDropdown.hide();
     editManager.cancel(columnManager, rowManager);
     if (pos) selection.selectCell(pos.row, pos.col);
+  }
+
+  function handleScroll(e: Event) {
+    virtualScroll.handleScroll(e);
+    if (headerMenu.activeKey) headerMenu.reposition();
   }
 
   async function commitChanges() {
@@ -998,6 +1002,7 @@
         const params = new URLSearchParams();
         if (q) params.set('q', q);
         filters.forEach(f => params.append('filter', `${f.key}:${f.value}`));
+        params.set('view', urlView);
 
         try {
           const response = await fetch(`/api/search?${params.toString()}`);
@@ -1067,159 +1072,21 @@
 </script>
 
 <div class="px-4 py-2 flex-grow flex flex-col">
-<div class="flex flex-col gap-2 mb-3">
-  <div class="flex flex-row gap-4 items-center">
-
-    <div class="flex gap-4 items-center">
-      <div class="relative">
-        <input
-          bind:value={searchManager.inputValue}
-          class="bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pr-7 border border-neutral-300 dark:border-none focus:outline-none"
-          placeholder="Search..."
-          onkeydown={(e) => {
-            if (e.key === "Enter") {
-              const { filters, view } = getCurrentUrlState();
-              updateSearchUrl({ q: searchManager.inputValue, filters, view });
-            }
-          }}
-        />
-        {#if searchManager.inputValue}
-          <button
-            onclick={() => {
-              searchManager.inputValue = '';
-              const { filters, view } = getCurrentUrlState();
-              updateSearchUrl({ q: '', filters, view });
-            }}
-            class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
-            title="Clear search"
-          >
-            ✕
-          </button>
-        {/if}
-      </div>
-      <button
-        onclick={() => {
-          const { filters, view } = getCurrentUrlState();
-          updateSearchUrl({ q: searchManager.inputValue, filters, view });
-        }}
-        class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-neutral-100"
-        >Search</button
-      >
-    </div>
-
-    <div class="flex flex-row w-full justify-between items-center">
-      <div class="flex flex-row gap-2">
-        <FilterPanel
-          state={filterPanel}
-          {searchManager}
-          onRemoveFilter={(filter) => {
-            const { q, filters, view } = getCurrentUrlState();
-            const newFilters = filters.filter(f => !(f.key === filter.key && f.value === filter.value));
-            updateSearchUrl({ q, filters: newFilters, view });
-          }}
-          onClearAllFilters={() => {
-            const { q, view } = getCurrentUrlState();
-            updateSearchUrl({ q, filters: [], view });
-          }}
-        />
-        {#if data.user}
-          <button
-            onclick={handleAddNewRow}
-            class="flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path></svg>
-            <span>New Row</span>
-          </button>
-        {/if}
-        {#if (changeManager.hasChanges || rowGenerationManager.hasNewRows) && data.user}
-          <div class="flex gap-2 items-center">
-            <button
-              onclick={commitChanges}
-              class="cursor-pointer bg-green-500 hover:bg-green-600 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
-            >
-              Commit Changes
-              {#if changeManager.hasInvalidChanges}
-                <span class="ml-1 text-xs"
-                  >({changeManager.validChangeCount} valid)</span
-                >
-              {/if}
-              {#if rowGenerationManager.hasNewRows}
-                <span class="ml-1 text-xs"
-                  >({rowGenerationManager.newRowCount} new {rowGenerationManager.newRowCount === 1 ? 'row' : 'rows'})</span
-                >
-              {/if}
-            </button>
-            <button
-              onclick={discardChanges}
-              class="cursor-pointer bg-red-500 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
-            >
-              Discard
-            </button>
-            {#if changeManager.hasInvalidChanges}
-              <span class="text-yellow-600 dark:text-yellow-400 text-xs">
-                ⚠️ Some changes have invalid values
-              </span>
-            {/if}
-          </div>
-        {/if}
-        {#if rowGenerationManager.hasNewRows && data.user}
-          <div class="flex gap-2 items-center">
-            <span class="text-blue-600 dark:text-blue-400 text-xs">
-              {rowGenerationManager.newRowCount} new {rowGenerationManager.newRowCount === 1 ? 'row' : 'rows'}
-              {#if rowGenerationManager.hasInvalidNewRows}
-                <span class="text-yellow-600 dark:text-yellow-400">
-                  ({rowGenerationManager.invalidNewRowCount} invalid)
-                </span>
-              {/if}
-            </span>
-          </div>
-        {/if}
-      </div>
-
-      <!-- View Selector Dropdown -->
-      <div class="relative">
-        <button
-          onclick={() => viewDropdownOpen = !viewDropdownOpen}
-          class="flex items-center gap-1 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
-        >
-          <span>{viewManager.currentLabel}</span>
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-        </button>
-        {#if viewDropdownOpen}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <div
-            class="fixed inset-0 z-40"
-            onclick={() => viewDropdownOpen = false}
-          ></div>
-          <div class="absolute right-0 mt-1 w-40 bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 rounded shadow-lg z-50">
-            {#each viewManager.views as view}
-              <button
-                onclick={() => handleViewChange(view.name)}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {viewManager.currentView === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
-              >
-                {view.label}
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
-    </div>
-  </div>
-</div>
+  <Toolbar
+    user={data.user}
+    {filterPanel}
+    {getCurrentUrlState}
+    {updateSearchUrl}
+    onAddNewRow={handleAddNewRow}
+    onCommit={commitChanges}
+    onDiscard={discardChanges}
+    onViewChange={handleViewChange}
+  />
 
 {#if assets.length > 0}
   <div
     bind:this={scrollContainer}
-    onscroll={(e) => {
-      // 1. Handle virtual scroll (existing)
-      virtualScroll.handleScroll(e);
-      
-      // 2. Reposition header menu if it's open
-      if (headerMenu.activeKey) {
-        headerMenu.reposition();
-      }
-    }}
+    onscroll={handleScroll}
     class="rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
     tabindex="-1"
   >
@@ -1245,189 +1112,30 @@
       style="height: {virtualScroll.getTotalHeight(assets.length, rowManager) +
         32 + 16}px;"
     >
-      <div class="sticky top-0 z-20 flex border-b border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-700">
-        {#each keys as key, i}
-          <div
-            data-header-col={i}
-            class="header-interactive relative group border-r border-neutral-200 dark:border-slate-600 last:border-r-0"
-            style="width: {columnManager.getWidth(key)}px; min-width: {columnManager.getWidth(key)}px;"
-          >
-            <button
-              class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
-              onclick={(e) =>{
-                contextMenu.close(),
-                headerMenu.toggle(
-                  e,
-                  key,
-                  searchManager.getFilterItems(key, assets),
-                  i === keys.length - 1 
-                )}
-              }
-            >
-              <span class="truncate">{key.replaceAll("_", " ")}</span>
-              <span class="ml-1">
-                {#if sortManager.key === key}
-                  <span>{sortManager.direction === "asc" ? "▲" : "▼"}</span>
-                {:else}
-                  <span class="invisible group-hover:visible text-neutral-400">▾</span>
-                {/if}
-              </span>
-            </button>
-
-            <!-- Resize handle remains the same -->
-            <!-- svelte-ignore a11y_click_events_have_key_events -->
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div
-              class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-50"
-              onmousedown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                document.body.style.cursor = "col-resize";
-                columnManager.startResize(key, e.clientX);
-              }}
-              onclick={(e) => e.stopPropagation()}
-              ondblclick={(e) => {
-                e.stopPropagation();
-                columnManager.resetWidth(key);
-              }}
-            ></div>
-          </div>
-        {/each}
-      </div>
+      <GridHeader
+        {keys}
+        onHeaderClick={(e, key, _filterItems, isLast) => {
+          headerMenu.toggle(e, key, searchManager.getFilterItems(key, assets), isLast);
+        }}
+        onCloseContextMenu={() => contextMenu.close()}
+      />
 
       <div
         class="absolute top-8 w-full"
         style="transform: translateY({virtualScroll.getOffsetY(rowManager)}px);"
       >
-        {#each Object.entries(otherUserSelections) as [clientId, position]}
-          {@const otherUserOverlay = selection.computeVisualOverlay(
-            position,
-            position,
-            virtualScroll.visibleRange,
-            keys,
-            columnManager,
-            virtualScroll.rowHeight,
-          )}
-          {#if otherUserOverlay}
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <!-- Wrapper: pointer-events-none to allow selection of the cell underneath -->
-            <div
-              class="absolute pointer-events-none z-50"
-              style="
-                  top: {otherUserOverlay.top}px;
-                  left: {otherUserOverlay.left}px;
-                  width: {otherUserOverlay.width}px;
-                  height: {otherUserOverlay.height}px;
-                  border: 1px solid {position.color};
-                  box-sizing: border-box;
-                "
-            >
-              <!-- Badge: pointer-events-auto to allow interaction -->
-              <div
-                class="absolute flex items-center justify-center text-white text-[10px] rounded-full font-bold shadow-sm overflow-hidden pointer-events-auto cursor-default"
-                style="
-                  top: -8px;
-                  right: -8px;
-                  height: 16px;
-                  background-color: {position.color};
-                  min-width: 16px;
-                  max-width: {hoveredUser === clientId ? '200px' : '16px'};
-                  transition: max-width 0.2s ease-in-out, background-color 0.2s ease-in-out;
-                "
-                onmouseenter={() => (hoveredUser = clientId)}
-                onmouseleave={() => (hoveredUser = null)}
-              >
-                <div
-                  class="{hoveredUser === clientId
-                    ? 'px-1'
-                    : ''} whitespace-nowrap"
-                >
-                  {hoveredUser === clientId
-                    ? position.fullName
-                    : position.initials}
-                </div>
-              </div>
-            </div>
-          {/if}
-        {/each}
-
-        {#if copyOverlay}
-          <div
-            class="absolute pointer-events-none z-20 border-blue-600 dark:border-blue-500"
-            style="
-            top: {copyOverlay.top}px;
-            left: {copyOverlay.left}px; 
-            width: {copyOverlay.width}px; 
-            height: {copyOverlay.height}px;
-            border-top-style: {copyOverlay.showTopBorder ? 'dashed' : 'none'};
-  
-            border-bottom-style: {copyOverlay.showBottomBorder
-              ? 'dashed'
-              : 'none'};
-            border-left-style: {copyOverlay.showLeftBorder ? 'dashed' : 'none'};
-            border-right-style: {copyOverlay.showRightBorder
-              ? 'dashed'
-              : 'none'};
-            border-width: 2px;"
-          ></div>
-        {/if}
-
-        {#if selectionOverlay && selection.isSelectionVisible}
-          <div
-            class="absolute pointer-events-none z-10 border-blue-600 dark:border-blue-500 bg-blue-900/10"
-            style="
-                top: {selectionOverlay.top}px;
-                left: {selectionOverlay.left}px;
-
-                width: {selectionOverlay.width}px;
-                height: {selectionOverlay.height}px;
-                border-top-style: {selectionOverlay.showTopBorder
-              ? 'solid'
-              : 'none'};
-                border-bottom-style: {selectionOverlay.showBottomBorder
-              ? 'solid'
-              : 'none'};
-                border-left-style: {selectionOverlay.showLeftBorder
-              ? 'solid'
-              : 'none'};
-
-                border-right-style: {selectionOverlay.showRightBorder
-              ? 'solid'
-              : 'none'};
-                border-width: 2px;"
-          ></div>
-        {/if}
-
-        {#each dirtyCellOverlays as overlay}
-          {@const overlayRowIndex = virtualScroll.visibleRange.startIndex + Math.floor(overlay.top / virtualScroll.rowHeight)}
-          {@const overlayColIndex = (() => {
-            let accWidth = 0;
-            for (let c = 0; c < keys.length; c++) {
-              const colWidth = columnManager.getWidth(keys[c]);
-              if (overlay.left < accWidth + colWidth) return c;
-              accWidth += colWidth;
-            }
-            return 0;
-          })()}
-          {@const overlayKey = keys[overlayColIndex]}
-          {@const overlayAsset = assets[overlayRowIndex]}
-          {@const isNewRowOverlay = overlayRowIndex >= filteredAssets.length}
-          {@const isInvalid = isNewRowOverlay
-            ? rowGenerationManager.isNewRowFieldInvalid(overlayRowIndex - filteredAssets.length, overlayKey)
-            : changeManager.isInvalid(overlayAsset?.id, overlayKey)}
-          <div
-            class="absolute pointer-events-none z-40 border-2
-              {isInvalid
-              ? 'bg-yellow-400/20 dark:bg-yellow-400/10 border-yellow-500 dark:border-yellow-600'
-              : 'bg-green-400/20 dark:bg-green-400/10 border-green-400 dark:border-green-600'}"
-            style="
-              top: {overlay.top}px;
-              left: {overlay.left}px;
-              width: {overlay.width}px;
-              height: {overlay.height}px;
-            "
-          ></div>
-        {/each}
+        <GridOverlays
+          {keys}
+          {assets}
+          filteredAssetsLength={filteredAssets.length}
+          {otherUserSelections}
+          {hoveredUser}
+          {selectionOverlay}
+          {copyOverlay}
+          {dirtyCellOverlays}
+          {virtualScroll}
+          onHoverUser={(id) => hoveredUser = id}
+        />
 
         {#each visibleData.items as asset, i (asset.id || visibleData.startIndex + i)}
           {@const actualIndex = visibleData.startIndex + i}
@@ -1438,147 +1146,19 @@
             class="flex border-b border-neutral-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 {isNewRow ? 'bg-blue-200 dark:bg-blue-500/20' : ''}"
             style="height: {rowHeight}px;"
           >
-            {#each keys as key, j}
-              {@const isEditingThisCell = editManager.isEditingCell(
-                actualIndex,
-                j,
-              )}
-
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
-              <div
-                data-row={actualIndex}
-                data-col={j}
-                onmousedown={async (e) => {
-                  if (isEditingThisCell) return;
-                  // Don't interfere if we're about to double-click
-                  if (e.detail === 2) return;
-
-                  if (editManager.isEditing) {
-                    // Save the current edit and select new cell without drag mode
-                    await saveEdit();
-                    selection.selectCell(actualIndex, j);
-                    return;
-                  } else {
-                    selection.handleMouseDown(actualIndex, j, e);
-                  }
-                }}
-                ondblclick={(e) => {
-                  if (!data.user) {
-                    toastState.addToast(
-                      "Log in to edit.",
-                      "warning",
-                    );
-                    return;
-                  }
-
-                  // Don't allow editing ID column
-                  if (key === 'id') {
-                    toastState.addToast("ID column cannot be edited.", "warning");
-                    return;
-                  }
-
-                  e.preventDefault();
-                  e.stopPropagation();
-                  if (!isEditingThisCell) {
-                    // Set selection first
-                    selection.selectCell(actualIndex, j);
-                    // Then trigger edit
-                    handleEditAction();
-                  }
-                }}
-                onmouseenter={() =>
-                  !isEditingThisCell &&
-                  selection.extendSelection(actualIndex, j)}
-                oncontextmenu={(e) =>
-                  !isEditingThisCell && handleContextMenu(e, i, j)}
-                class="
-                  h-full flex items-center text-xs
-                  text-neutral-700 dark:text-neutral-200
-                  border-r border-neutral-200 dark:border-slate-700 last:border-r-0
-                  {isEditingThisCell
-                  ? ''
-                  : 'px-2 cursor-cell hover:bg-blue-100 dark:hover:bg-slate-600'}
-                "
-                style="width: {columnManager.getWidth(
-                  key,
-                )}px; min-width: {columnManager.getWidth(key)}px;"
-              >
-                {#if isEditingThisCell}
-                  <div class="relative w-full h-full">
-                    <textarea
-                      bind:this={textareaRef}
-                      bind:value={editManager.inputValue}
-                      oninput={() =>
-                        editManager.updateRowHeight(
-                          textareaRef,
-                          rowManager,
-                          columnManager,
-                        )}
-                      onkeydown={(e) => {
-                        // Handle dropdown navigation if visible
-                        if (editDropdown.isVisible) {
-                          if (e.key === "ArrowDown") {
-                            e.preventDefault();
-                            editDropdown.selectNext();
-                            return;
-                          } else if (e.key === "ArrowUp") {
-                            e.preventDefault();
-                            editDropdown.selectPrevious();
-                            return;
-                          } else if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault();
-                            const selectedValue = editDropdown.getSelectedValue();
-                            if (selectedValue !== null) {
-                              editManager.inputValue = selectedValue;
-                            }
-                            editDropdown.hide();
-                            saveEdit();
-                            return;
-                          } else if (e.key === "Escape") {
-                            e.preventDefault();
-                            editDropdown.hide();
-                            cancelEdit();
-                            return;
-                          }
-                        }
-
-                        // Normal keyboard handling when dropdown not visible
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          saveEdit();
-                        } else if (e.key === "Escape") {
-                          e.preventDefault();
-                          cancelEdit();
-                        }
-                      }}
-                      onmousedown={(e) => {
-                        e.stopPropagation();
-                      }}
-                      onblur={(e) => {
-                        // Always save on blur (clicking outside)
-                        setTimeout(() => {
-                          if (editManager.isEditing) {
-                            saveEdit();
-                          }
-                        }, 0);
-                      }}
-                      class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
-                      style="overflow: hidden;"
-                    ></textarea>
-                    <EditDropdownComponent
-                      dropdown={editDropdown}
-                      onSelect={(value) => {
-                        editManager.inputValue = value;
-                        editDropdown.hide();
-                        saveEdit();
-                      }}
-                    />
-                  </div>
-                {:else}
-                  <span class="truncate w-full">{asset[key]}</span>
-                {/if}
-              </div>
-            {/each}
+            <GridRow
+              {asset}
+              {keys}
+              {actualIndex}
+              user={data.user}
+              bind:textareaRef
+              {editDropdown}
+              onSaveEdit={saveEdit}
+              onCancelEdit={cancelEdit}
+              onEditAction={handleEditAction}
+              onContextMenu={handleContextMenu}
+              visibleIndex={i}
+            />
           </div>
         {/each}
       </div>
