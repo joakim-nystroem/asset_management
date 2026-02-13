@@ -6,7 +6,6 @@ export type ViewConfig = {
   filter?: { column: string; values: string[] } | null;
   columnOrder?: string[];
   extraColumns?: string[];
-  columnWidths?: Record<string, number>;
 };
 
 const VIEW_CONFIGS: ViewConfig[] = [
@@ -19,31 +18,13 @@ const VIEW_CONFIGS: ViewConfig[] = [
     extraColumns: [
       'hardware_ped_emv', 'appm_ped_emv', 'vfop_ped_emv',
       'vfsred_ped_emv', 'vault_ped_emv', 'physical_security_method_ped_emv'
-    ],
-    columnWidths: {
-      hardware_ped_emv: 180,
-      appm_ped_emv: 170,
-      vfop_ped_emv: 160,
-      vfsred_ped_emv: 170,
-      vault_ped_emv: 160,
-      physical_security_method_ped_emv: 250,
-    }
+    ]
   },
   {
     name: 'computer',
     label: 'Computer',
     filter: null,
-    extraColumns: ['operating_system', 'os_version', 'in_cmdb'],
-    columnWidths: {
-      operating_system: 170,
-      os_version: 140,
-      in_cmdb: 100,
-      galaxy_version: 160,
-      galaxy_role: 130,
-      retail_software: 160,
-      retail_version: 150,
-      terminal_id: 130,
-    }
+    extraColumns: ['operating_system', 'os_version', 'in_cmdb']
   },
   {
     name: 'network',
@@ -53,17 +34,7 @@ const VIEW_CONFIGS: ViewConfig[] = [
       'ip_address', 'mac_address', 'ip_configuration',
       'network_connection_type', 'ssid', 'network_vpn',
       'ethernet_patch_port', 'switch_port'
-    ],
-    columnWidths: {
-      ip_address: 150,
-      mac_address: 170,
-      ip_configuration: 170,
-      network_connection_type: 210,
-      ssid: 120,
-      network_vpn: 140,
-      ethernet_patch_port: 180,
-      switch_port: 140,
-    }
+    ]
   },
 ];
 
