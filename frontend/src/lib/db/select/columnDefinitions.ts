@@ -4,7 +4,7 @@
 export const CORE_COLUMNS = [
 	'ai.id',
 	'ai.bu_estate',
-	'ai.department',
+	'ad.department_name as department',
 	'al.location_name as location',
 	'ai.shelf_cabinet_table',
 	'ai.node',
@@ -43,18 +43,6 @@ export const PED_COLUMNS = [
 	'apd.vfsred_ped_emv',
 	'apd.vault_ped_emv',
 	'apd.physical_security_method_ped_emv'
-] as const;
-
-// Computer extension columns
-export const COMPUTER_COLUMNS = [
-	'acd.operating_system',
-	'acd.os_version',
-	'acd.in_cmdb',
-	'acg.galaxy_version',
-	'acg.role as galaxy_role',
-	'acr.retail_software',
-	'acr.retail_version',
-	'acr.terminal_id'
 ] as const;
 
 // Network extension columns

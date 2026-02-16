@@ -51,21 +51,7 @@ function createRowGenerationManager() {
       const newRowIndex = newRows.length;
       newRows.push(newRow);
       created.push(newRow);
-
-      // Eagerly validate the new empty row
-      const rowErrors = new Set<string>();
-      Object.keys(newRow).forEach((key) => {
-        if (key === 'id') return;
-        if (!validationManager.isValidValue(key, newRow[key])) {
-          rowErrors.add(key);
-        }
-      });
-      if (rowErrors.size > 0) {
-        invalidFields.set(newRowIndex, rowErrors);
-      }
     }
-    // Trigger reactivity for invalidFields map
-    invalidFields = new Map(invalidFields);
 
     return created;
   }
@@ -90,23 +76,15 @@ function createRowGenerationManager() {
     // Update the field value
     newRows[newRowIndex][key] = value;
 
-    // Re-validate the field and update invalid status
-    const rowErrors = invalidFields.get(newRowIndex) || new Set<string>();
-    const isValid = validationManager.isValidValue(key, value);
-
-    if (isValid) {
+    // Clear invalid state for this cell (optimistic — full revalidation happens on Add click)
+    const rowErrors = invalidFields.get(newRowIndex);
+    if (rowErrors && rowErrors.has(key)) {
       rowErrors.delete(key);
-    } else {
-      rowErrors.add(key);
+      if (rowErrors.size === 0) {
+        invalidFields.delete(newRowIndex);
+      }
+      invalidFields = new Map(invalidFields);
     }
-
-    if (rowErrors.size === 0) {
-      invalidFields.delete(newRowIndex);
-    } else {
-      invalidFields.set(newRowIndex, rowErrors);
-    }
-    // Trigger reactivity
-    invalidFields = new Map(invalidFields);
   }
 
   /**
@@ -168,6 +146,9 @@ function createRowGenerationManager() {
       }
     });
 
+    // Trigger reactivity (Map mutations aren't tracked by $state)
+    invalidFields = new Map(invalidFields);
+
     return allValid;
   }
 
@@ -187,14 +168,14 @@ function createRowGenerationManager() {
    */
   function clearNewRows() {
     newRows = [];
-    invalidFields.clear();
+    invalidFields = new Map();
   }
 
   /**
    * Clear validation errors without removing the rows
    */
   function clearValidation() {
-    invalidFields.clear();
+    invalidFields = new Map();
   }
 
   /**
@@ -220,7 +201,10 @@ function createRowGenerationManager() {
   const newRowCount = $derived(newRows.length);
   const hasNewRows = $derived(newRows.length > 0);
   const hasInvalidNewRows = $derived(invalidFields.size > 0);
-  const invalidNewRowCount = $derived(invalidFields.size);
+  // Count total invalid cells across all new rows (not just number of rows with errors)
+  const invalidNewRowCount = $derived(
+    Array.from(invalidFields.values()).reduce((sum, fields) => sum + fields.size, 0)
+  );
 
   return {
     // State

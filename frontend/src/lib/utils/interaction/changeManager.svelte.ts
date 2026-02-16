@@ -124,6 +124,19 @@ function createChangeManager() {
   }
 
   /**
+   * Get all invalid cell keys as {id, key} pairs
+   */
+  function getInvalidCellKeys(): { id: string, key: string }[] {
+    return Array.from(invalidChanges).map(cellKey => {
+      const commaIndex = cellKey.indexOf(',');
+      return {
+        id: cellKey.slice(0, commaIndex),
+        key: cellKey.slice(commaIndex + 1)
+      };
+    });
+  }
+
+  /**
    * Clears all tracked changes.
    */
   function clear() {
@@ -163,6 +176,7 @@ function createChangeManager() {
     update,
     getAllChanges,
     getValidChanges,
+    getInvalidCellKeys,
     isInvalid,
     clear,
     clearValidChanges,

@@ -10,7 +10,6 @@ export async function createAsset(row: any, username: string): Promise<number> {
         wbd_tag: row.wbd_tag || '',
         asset_set_type: row.asset_set_type || 'Unassigned',
         bu_estate: row.bu_estate || '',
-        department: row.department || '',
         node: row.node || 'Unassigned',
         shelf_cabinet_table: row.shelf_cabinet_table || null,
         comment: row.comment || null,
@@ -51,6 +50,14 @@ export async function createAsset(row: any, username: string): Promise<number> {
             .where('condition_name', '=', row.condition);
     } else {
         values.condition_id = 2; // Default from schema
+    }
+
+    // Resolve FK for department
+    if (row.department) {
+        values.department_id = db
+            .selectFrom('asset_departments')
+            .select('id')
+            .where('department_name', '=', row.department);
     }
 
     // Insert the row

@@ -5,7 +5,6 @@ import {
 	AUDIT_COLUMNS,
 	HISTORY_COLUMNS,
 	PED_COLUMNS,
-	COMPUTER_COLUMNS,
 	NETWORK_COLUMNS
 } from './columnDefinitions';
 
@@ -15,8 +14,8 @@ export async function getAssetsByView(viewName: string) {
             return getAuditAssets();
         case 'ped':
             return getPedAssets();
-        case 'computer':
-            return getComputerAssets();
+        case 'galaxy':
+            return getGalaxyAssets();
         case 'network':
             return getNetworkAssets();
         default:
@@ -29,6 +28,7 @@ async function getDefaultAssets() {
         .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
         .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
         .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
+        .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id')
         .select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...HISTORY_COLUMNS])
         .orderBy('ai.id')
         .execute();
@@ -39,6 +39,7 @@ async function getAuditAssets() {
         .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
         .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
         .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
+        .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id')
         .select([...CORE_COLUMNS, ...HISTORY_COLUMNS, ...AUDIT_COLUMNS])
         .orderBy('ai.id')
         .execute();
@@ -49,6 +50,7 @@ async function getPedAssets() {
         .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
         .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
         .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
+        .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id')
         .leftJoin('asset_ped_details as apd', 'ai.id', 'apd.asset_id')
         .select([
             ...CORE_COLUMNS,
@@ -61,20 +63,18 @@ async function getPedAssets() {
         .execute();
 }
 
-async function getComputerAssets() {
+// Temporary filter-based view for Galaxy assets.
+// No extension table yet — uses hardcoded WHERE filters on base columns.
+// When a Galaxy extension table is created, this should be updated to join it.
+async function getGalaxyAssets() {
     return await db.selectFrom('asset_inventory as ai')
         .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
         .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
         .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
-        .innerJoin('asset_computer_details as acd', 'ai.id', 'acd.asset_id')
-        .leftJoin('asset_computer_galaxy as acg', 'acd.asset_id', 'acg.asset_id')
-        .leftJoin('asset_computer_retail as acr', 'acd.asset_id', 'acr.asset_id')
-        .select([
-            ...CORE_COLUMNS,
-            ...WARRANTY_COLUMNS,
-            ...COMPUTER_COLUMNS,
-            ...HISTORY_COLUMNS,
-        ])
+        .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id')
+        .select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...HISTORY_COLUMNS])
+        .where('ai.asset_set_type', '=', 'Admission POS set')
+        .where('ai.asset_type', '=', 'POS')
         .orderBy('ai.id')
         .execute();
 }
@@ -84,6 +84,7 @@ async function getNetworkAssets() {
         .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
         .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
         .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
+        .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id')
         .innerJoin('asset_network_details as and_', 'ai.id', 'and_.asset_id')
         .select([
             ...CORE_COLUMNS,

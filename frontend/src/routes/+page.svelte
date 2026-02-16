@@ -70,6 +70,7 @@
   let locations = $derived(data.locations || []);
   let statuses = $derived(data.statuses || []);
   let conditions = $derived(data.conditions || []);
+  let departments = $derived(data.departments || []);
 
   // Combine filtered assets with new rows at the bottom
   let assets = $derived([...filteredAssets, ...rowGenerationManager.newRows]);
@@ -184,6 +185,7 @@
     const locNames = locations.map((l) => l.location_name);
     const statNames = statuses.map((s) => s.status_name);
     const condNames = conditions.map((c) => c.condition_name);
+    const deptNames = departments.map((d: any) => d.department_name);
 
     // 2. Update the managers inside 'untrack'.
     // This tells Svelte: "Execute this, but ignore any state reads happening inside."
@@ -192,6 +194,7 @@
         location: locNames,
         status: statNames,
         condition: condNames,
+        department: deptNames,
       };
 
       changeManager.setConstraints(constraints);
@@ -225,6 +228,14 @@
       },
     ),
   );
+
+  const totalInvalidCount = $derived.by(() => {
+    let count = changeManager.getInvalidCellKeys().length;
+    if (rowGenerationManager.hasInvalidNewRows) {
+      count += rowGenerationManager.invalidNewRowCount;
+    }
+    return count;
+  });
 
   const updateAssetInList = (
     list: Record<string, any>[],
@@ -304,6 +315,7 @@
 
   let scrollContainer: HTMLDivElement | null = $state(null);
   let textareaRef: HTMLTextAreaElement | null = $state(null);
+  let errorNavigationIndex = $state(-1);
   const visibleData = $derived(virtualScroll.getVisibleItems(assets));
 
   const selectionOverlay = $derived(
@@ -473,6 +485,53 @@
     return selection.anchor;
   }
 
+  function navigateToError(direction: 'prev' | 'next') {
+    const invalidCells: { row: number; col: number }[] = [];
+    const keyMap = new Map(keys.map((key, index) => [key, index]));
+    const assetIdMap = new Map(assets.map((asset, index) => [String(asset.id), index]));
+
+    // Existing row errors
+    for (const { id, key } of changeManager.getInvalidCellKeys()) {
+      const row = assetIdMap.get(id);
+      const col = keyMap.get(key);
+      if (row !== undefined && col !== undefined) {
+        invalidCells.push({ row, col });
+      }
+    }
+
+    // New row errors
+    const newRows = rowGenerationManager.newRows;
+    for (let i = 0; i < newRows.length; i++) {
+      const rowIndex = filteredAssets.length + i;
+      for (const key of keys) {
+        if (key !== 'id' && rowGenerationManager.isNewRowFieldInvalid(i, key)) {
+          const col = keyMap.get(key);
+          if (col !== undefined) {
+            invalidCells.push({ row: rowIndex, col });
+          }
+        }
+      }
+    }
+
+    if (invalidCells.length === 0) return;
+
+    // Sort by row, then col for consistent ordering
+    invalidCells.sort((a, b) => a.row - b.row || a.col - b.col);
+
+    // Navigate
+    if (direction === 'next') {
+      errorNavigationIndex = (errorNavigationIndex + 1) % invalidCells.length;
+    } else {
+      errorNavigationIndex = errorNavigationIndex <= 0
+        ? invalidCells.length - 1
+        : errorNavigationIndex - 1;
+    }
+
+    const target = invalidCells[errorNavigationIndex];
+    selection.selectCell(target.row, target.col);
+    virtualScroll.ensureVisible(target.row, target.col, scrollContainer, keys, columnManager);
+  }
+
   async function handlePaste() {
     if (!data.user) {
       toastState.addToast("Log in to edit.", "warning");
@@ -494,6 +553,8 @@
     const pasteResult = await clipboard.paste(target, mutableAssets, keys);
 
     if (pasteResult && pasteResult.changes.length > 0) {
+      const existingRowChanges: typeof pasteResult.changes = [];
+
       // Process each change and route to the appropriate manager
       for (const change of pasteResult.changes) {
         const rowIndex = mutableAssets.findIndex(a => a.id === change.id);
@@ -519,10 +580,14 @@
             itemInFiltered[change.key] = change.newValue;
           }
 
-          // Track change
-          historyManager.recordBatch([change]);
+          existingRowChanges.push(change);
           changeManager.update(change);
         }
+      }
+
+      // Record ALL paste changes as a single undo batch
+      if (existingRowChanges.length > 0) {
+        historyManager.recordBatch(existingRowChanges);
       }
     }
 
@@ -697,68 +762,18 @@
       return;
     }
 
-    const hasNewRows = rowGenerationManager.hasNewRows;
-
-    // Validate new rows if any exist
-    if (hasNewRows) {
-      const isValid = rowGenerationManager.validateAll();
-
-      if (!isValid) {
-        // Manually set dirty cells for invalid new row fields
-        const keyMap = new Map(keys.map((key, index) => [key, index]));
-        const invalidCells: { row: number; col: number }[] = [];
-        const newRows = rowGenerationManager.newRows;
-
-        for (let i = 0; i < newRows.length; i++) {
-          const rowIndex = filteredAssets.length + i;
-          for (const key of keys) {
-            if (key !== 'id' && rowGenerationManager.isNewRowFieldInvalid(i, key)) {
-              const col = keyMap.get(key);
-              if (col !== undefined) {
-                invalidCells.push({ row: rowIndex, col });
-              }
-            }
-          }
-        }
-        selection.setDirtyCells(invalidCells);
-
-        toastState.addToast(
-          "Invalid values in new rows.",
-          "warning",
-        );
-        return;
-      }
-
-      // Check if any new rows are incomplete (have empty required fields)
-      const newRows = rowGenerationManager.newRows;
-      const incompleteRows = newRows.filter(row => {
-        // A row is incomplete if it has no meaningful data beyond the ID
-        const hasData = Object.entries(row).some(([key, value]) => {
-          return key !== 'id' && value !== undefined && value !== null && value !== '';
-        });
-        return !hasData;
-      });
-
-      if (incompleteRows.length > 0) {
-        toastState.addToast(
-          `Cannot commit: ${incompleteRows.length} new ${incompleteRows.length === 1 ? 'row is' : 'rows are'} incomplete. Please fill in data or delete empty rows.`,
-          "error",
-        );
-        rowGenerationManager.clearValidation();
-        return;
-      }
+    // Block commit if any existing-row changes are invalid
+    if (changeManager.hasInvalidChanges) {
+      toastState.addToast(
+        "Cannot commit: Fix all invalid values first.",
+        "error"
+      );
+      return;
     }
 
-    const validChanges = changeManager.getValidChanges();
+    const validChanges = changeManager.getAllChanges();
 
-    // Only get valid changes
-    if (validChanges.length === 0 && !hasNewRows) {
-      if (changeManager.hasInvalidChanges) {
-        toastState.addToast(
-          "Cannot commit: Some changes have invalid values. Please fix the highlighted cells.",
-          "warning",
-        );
-      }
+    if (validChanges.length === 0) {
       return;
     }
 
@@ -770,88 +785,129 @@
     }));
 
     try {
-      // Save existing row updates if any
-      if (validChanges.length > 0) {
-        const response = await fetch("/api/update", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(apiChanges),
-        });
+      const response = await fetch("/api/update", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(apiChanges),
+      });
 
-        if (!response.ok) {
-          console.error("Commit failed:", await response.text());
-          toastState.addToast(
-            "Failed to commit changes. See console for details.",
-            "error",
-          );
-          rowGenerationManager.clearValidation();
-          return;
-        }
+      if (!response.ok) {
+        console.error("Commit failed:", await response.text());
+        toastState.addToast(
+          "Failed to commit changes. See console for details.",
+          "error",
+        );
+        return;
       }
 
-      const invalidChangeCount = changeManager.getAllChanges().length - validChanges.length;
-
-      // Clear only the valid changes from the change manager
-      changeManager.clearValidChanges();
+      changeManager.clear();
       selection.resetAll();
 
-      // Save new rows via API
-      if (hasNewRows) {
-        const newRows = rowGenerationManager.newRows;
-
-        // Prepare rows for API (strip the temporary ID, include all fields)
-        const rowsToSave = newRows.map((row) => {
-          const { id, ...fields } = row;
-          return fields;
-        });
-
-        const newRowResponse = await fetch("/api/create/asset", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(rowsToSave),
-        });
-
-        if (!newRowResponse.ok) {
-          const errorData = await newRowResponse.json();
-          toastState.addToast(
-            errorData.error || "Failed to save new rows.",
-            "error",
-          );
-          rowGenerationManager.clearValidation();
-          return;
-        }
-
-        const { createdRows } = await newRowResponse.json();
-
-        // Add the newly created rows to baseAssets and filteredAssets
-        if (createdRows && createdRows.length > 0) {
-          baseAssets = [...baseAssets, ...createdRows];
-          filteredAssets = [...filteredAssets, ...createdRows];
-        }
-
-        rowGenerationManager.clearNewRows();
-        selection.clearDirtyCells();
-
-        toastState.addToast(
-          `${newRows.length} new ${newRows.length === 1 ? "row" : "rows"} saved successfully.`,
-          "success",
-        );
-      }
-
-      if (invalidChangeCount > 0) {
-        toastState.addToast(
-          `${validChanges.length} changes committed. ${invalidChangeCount} invalid edits still need to be fixed.`,
-          "warning",
-        );
-      } else if (validChanges.length > 0) {
-        toastState.addToast(
-          `${validChanges.length} changes committed successfully.`,
-          "success",
-        );
-      }
+      toastState.addToast(
+        `${validChanges.length} changes committed successfully.`,
+        "success",
+      );
     } catch (error) {
       console.error("Commit failed:", error);
       toastState.addToast("Network error while committing changes.", "error");
+    }
+  }
+
+  async function addNewRows() {
+    if (!data.user) {
+      toastState.addToast("Log in to edit.", "warning");
+      return;
+    }
+
+    // Validate all new rows
+    const isValid = rowGenerationManager.validateAll();
+
+    if (!isValid) {
+      // Set dirty cells for invalid new row fields
+      const keyMap = new Map(keys.map((key, index) => [key, index]));
+      const invalidCells: { row: number; col: number }[] = [];
+      const newRows = rowGenerationManager.newRows;
+
+      for (let i = 0; i < newRows.length; i++) {
+        const rowIndex = filteredAssets.length + i;
+        for (const key of keys) {
+          if (key !== 'id' && rowGenerationManager.isNewRowFieldInvalid(i, key)) {
+            const col = keyMap.get(key);
+            if (col !== undefined) {
+              invalidCells.push({ row: rowIndex, col });
+            }
+          }
+        }
+      }
+      selection.setDirtyCells(invalidCells);
+
+      toastState.addToast(
+        "Invalid values in new rows.",
+        "warning",
+      );
+      return;
+    }
+
+    // Check if any new rows are incomplete (have empty required fields)
+    const newRows = rowGenerationManager.newRows;
+    const incompleteRows = newRows.filter(row => {
+      const hasData = Object.entries(row).some(([key, value]) => {
+        return key !== 'id' && value !== undefined && value !== null && value !== '';
+      });
+      return !hasData;
+    });
+
+    if (incompleteRows.length > 0) {
+      toastState.addToast(
+        `Cannot add: ${incompleteRows.length} new ${incompleteRows.length === 1 ? 'row is' : 'rows are'} incomplete. Please fill in data or delete empty rows.`,
+        "error",
+      );
+      rowGenerationManager.clearValidation();
+      return;
+    }
+
+    // Prepare rows for API (strip the temporary ID, include all fields)
+    const rowsToSave = newRows.map((row) => {
+      const { id, ...fields } = row;
+      return fields;
+    });
+
+    try {
+      const response = await fetch("/api/create/asset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(rowsToSave),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        toastState.addToast(
+          errorData.error || "Failed to save new rows.",
+          "error",
+        );
+        rowGenerationManager.clearValidation();
+        return;
+      }
+
+      const { createdRows } = await response.json();
+
+      // Add the newly created rows to baseAssets and filteredAssets
+      if (createdRows && createdRows.length > 0) {
+        baseAssets = [...baseAssets, ...createdRows];
+        filteredAssets = [...filteredAssets, ...createdRows];
+      }
+
+      rowGenerationManager.clearNewRows();
+      selection.clearDirtyCells();
+      selection.resetAll();
+
+      toastState.addToast(
+        `${newRows.length} new ${newRows.length === 1 ? "row" : "rows"} saved successfully.`,
+        "success",
+      );
+    } catch (error) {
+      console.error("Add rows failed:", error);
+      toastState.addToast("Network error while adding new rows.", "error");
       rowGenerationManager.clearValidation();
     }
   }
@@ -1079,8 +1135,11 @@
     {updateSearchUrl}
     onAddNewRow={handleAddNewRow}
     onCommit={commitChanges}
+    onAddRows={addNewRows}
     onDiscard={discardChanges}
     onViewChange={handleViewChange}
+    onNavigateError={navigateToError}
+    invalidCount={totalInvalidCount}
   />
 
 {#if assets.length > 0}

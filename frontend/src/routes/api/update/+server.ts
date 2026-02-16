@@ -35,15 +35,6 @@ const ALLOWED_COLUMNS = [
     'vfsred_ped_emv',
     'vault_ped_emv',
     'physical_security_method_ped_emv',
-    // Computer extension columns
-    'operating_system',
-    'os_version',
-    'in_cmdb',
-    'galaxy_version',
-    'role',
-    'retail_software',
-    'retail_version',
-    'terminal_id',
     // Network extension columns
     'ip_address',
     'mac_address',

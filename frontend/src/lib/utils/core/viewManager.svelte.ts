@@ -20,12 +20,7 @@ const VIEW_CONFIGS: ViewConfig[] = [
       'vfsred_ped_emv', 'vault_ped_emv', 'physical_security_method_ped_emv'
     ]
   },
-  {
-    name: 'computer',
-    label: 'Computer',
-    filter: null,
-    extraColumns: ['operating_system', 'os_version', 'in_cmdb']
-  },
+  { name: 'galaxy', label: 'Galaxy' },
   {
     name: 'network',
     label: 'Network',

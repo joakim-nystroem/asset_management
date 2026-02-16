@@ -7,6 +7,7 @@ import { redirect } from '@sveltejs/kit';
 import { getLocations } from '$lib/db/select/getLocations';
 import { getStatuses } from '$lib/db/select/getStatuses';
 import { getConditions } from '$lib/db/select/getConditions';
+import { getDepartments } from '$lib/db/select/getDepartments';
 
 const MOBILE_UA_REGEX = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
 
@@ -28,7 +29,7 @@ export const load: PageServerLoad = async ({ request, url }) => {
   const qParam = url.searchParams.get('q') || '';
   const filterParams = url.searchParams.getAll('filter');
 
-  const validViews = ['default', 'audit', 'ped', 'computer', 'network'];
+  const validViews = ['default', 'audit', 'ped', 'galaxy', 'network'];
   const resolvedView = validViews.includes(viewParam) ? viewParam : 'default';
 
   let assets: Record<string, any>[] = [];
@@ -36,16 +37,18 @@ export const load: PageServerLoad = async ({ request, url }) => {
   let locations: any[] = [];
   let statuses: any[] = [];
   let conditions: any[] = [];
+  let departments: any[] = [];
 
   try {
     // Load the correct view's assets based on URL
     assets = await getAssetsByView(resolvedView);
 
     // Load metadata in parallel
-    [locations, statuses, conditions] = await Promise.all([
+    [locations, statuses, conditions, departments] = await Promise.all([
       getLocations(),
       getStatuses(),
       getConditions(),
+      getDepartments(),
     ]);
 
     // If there are search/filter params, also fetch filtered results
@@ -69,6 +72,7 @@ export const load: PageServerLoad = async ({ request, url }) => {
         locations,
         statuses,
         conditions,
+        departments,
         initialView: resolvedView,
       };
     }
@@ -81,5 +85,5 @@ export const load: PageServerLoad = async ({ request, url }) => {
     }
   }
 
-  return { assets, dbError, locations, statuses, conditions, initialView: resolvedView };
+  return { assets, dbError, locations, statuses, conditions, departments, initialView: resolvedView };
 };

@@ -15,8 +15,11 @@
     updateSearchUrl: (params: { q?: string; filters?: Filter[]; view?: string }) => void;
     onAddNewRow: () => void;
     onCommit: () => void;
+    onAddRows: () => void;
     onDiscard: () => void;
     onViewChange: (view: string) => void;
+    onNavigateError: (direction: 'prev' | 'next') => void;
+    invalidCount: number;
   };
 
   let {
@@ -26,8 +29,11 @@
     updateSearchUrl,
     onAddNewRow,
     onCommit,
+    onAddRows,
     onDiscard,
     onViewChange,
+    onNavigateError,
+    invalidCount,
   }: Props = $props();
 
   let viewDropdownOpen = $state(false);
@@ -102,47 +108,63 @@
             <span>New Row</span>
           </button>
         {/if}
-        {#if (changeManager.hasChanges || rowGenerationManager.hasNewRows) && user}
+        {#if changeManager.hasChanges && user}
           <div class="flex gap-2 items-center">
             <button
               onclick={onCommit}
-              class="cursor-pointer bg-green-500 hover:bg-green-600 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
+              class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
-              Commit Changes
-              {#if changeManager.hasInvalidChanges}
-                <span class="ml-1 text-xs"
-                  >({changeManager.validChangeCount} valid)</span
-                >
-              {/if}
-              {#if rowGenerationManager.hasNewRows}
-                <span class="ml-1 text-xs"
-                  >({rowGenerationManager.newRowCount} new {rowGenerationManager.newRowCount === 1 ? 'row' : 'rows'})</span
-                >
-              {/if}
+              Commit
             </button>
             <button
               onclick={onDiscard}
-              class="cursor-pointer bg-red-500 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
+              class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
             >
               Discard
             </button>
-            {#if changeManager.hasInvalidChanges}
-              <span class="text-yellow-600 dark:text-yellow-400 text-xs">
-                ⚠️ Some changes have invalid values
-              </span>
+            {#if invalidCount > 0}
+              <div class="flex items-center gap-2 text-xs">
+                <span class="text-yellow-600 dark:text-yellow-400 font-medium">
+                  {invalidCount} invalid {invalidCount === 1 ? 'cell' : 'cells'}
+                </span>
+                <button
+                  onclick={() => onNavigateError('next')}
+                  class="cursor-pointer bg-yellow-600 hover:bg-yellow-500 px-2 py-1 rounded text-neutral-100"
+                  title="Next error"
+                >
+                Go To
+                </button>
+              </div>
             {/if}
           </div>
-        {/if}
-        {#if rowGenerationManager.hasNewRows && user}
+        {:else if rowGenerationManager.hasNewRows && user}
           <div class="flex gap-2 items-center">
-            <span class="text-blue-600 dark:text-blue-400 text-xs">
-              {rowGenerationManager.newRowCount} new {rowGenerationManager.newRowCount === 1 ? 'row' : 'rows'}
-              {#if rowGenerationManager.hasInvalidNewRows}
-                <span class="text-yellow-600 dark:text-yellow-400">
-                  ({rowGenerationManager.invalidNewRowCount} invalid)
+            <button
+              onclick={onAddRows}
+              class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
+            >
+              Commit
+            </button>
+            <button
+              onclick={onDiscard}
+              class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
+            >
+              Discard
+            </button>
+            {#if invalidCount > 0}
+              <div class="flex items-center gap-2 text-xs">
+                <span class="text-yellow-600 dark:text-yellow-400 font-medium">
+                  {invalidCount} invalid {invalidCount === 1 ? 'cell' : 'cells'}
                 </span>
-              {/if}
-            </span>
+                <button
+                  onclick={() => onNavigateError('next')}
+                  class="cursor-pointer bg-yellow-600 hover:bg-yellow-500 px-2 py-1 rounded text-neutral-100"
+                  title="Next error"
+                >
+                Go To
+                </button>
+              </div>
+            {/if}
           </div>
         {/if}
       </div>

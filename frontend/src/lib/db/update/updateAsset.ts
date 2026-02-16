@@ -1,7 +1,7 @@
 import { db } from '$lib/db/conn';
 
 const assetInventoryCols = [
-    'bu_estate', 'department', 'shelf_cabinet_table', 'node', 'asset_type',
+    'bu_estate', 'shelf_cabinet_table', 'node', 'asset_type',
     'asset_set_type', 'manufacturer', 'model', 'wbd_tag', 'serial_number',
     'comment', 'under_warranty_until', 'warranty_details', 'last_audited_on',
     'last_audited_by', 'next_audit_on', 'ready_for_audit',
@@ -17,15 +17,6 @@ const extensionTableMap: Record<string, { table: string; idColumn: string }> = {
     vfsred_ped_emv: { table: 'asset_ped_details', idColumn: 'asset_id' },
     vault_ped_emv: { table: 'asset_ped_details', idColumn: 'asset_id' },
     physical_security_method_ped_emv: { table: 'asset_ped_details', idColumn: 'asset_id' },
-    // Computer
-    operating_system: { table: 'asset_computer_details', idColumn: 'asset_id' },
-    os_version: { table: 'asset_computer_details', idColumn: 'asset_id' },
-    in_cmdb: { table: 'asset_computer_details', idColumn: 'asset_id' },
-    galaxy_version: { table: 'asset_computer_galaxy', idColumn: 'asset_id' },
-    role: { table: 'asset_computer_galaxy', idColumn: 'asset_id' },
-    retail_software: { table: 'asset_computer_retail', idColumn: 'asset_id' },
-    retail_version: { table: 'asset_computer_retail', idColumn: 'asset_id' },
-    terminal_id: { table: 'asset_computer_retail', idColumn: 'asset_id' },
     // Network
     ip_address: { table: 'asset_network_details', idColumn: 'asset_id' },
     mac_address: { table: 'asset_network_details', idColumn: 'asset_id' },
@@ -63,6 +54,15 @@ export async function updateAsset(id: number, key: string, value: any, username:
             return await db.updateTable('asset_inventory')
                 .set({
                     location_id: db.selectFrom('asset_locations').select('id').where('location_name', '=', value as string),
+                    modified_by: username,
+                    modified: modified as any
+                })
+                .where('id', '=', id)
+                .execute();
+        case 'department':
+            return await db.updateTable('asset_inventory')
+                .set({
+                    department_id: db.selectFrom('asset_departments').select('id').where('department_name', '=', value as string),
                     modified_by: username,
                     modified: modified as any
                 })

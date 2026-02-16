@@ -13,7 +13,7 @@ export interface AssetTable {
     wbd_tag: string;
     asset_set_type: string;
     bu_estate: string;
-    department: string;
+    department_id: number | null;
     location_id: number;
     node: string;
     shelf_cabinet_table: string | null;
@@ -51,6 +51,11 @@ export interface ConditionTable {
     condition_name: string;
 }
 
+export interface DepartmentTable {
+    id: ColumnType<number, never, never>;
+    department_name: string;
+}
+
 // New interfaces for User and Session tables
 export interface UserTable {
     id: ColumnType<number, never, never>;
@@ -77,26 +82,6 @@ export interface ChangeLogTable {
     new_value: string | null;
     modified_at: ColumnType<Date, string | undefined, never>;
     modified_by: string;
-}
-
-export interface ComputerDetailsTable {
-    asset_id: number;
-    operating_system: string | null;
-    os_version: string | null;
-    in_cmdb: string | null;
-}
-
-export interface ComputerGalaxyTable {
-    asset_id: number;
-    galaxy_version: string | null;
-    role: string | null;
-}
-
-export interface ComputerRetailTable {
-    asset_id: number;
-    retail_software: string | null;
-    retail_version: string | null;
-    terminal_id: string | null;
 }
 
 export interface NetworkDetailsTable {
@@ -126,12 +111,10 @@ export interface Database {
     asset_locations: LocationTable;
     asset_status: StatusTable;
     asset_condition: ConditionTable;
+    asset_departments: DepartmentTable;
     users: UserTable;
     sessions: SessionTable;
     change_log: ChangeLogTable;
-    asset_computer_details: ComputerDetailsTable;
-    asset_computer_galaxy: ComputerGalaxyTable;
-    asset_computer_retail: ComputerRetailTable;
     asset_network_details: NetworkDetailsTable;
     asset_ped_details: PedDetailsTable;
 }
