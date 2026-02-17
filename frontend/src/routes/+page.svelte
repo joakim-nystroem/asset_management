@@ -116,6 +116,9 @@
               ).toUpperCase(),
               fullName:
                 `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim(),
+              editing: Object.entries(realtime.lockedCells).some(
+                ([, lock]) => lock.userId === clientId
+              ),
             };
           }
         } else {
@@ -127,6 +130,9 @@
             ).toUpperCase(),
             fullName:
               `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim(),
+            editing: Object.entries(realtime.lockedCells).some(
+              ([, lock]) => lock.userId === clientId
+            ),
           };
         }
         return acc;
@@ -370,6 +376,7 @@
       },
       onEscape: () => {
         if (editManager.isEditing) {
+          releaseEditLock();
           editManager.cancel(columnManager, rowManager);
           return;
         }
@@ -483,6 +490,17 @@
       return { row: contextMenu.row, col: contextMenu.col };
     }
     return selection.anchor;
+  }
+
+  function releaseEditLock() {
+    const pos = editManager.getEditPosition();
+    if (pos) {
+      const asset = assets[pos.row];
+      const key = keys[pos.col];
+      if (asset && key) {
+        realtime.sendEditEnd(asset.id, key);
+      }
+    }
   }
 
   function navigateToError(direction: 'prev' | 'next') {
@@ -646,6 +664,19 @@
     const asset = assets[row];
     if (!asset || !key) return;
 
+    // Check if cell is locked by another user
+    if (realtime.isCellLocked(asset.id, key)) {
+      const lock = realtime.getCellLock(asset.id, key);
+      if (lock) {
+        toastState.addToast(
+          `This cell is being edited by ${lock.firstname} ${lock.lastname}.`,
+          "warning"
+        );
+      }
+      contextMenu.close();
+      return;
+    }
+
     // Don't allow editing ID column
     if (key === 'id') {
       toastState.addToast("ID column cannot be edited.", "warning");
@@ -671,6 +702,10 @@
       columnManager,
       rowManager,
     );
+
+    // Notify other users that we're editing this cell
+    realtime.sendEditStart(asset.id, key);
+
     contextMenu.close();
     selection.reset();
 
@@ -689,6 +724,9 @@
     }
     const pos = editManager.getEditPosition();
     if (!pos) return;
+
+    // Release cell lock before save/cancel clears edit state
+    releaseEditLock();
 
     // Check if this is a new row (row index >= filtered assets length)
     const isNewRow = pos.row >= filteredAssets.length;
@@ -747,6 +785,7 @@
   function cancelEdit() {
     const pos = editManager.getEditPosition();
     editDropdown.hide();
+    releaseEditLock();
     editManager.cancel(columnManager, rowManager);
     if (pos) selection.selectCell(pos.row, pos.col);
   }
@@ -1116,7 +1155,9 @@
       }
       updatePositionTimeout = setTimeout(() => {
         if (selection.start.row === -1) {
-          realtime.sendDeselect();
+          if (!editManager.isEditing) {
+            realtime.sendDeselect();
+          }
         } else {
           const asset = assets[selection.start.row];
           const assetId = asset?.id;

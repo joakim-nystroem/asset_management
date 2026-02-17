@@ -43,7 +43,7 @@
           left: {otherUserOverlay.left}px;
           width: {otherUserOverlay.width}px;
           height: {otherUserOverlay.height}px;
-          border: 1px solid {position.color};
+          border: {position.editing ? '2px' : '1px'} solid {position.color};
           box-sizing: border-box;
         "
     >
@@ -67,9 +67,15 @@
             ? 'px-1'
             : ''} whitespace-nowrap"
         >
-          {hoveredUser === clientId
-            ? position.fullName
-            : position.initials}
+          {#if position.editing}
+            {hoveredUser === clientId
+              ? `${position.fullName} editing...`
+              : '...'}
+          {:else}
+            {hoveredUser === clientId
+              ? position.fullName
+              : position.initials}
+          {/if}
         </div>
       </div>
     </div>

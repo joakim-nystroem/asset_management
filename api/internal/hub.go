@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -100,6 +101,113 @@ func (up *UserPresence) Count() int {
 	return len(up.positions)
 }
 
+type CellLockInfo struct {
+	UserID    string
+	AssetID   string
+	Key       string
+	Firstname string
+	Lastname  string
+	Color     string
+}
+
+type CellLockManager struct {
+	// "assetId:key" → CellLockInfo
+	locks     map[string]*CellLockInfo
+	// userID → set of lock keys for cleanup
+	userLocks map[string]map[string]bool
+	mutex     sync.RWMutex
+}
+
+func NewCellLockManager() *CellLockManager {
+	return &CellLockManager{
+		locks:     make(map[string]*CellLockInfo),
+		userLocks: make(map[string]map[string]bool),
+	}
+}
+
+func (clm *CellLockManager) Lock(lockKey, userID, assetID, key, firstname, lastname, color string) bool {
+	clm.mutex.Lock()
+	defer clm.mutex.Unlock()
+
+	// Check if already locked by someone else
+	if existing, ok := clm.locks[lockKey]; ok && existing.UserID != userID {
+		return false
+	}
+
+	clm.locks[lockKey] = &CellLockInfo{
+		UserID:    userID,
+		AssetID:   assetID,
+		Key:       key,
+		Firstname: firstname,
+		Lastname:  lastname,
+		Color:     color,
+	}
+
+	if _, ok := clm.userLocks[userID]; !ok {
+		clm.userLocks[userID] = make(map[string]bool)
+	}
+	clm.userLocks[userID][lockKey] = true
+
+	return true
+}
+
+func (clm *CellLockManager) Unlock(lockKey, userID string) bool {
+	clm.mutex.Lock()
+	defer clm.mutex.Unlock()
+
+	existing, ok := clm.locks[lockKey]
+	if !ok || existing.UserID != userID {
+		return false
+	}
+
+	delete(clm.locks, lockKey)
+	if userSet, ok := clm.userLocks[userID]; ok {
+		delete(userSet, lockKey)
+		if len(userSet) == 0 {
+			delete(clm.userLocks, userID)
+		}
+	}
+	return true
+}
+
+// RemoveAllForUser removes all locks for a user and returns the lock keys that were removed
+func (clm *CellLockManager) RemoveAllForUser(userID string) []string {
+	clm.mutex.Lock()
+	defer clm.mutex.Unlock()
+
+	lockKeys, ok := clm.userLocks[userID]
+	if !ok {
+		return nil
+	}
+
+	removed := make([]string, 0, len(lockKeys))
+	for lockKey := range lockKeys {
+		delete(clm.locks, lockKey)
+		removed = append(removed, lockKey)
+	}
+	delete(clm.userLocks, userID)
+	return removed
+}
+
+// GetAll returns a snapshot of all current locks
+func (clm *CellLockManager) GetAll() map[string]*CellLockInfo {
+	clm.mutex.RLock()
+	defer clm.mutex.RUnlock()
+
+	snapshot := make(map[string]*CellLockInfo, len(clm.locks))
+	for k, v := range clm.locks {
+		snapshot[k] = &CellLockInfo{
+			UserID:    v.UserID,
+			AssetID:   v.AssetID,
+			Key:       v.Key,
+			Firstname: v.Firstname,
+			Lastname:  v.Lastname,
+			Color:     v.Color,
+		}
+	}
+	return snapshot
+}
+
 // UserInfo holds authenticated user data
 type UserInfo struct {
 	UserID    int64
@@ -132,6 +240,7 @@ type Hub struct {
 	unregister      chan *Client
 	mutex           sync.RWMutex
 	presence        *UserPresence
+	cellLocks       *CellLockManager
 	shutdown        chan struct{}
 	wg              sync.WaitGroup
 	db              *sql.DB
@@ -146,6 +255,7 @@ func NewHub(db *sql.DB, allowedOrigins []string) *Hub {
 		clients:        make(map[*Client]bool),
 		userClients:    make(map[string]map[*Client]bool),
 		presence:       NewUserPresence(),
+		cellLocks:      NewCellLockManager(),
 		shutdown:       make(chan struct{}),
 		db:             db,
 		allowedOrigins: allowedOrigins,
@@ -223,6 +333,10 @@ func (c *Client) readPump() {
 			c.handlePositionUpdate(msg.Payload)
 		case "USER_DESELECTED":
 			c.handleDeselect()
+		case "CELL_EDIT_START":
+			c.handleCellEditStart(msg.Payload)
+		case "CELL_EDIT_END":
+			c.handleCellEditEnd(msg.Payload)
 		case "PING":
 			// Client is checking if we're alive, we auto-respond with pong
 		}
@@ -265,6 +379,70 @@ func (c *Client) handleDeselect() {
 		payload := map[string]interface{}{"clientId": c.userID}
 		c.hub.BroadcastMessage("USER_LEFT", payload, c)
 		log.Printf("User %s deselected", c.userInfo.Username)
+	}
+}
+
+func (c *Client) handleCellEditStart(payload interface{}) {
+	payloadMap, ok := payload.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	assetIdRaw, ok1 := payloadMap["assetId"]
+	keyStr, ok2 := payloadMap["key"].(string)
+	if !ok1 || !ok2 || keyStr == "" {
+		return
+	}
+
+	assetId := fmt.Sprintf("%v", assetIdRaw)
+	lockKey := assetId + ":" + keyStr
+
+	locked := c.hub.cellLocks.Lock(
+		lockKey,
+		c.userID,
+		assetId,
+		keyStr,
+		c.userInfo.Firstname,
+		c.userInfo.Lastname,
+		c.userInfo.Color,
+	)
+
+	if locked {
+		broadcastPayload := map[string]interface{}{
+			"assetId":   assetIdRaw,
+			"key":       keyStr,
+			"userId":    c.userID,
+			"firstname": c.userInfo.Firstname,
+			"lastname":  c.userInfo.Lastname,
+			"color":     c.userInfo.Color,
+		}
+		c.hub.BroadcastMessage("CELL_LOCKED", broadcastPayload, c)
+	}
+}
+
+func (c *Client) handleCellEditEnd(payload interface{}) {
+	payloadMap, ok := payload.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	assetIdRaw, ok1 := payloadMap["assetId"]
+	keyStr, ok2 := payloadMap["key"].(string)
+	if !ok1 || !ok2 || keyStr == "" {
+		return
+	}
+
+	assetId := fmt.Sprintf("%v", assetIdRaw)
+	lockKey := assetId + ":" + keyStr
+
+	unlocked := c.hub.cellLocks.Unlock(lockKey, c.userID)
+
+	if unlocked {
+		broadcastPayload := map[string]interface{}{
+			"assetId": assetIdRaw,
+			"key":     keyStr,
+		}
+		c.hub.BroadcastMessage("CELL_UNLOCKED", broadcastPayload, c)
 	}
 }
 
@@ -391,7 +569,22 @@ func (h *Hub) sendExistingUsers(client *Client) {
 	}
 	h.mutex.RUnlock()
 
-	msg := Message{Type: "EXISTING_USERS", Payload: enhancedUsers}
+	// Include current cell locks
+	allLocks := h.cellLocks.GetAll()
+	lockedCellsPayload := make(map[string]interface{})
+	for lockKey, lockInfo := range allLocks {
+		lockedCellsPayload[lockKey] = map[string]interface{}{
+			"userId":    lockInfo.UserID,
+			"firstname": lockInfo.Firstname,
+			"lastname":  lockInfo.Lastname,
+			"color":     lockInfo.Color,
+		}
+	}
+
+	msg := Message{Type: "EXISTING_USERS", Payload: map[string]interface{}{
+		"users":       enhancedUsers,
+		"lockedCells": lockedCellsPayload,
+	}}
 	jsonMsg, err := json.Marshal(msg)
 	if err != nil {
 		log.Printf("Failed to marshal existing users: %v", err)
@@ -451,12 +644,30 @@ func (h *Hub) cleanupClient(client *Client) {
 
 	if hadPosition {
 		payload := map[string]interface{}{"clientId": client.userID}
-		
+
 		msg := Message{Type: "USER_LEFT", Payload: payload}
 		jsonMsg, err := json.Marshal(msg)
 		if err == nil {
 			// Notify others that this USER is gone
 			h.broadcast <- BroadcastData{Message: jsonMsg, Sender: nil}
+		}
+	}
+
+	// Release all cell edit locks for this user
+	removedLocks := h.cellLocks.RemoveAllForUser(client.userID)
+	for _, lockKey := range removedLocks {
+		// Parse assetId:key back out
+		parts := strings.SplitN(lockKey, ":", 2)
+		if len(parts) == 2 {
+			payload := map[string]interface{}{
+				"assetId": parts[0],
+				"key":     parts[1],
+			}
+			msg := Message{Type: "CELL_UNLOCKED", Payload: payload}
+			jsonMsg, err := json.Marshal(msg)
+			if err == nil {
+				h.broadcast <- BroadcastData{Message: jsonMsg, Sender: nil}
+			}
 		}
 	}
 }

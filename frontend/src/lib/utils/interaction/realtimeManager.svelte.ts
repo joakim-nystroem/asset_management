@@ -9,6 +9,13 @@ interface User {
     color: string;
 }
 
+interface CellLock {
+    userId: string;
+    firstname: string;
+    lastname: string;
+    color: string;
+}
+
 const INSTANCE_KEY = Symbol.for('APP_REALTIME_MANAGER');
 const MAX_QUEUE_SIZE = 50;
 
@@ -22,7 +29,8 @@ function createRealtimeManager() {
     // --- STATE ---
     const state = $state({
         clientId: null as string | null,
-        connectedUsers: {} as Record<string, User>
+        connectedUsers: {} as Record<string, User>,
+        lockedCells: {} as Record<string, CellLock>
     });
 
     // --- PLUMBING ---
@@ -55,6 +63,22 @@ function createRealtimeManager() {
         if (!lastSentPos) return;
         lastSentPos = null;
         send('USER_DESELECTED', {});
+    }
+
+    function sendEditStart(assetId: number | string, key: string) {
+        send('CELL_EDIT_START', { assetId, key });
+    }
+
+    function sendEditEnd(assetId: number | string, key: string) {
+        send('CELL_EDIT_END', { assetId, key });
+    }
+
+    function isCellLocked(assetId: number | string, key: string): boolean {
+        return `${assetId}:${key}` in state.lockedCells;
+    }
+
+    function getCellLock(assetId: number | string, key: string): CellLock | null {
+        return state.lockedCells[`${assetId}:${key}`] ?? null;
     }
 
     function send(type: string, payload: any) {
@@ -201,6 +225,7 @@ function createRealtimeManager() {
         // Clean State
         state.clientId = null;
         state.connectedUsers = {};
+        state.lockedCells = {};
         lastSentPos = null;
         onAssetUpdate = null;
     }
@@ -232,10 +257,15 @@ function createRealtimeManager() {
                 break;
                 
             case 'EXISTING_USERS': {
-                // Immutable update, exclude self
-                const users = { ...payload };
+                // Server now sends { users: {...}, lockedCells: {...} }
+                const users = { ...(payload.users || payload) };
                 if (state.clientId) delete users[state.clientId];
                 state.connectedUsers = users;
+
+                // Populate locked cells from server state
+                if (payload.lockedCells) {
+                    state.lockedCells = { ...payload.lockedCells };
+                }
                 break;
             }
             
@@ -255,7 +285,30 @@ function createRealtimeManager() {
                     state.connectedUsers = rest;
                 }
                 break;
-                
+
+            case 'CELL_LOCKED': {
+                const lockKey = `${payload.assetId}:${payload.key}`;
+                state.lockedCells = {
+                    ...state.lockedCells,
+                    [lockKey]: {
+                        userId: payload.userId,
+                        firstname: payload.firstname,
+                        lastname: payload.lastname,
+                        color: payload.color,
+                    }
+                };
+                break;
+            }
+
+            case 'CELL_UNLOCKED': {
+                const lockKey = `${payload.assetId}:${payload.key}`;
+                if (state.lockedCells[lockKey]) {
+                    const { [lockKey]: _, ...rest } = state.lockedCells;
+                    state.lockedCells = rest;
+                }
+                break;
+            }
+
             default:
                 break;
         }
@@ -278,10 +331,15 @@ function createRealtimeManager() {
     const instance = {
         get clientId() { return state.clientId },
         get connectedUsers() { return state.connectedUsers },
+        get lockedCells() { return state.lockedCells },
         connect,
         disconnect,
         sendPositionUpdate,
         sendDeselect,
+        sendEditStart,
+        sendEditEnd,
+        isCellLocked,
+        getCellLock,
         setAssetUpdateHandler
     };
 
