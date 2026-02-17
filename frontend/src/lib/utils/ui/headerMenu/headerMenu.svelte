@@ -68,12 +68,15 @@
       </button>
 
       {#if state.filterOpen}
+        {@const focusOnInit = (node: HTMLElement) => {node.focus();}}
         <div 
           class="absolute z-50 top-0 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm min-w-48 {state.submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}"
         >
           
           <div class="px-2 py-1 border-b border-neutral-200 dark:border-slate-700 mb-1">
+            
             <input 
+              use:focusOnInit
               bind:value={state.filterSearchTerm}
               class="w-full pl-2 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400! dark:placeholder:text-neutral-300! focus:outline-none text-xs"
               placeholder="Search values..."
