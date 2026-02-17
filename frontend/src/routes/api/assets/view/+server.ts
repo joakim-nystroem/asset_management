@@ -4,7 +4,7 @@ import { getAssetsByView } from '$lib/db/select/getAssetsByView';
 export async function GET({ url }: { url: URL }) {
     const viewName = url.searchParams.get('view') || 'default';
 
-    const validViews = ['default', 'audit', 'ped', 'computer', 'network'];
+    const validViews = ['default', 'audit', 'ped', 'galaxy', 'network'];
     if (!validViews.includes(viewName)) {
         return json({ error: `Invalid view: ${viewName}` }, { status: 400 });
     }

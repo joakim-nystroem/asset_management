@@ -1,12 +1,14 @@
 <script lang="ts">
   import type { SafeUser } from '$lib/types';
   import type { EditDropdown } from "$lib/utils/ui/editDropdown/editDropdown.svelte.ts";
+  import type { Autocomplete } from "$lib/utils/ui/suggestionMenu/autocomplete.svelte.ts";
   import { editManager } from "$lib/utils/interaction/editManager.svelte";
   import { selection } from "$lib/utils/interaction/selectionManager.svelte";
   import { columnManager } from "$lib/utils/core/columnManager.svelte";
   import { rowManager } from "$lib/utils/core/rowManager.svelte";
   import { toastState } from "$lib/utils/ui/toast/toastState.svelte";
   import EditDropdownComponent from "$lib/utils/ui/editDropdown/editDropdown.svelte";
+  import AutocompleteComponent from "$lib/utils/ui/suggestionMenu/autocomplete.svelte";
 
   type Props = {
     asset: Record<string, any>;
@@ -15,6 +17,8 @@
     user: SafeUser | null;
     textareaRef: HTMLTextAreaElement | null;
     editDropdown: EditDropdown;
+    autocomplete: Autocomplete;
+    assets: Record<string, any>[];
     onSaveEdit: () => void;
     onCancelEdit: () => void;
     onEditAction: () => void;
@@ -24,7 +28,7 @@
 
   let {
     asset, keys, actualIndex, user, textareaRef = $bindable(),
-    editDropdown, onSaveEdit, onCancelEdit, onEditAction, onContextMenu, visibleIndex,
+    editDropdown, autocomplete, assets, onSaveEdit, onCancelEdit, onEditAction, onContextMenu, visibleIndex,
   }: Props = $props();
 </script>
 
@@ -98,13 +102,45 @@
         <textarea
           bind:this={textareaRef}
           bind:value={editManager.inputValue}
-          oninput={() =>
-            editManager.updateRowHeight(
-              textareaRef,
-              rowManager,
-              columnManager,
-            )}
+          oninput={() => {
+            editManager.updateRowHeight(textareaRef, rowManager, columnManager);
+            // Update suggestions for free-text columns (not constrained dropdown columns)
+            if (!editDropdown.isVisible) {
+              autocomplete.updateSuggestions(assets, key, editManager.inputValue);
+            }
+          }}
           onkeydown={(e) => {
+            // Handle autocomplete navigation if visible (takes priority — free-text columns)
+            if (autocomplete.isVisible) {
+              if (e.key === "ArrowDown") {
+                e.preventDefault();
+                autocomplete.selectNext();
+                return;
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                autocomplete.selectPrevious();
+                return;
+              } else if (e.key === "Tab") {
+                e.preventDefault();
+                const v = autocomplete.getSelectedValue();
+                if (v) editManager.inputValue = v;
+                autocomplete.clear();
+                return;
+              } else if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                const v = autocomplete.getSelectedValue();
+                if (v !== null) editManager.inputValue = v;
+                autocomplete.clear();
+                onSaveEdit();
+                return;
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                autocomplete.clear();
+                onCancelEdit();
+                return;
+              }
+            }
+
             // Handle dropdown navigation if visible
             if (editDropdown.isVisible) {
               if (e.key === "ArrowDown") {
@@ -132,7 +168,7 @@
               }
             }
 
-            // Normal keyboard handling when dropdown not visible
+            // Normal keyboard handling when neither dropdown visible
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               onSaveEdit();
@@ -145,6 +181,7 @@
             e.stopPropagation();
           }}
           onblur={() => {
+            autocomplete.clear();
             // Always save on blur (clicking outside)
             setTimeout(() => {
               if (editManager.isEditing) {
@@ -160,6 +197,14 @@
           onSelect={(value) => {
             editManager.inputValue = value;
             editDropdown.hide();
+            onSaveEdit();
+          }}
+        />
+        <AutocompleteComponent
+          {autocomplete}
+          onSelect={(value) => {
+            editManager.inputValue = value;
+            autocomplete.clear();
             onSaveEdit();
           }}
         />

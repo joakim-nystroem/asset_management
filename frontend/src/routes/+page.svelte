@@ -27,6 +27,7 @@
   import { selection } from "$lib/utils/interaction/selectionManager.svelte";
   import { createClipboard } from "$lib/utils/interaction/clipboardManager.svelte";
   import { createEditDropdown } from "$lib/utils/ui/editDropdown/editDropdown.svelte.ts";
+  import { createAutocomplete } from "$lib/utils/ui/suggestionMenu/autocomplete.svelte.ts";
   import { searchManager } from "$lib/utils/data/searchManager.svelte";
   import { sortManager } from "$lib/utils/data/sortManager.svelte";
   import { createVirtualScroll } from "$lib/utils/core/virtualScrollManager.svelte";
@@ -48,6 +49,7 @@
   const virtualScroll = createVirtualScroll();
   const filterPanel = new FilterPanelState();
   const editDropdown = createEditDropdown();
+  const autocomplete = createAutocomplete();
 
   let { data }: PageProps = $props();
 
@@ -407,6 +409,22 @@
   // (page.url uses $state.raw which is shallow — doesn't react to replaceState changes)
   const reactiveUrl = new SvelteURL(page.url);
 
+  // Sync reactiveUrl from page.url on SvelteKit navigation (e.g. clicking Home links)
+  // page.url reference changes on navigation but NOT on replaceState — so this only fires on real navigations
+  $effect(() => {
+    const url = page.url; // subscribe to page.url reference changes
+    untrack(() => {
+      // Clear all existing params
+      for (const key of [...reactiveUrl.searchParams.keys()]) {
+        reactiveUrl.searchParams.delete(key);
+      }
+      // Copy params from the new page.url
+      for (const [key, value] of url.searchParams.entries()) {
+        reactiveUrl.searchParams.append(key, value);
+      }
+    });
+  });
+
   // --- URL-driven search helpers ---
   function updateSearchUrl(params: { q?: string; filters?: Filter[]; view?: string }) {
     // Clear known search params (delete only specific keys to preserve SvelteURL reactive tracking)
@@ -725,6 +743,8 @@
     const pos = editManager.getEditPosition();
     if (!pos) return;
 
+    autocomplete.clear();
+
     // Release cell lock before save/cancel clears edit state
     releaseEditLock();
 
@@ -785,6 +805,7 @@
   function cancelEdit() {
     const pos = editManager.getEditPosition();
     editDropdown.hide();
+    autocomplete.clear();
     releaseEditLock();
     editManager.cancel(columnManager, rowManager);
     if (pos) selection.selectCell(pos.row, pos.col);
@@ -1196,6 +1217,7 @@
       {sortManager}
       {searchManager}
       {assets}
+      {baseAssets}
       onSort={applySort}
       onFilterSelect={(item, key) => {
         const { q, filters, view } = getCurrentUrlState();
@@ -1215,7 +1237,7 @@
       <GridHeader
         {keys}
         onHeaderClick={(e, key, _filterItems, isLast) => {
-          headerMenu.toggle(e, key, searchManager.getFilterItems(key, assets), isLast);
+          headerMenu.toggle(e, key, searchManager.getFilterItems(key, assets, baseAssets), isLast);
         }}
         onCloseContextMenu={() => contextMenu.close()}
       />
@@ -1253,6 +1275,8 @@
               user={data.user}
               bind:textareaRef
               {editDropdown}
+              {autocomplete}
+              {assets}
               onSaveEdit={saveEdit}
               onCancelEdit={cancelEdit}
               onEditAction={handleEditAction}

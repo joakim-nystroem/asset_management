@@ -8,11 +8,12 @@
     sortManager: SortManager;
     searchManager: SearchManager;
     assets: any[];
+    baseAssets: any[];
     onSort: (key: string, direction: SortDirection) => void;
     onFilterSelect?: (item: string, key: string) => void;
   };
 
-  let { state, sortManager, searchManager, assets, onSort, onFilterSelect }: Props = $props();
+  let { state, sortManager, searchManager, assets, baseAssets, onSort, onFilterSelect }: Props = $props();
 
   $effect(() => {
     if (state.activeKey) {
@@ -91,7 +92,7 @@
           </div>
 
           <div class="max-h-48 overflow-y-auto no-scrollbar">
-             {#each searchManager.getFilterItems(state.activeKey, assets)
+             {#each searchManager.getFilterItems(state.activeKey, assets, baseAssets)
                 .filter(i => i.toLowerCase().includes(state.filterSearchTerm.toLowerCase())) 
                 as item
              }

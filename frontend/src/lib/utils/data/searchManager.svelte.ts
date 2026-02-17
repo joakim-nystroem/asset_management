@@ -1,5 +1,4 @@
 // src/lib/utils/data/searchManager.svelte.ts
-import { SvelteMap } from "svelte/reactivity";
 
 export type Filter = {
   key: string;
@@ -12,23 +11,43 @@ function createSearchManager() {
 
   // Filter state
   let selectedFilters = $state<Filter[]>([]);
-  const filterOptions = new SvelteMap<string, any>();
 
   // Error state
   let error = $state('');
 
-  function getFilterItems(key: string, assets: any[]): any[] {
-    if (filterOptions.size > 0 && filterOptions.has(key)) {
-      return filterOptions.get(key);
+  function getFilterItems(key: string, assets: any[], baseAssets?: any[]): any[] {
+    if (!baseAssets || baseAssets.length === 0) {
+      return getUniqueValues(assets, key);
     }
-    return getUniqueValues(assets, key);
+
+    // Always compute from baseAssets filtered by OTHER columns' filters only
+    // This avoids flicker from async filteredAssets updates
+    const otherFilters = selectedFilters.filter(f => f.key !== key);
+
+    if (otherFilters.length === 0) {
+      return getUniqueValues(baseAssets, key);
+    }
+
+    // Group other filters by key
+    const filtersByKey = new Map<string, Set<string>>();
+    for (const f of otherFilters) {
+      if (!filtersByKey.has(f.key)) filtersByKey.set(f.key, new Set());
+      filtersByKey.get(f.key)!.add(f.value);
+    }
+
+    // Apply other columns' filters to base data client-side
+    const filtered = baseAssets.filter(item => {
+      for (const [filterKey, values] of filtersByKey) {
+        if (!values.has(String(item[filterKey] ?? ''))) return false;
+      }
+      return true;
+    });
+
+    return getUniqueValues(filtered, key);
   }
 
   function selectFilterItem(item: string, key: string, assets: any[]) {
     selectedFilters = toggleFilter(selectedFilters, key, item);
-    if (!filterOptions.has(key)) {
-      filterOptions.set(key, getFilterItems(key, assets));
-    }
   }
 
   function removeFilter(filter: Filter) {
@@ -40,12 +59,7 @@ function createSearchManager() {
   }
 
   function cleanupFilterCache() {
-    const activeFilterKeys = new Set(selectedFilters.map(f => f.key));
-    for (const key of filterOptions.keys()) {
-      if (!activeFilterKeys.has(key)) {
-        filterOptions.delete(key);
-      }
-    }
+    // No-op: caching removed in favor of baseAssets approach
   }
 
   function isFilterSelected(key: string, value: string): boolean {
