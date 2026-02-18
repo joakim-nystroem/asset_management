@@ -7,7 +7,7 @@
   let assignments = $state(data.assignments);
   let summary = $derived(data.summary);
 
-  let reassignModal = $state<{ assetId: number; assetLabel: string; currentUserId: number } | null>(null);
+  let reassignModal = $state<{ assetId: number; assetLabel: string; currentUserId: number | null } | null>(null);
   let reassignUserId = $state<number | null>(null);
   let saving = $state(false);
   let closing = $state(false);
@@ -16,11 +16,13 @@
   let selectedAssetIds = $state<Set<number>>(new Set());
   let bulkUserId = $state<number | null>(null);
   let bulkAssigning = $state(false);
+  let starting = $state(false);
 
   // Filters & sort
   let filterLocation = $state('');
   let filterAssetType = $state('');
-  let openFilterCol = $state<'location' | 'assetType' | null>(null);
+  let filterStatus = $state<'all' | 'pending' | 'completed'>('all');
+  let openFilterCol = $state<'location' | 'assetType' | 'status' | null>(null);
   let activeSort = $state<{ col: 'location' | 'node' | 'assetType' | 'auditor'; dir: 'asc' | 'desc' } | null>(null);
 
   let progressPct = $derived(
@@ -39,6 +41,8 @@
     let result = assignments.filter(a => {
       if (filterLocation && a.location !== filterLocation) return false;
       if (filterAssetType && a.asset_type !== filterAssetType) return false;
+      if (filterStatus === 'pending' && !!a.completed_at) return false;
+      if (filterStatus === 'completed' && !a.completed_at) return false;
       return true;
     });
     if (activeSort) {
@@ -69,7 +73,7 @@
     }
   }
 
-  function toggleFilter(col: 'location' | 'assetType') {
+  function toggleFilter(col: 'location' | 'assetType' | 'status') {
     openFilterCol = openFilterCol === col ? null : col;
   }
 
@@ -90,6 +94,7 @@
   function clearFilters() {
     filterLocation = '';
     filterAssetType = '';
+    filterStatus = 'all';
   }
 
   function formatDate(val: Date | string | null): string {
@@ -102,7 +107,7 @@
     message = null;
   }
 
-  function openReassign(assignment: { asset_id: number; wbd_tag: string | null; asset_type: string | null; assigned_to: number }) {
+  function openReassign(assignment: { asset_id: number; wbd_tag: string | null; asset_type: string | null; assigned_to: number | null }) {
     reassignModal = {
       assetId: assignment.asset_id,
       assetLabel: `${assignment.wbd_tag || '\u2014'} \u00b7 ${assignment.asset_type || '\u2014'}`,
@@ -202,6 +207,25 @@
       bulkAssigning = false;
     }
   }
+
+  async function startAudit() {
+    if (!confirm('Start a new audit cycle? This will take a snapshot of all current inventory items.')) return;
+    starting = true;
+    message = null;
+    try {
+      const res = await fetch('/api/audit/start', { method: 'POST' });
+      const json = await res.json();
+      if (res.ok) {
+        message = { type: 'success', text: `Audit started. ${json.count} items in scope.` };
+        // Reload to populate the assignments list
+        window.location.reload();
+      } else {
+        message = { type: 'error', text: json.error ?? 'Failed to start audit cycle.' };
+      }
+    } finally {
+      starting = false;
+    }
+  }
 </script>
 
 <svelte:window onpointerdown={(e) => {
@@ -213,14 +237,46 @@
 <div class="px-4 py-6">
 
   <!-- Page header -->
-  <div class="mb-4">
-    <h1 class="text-2xl font-bold text-neutral-800 dark:text-neutral-100">Audit Management</h1>
-    {#if summary.auditStartDate}
-      <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-        Cycle started {formatDate(summary.auditStartDate)}
-      </p>
+  <div class="mb-4 flex justify-between items-start gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-neutral-800 dark:text-neutral-100">Audit Management</h1>
+      {#if summary.auditStartDate}
+        <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+          Cycle started {formatDate(summary.auditStartDate)}
+        </p>
+      {:else}
+        <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">No active audit cycle.</p>
+      {/if}
+    </div>
+    <!-- Start / Close Audit button (state-aware) -->
+    {#if assignments.length === 0}
+      <div class="ml-auto">
+        <button
+          onclick={startAudit}
+          disabled={starting}
+          class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white cursor-pointer disabled:cursor-not-allowed"
+        >
+          {starting ? 'Starting...' : 'Start Audit'}
+        </button>
+      </div>
     {:else}
-      <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">No active audit cycle.</p>
+      <div class="ml-auto relative group">
+        <button
+          onclick={closeCycle}
+          disabled={closing || summary.pending > 0}
+          class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors
+            {summary.pending > 0
+              ? 'bg-neutral-200 dark:bg-slate-700 text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'}"
+        >
+          {closing ? 'Closing...' : 'Close Audit'}
+        </button>
+        {#if summary.pending > 0}
+          <div class="absolute right-0 top-full mt-1 w-48 bg-neutral-800 dark:bg-slate-900 text-white text-xs rounded px-2 py-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+            {summary.pending} item{summary.pending === 1 ? '' : 's'} still pending
+          </div>
+        {/if}
+      </div>
     {/if}
   </div>
 
@@ -242,47 +298,37 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
       </svg>
       <p class="text-lg font-medium">No active audit cycle</p>
-      <p class="text-sm mt-1">All items have been archived or no cycle has been started.</p>
+      <p class="text-sm mt-1 mb-6">All items have been archived or no cycle has been started.</p>
+      <button
+        onclick={startAudit}
+        disabled={starting}
+        class="px-5 py-2.5 rounded-lg text-sm font-semibold bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white cursor-pointer disabled:cursor-not-allowed transition-colors"
+      >
+        {starting ? 'Starting...' : 'Start Audit'}
+      </button>
     </div>
   {:else}
 
     <!-- Section 1: Summary + Close Cycle bar -->
     <div class="mb-4 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-5 py-4">
-      <div class="flex flex-wrap items-center gap-5 mb-3">
-        <div class="flex items-baseline gap-1.5">
-          <span class="text-xl font-bold text-neutral-800 dark:text-neutral-100">{summary.total}</span>
-          <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Total</span>
-        </div>
-        <div class="flex items-baseline gap-1.5">
-          <span class="text-xl font-bold text-amber-600 dark:text-amber-400">{summary.pending}</span>
-          <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Pending</span>
-        </div>
-        <div class="flex items-baseline gap-1.5">
-          <span class="text-xl font-bold text-green-600 dark:text-green-400">{summary.completed}</span>
-          <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Completed</span>
+      <div class="flex flex-wrap items-center gap-5 mb-3 flex justify-between">
+        <div class="flex flex-row items-center gap-6">
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-xl font-bold text-neutral-800 dark:text-neutral-100">{summary.total}</span>
+            <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Total</span>
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-xl font-bold text-amber-600 dark:text-amber-400">{summary.pending}</span>
+            <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Pending</span>
+          </div>
+          <div class="flex items-baseline gap-1.5">
+            <span class="text-xl font-bold text-green-600 dark:text-green-400">{summary.completed}</span>
+            <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Completed</span>
+          </div>
         </div>
         <div class="flex items-baseline gap-1.5">
           <span class="text-xl font-bold text-blue-600 dark:text-blue-400">{progressPct}%</span>
           <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Progress</span>
-        </div>
-
-        <!-- Close Audit button (right-aligned) -->
-        <div class="ml-auto relative group">
-          <button
-            onclick={closeCycle}
-            disabled={closing || summary.pending > 0}
-            class="px-4 py-2 rounded-lg text-sm font-semibold transition-colors
-              {summary.pending > 0
-                ? 'bg-neutral-200 dark:bg-slate-700 text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'}"
-          >
-            {closing ? 'Closing...' : 'Close Audit'}
-          </button>
-          {#if summary.pending > 0}
-            <div class="absolute right-0 top-full mt-1 w-48 bg-neutral-800 dark:bg-slate-900 text-white text-xs rounded px-2 py-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-              {summary.pending} item{summary.pending === 1 ? '' : 's'} still pending
-            </div>
-          {/if}
         </div>
       </div>
       <!-- Progress bar -->
@@ -472,6 +518,43 @@
           </button>
         </div>
 
+        <!-- Status: filter only -->
+        <div class="w-24 flex-shrink-0 relative" data-filter>
+          <button
+            onclick={() => toggleFilter('status')}
+            class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
+              {filterStatus !== 'all' ? 'text-blue-600 dark:text-blue-400' : ''}"
+          >
+            Status
+            {#if filterStatus !== 'all'}
+              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+            {:else}
+              <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            {/if}
+          </button>
+          {#if openFilterCol === 'status'}
+            <div class="absolute left-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1">
+              <button
+                onclick={() => { filterStatus = 'all'; closeFilters(); }}
+                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                  {filterStatus === 'all' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+              >All</button>
+              <button
+                onclick={() => { filterStatus = 'pending'; closeFilters(); }}
+                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                  {filterStatus === 'pending' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+              >Pending</button>
+              <button
+                onclick={() => { filterStatus = 'completed'; closeFilters(); }}
+                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                  {filterStatus === 'completed' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+              >Done</button>
+            </div>
+          {/if}
+        </div>
+
         <div class="w-20 flex-shrink-0">Reassign</div>
       </div>
 
@@ -490,6 +573,19 @@
           <div class="w-28 flex-shrink-0 truncate text-neutral-600 dark:text-neutral-400">{assignment.node || '\u2014'}</div>
           <div class="flex-1 min-w-0 truncate text-neutral-700 dark:text-neutral-300">{assignment.asset_type || '\u2014'}</div>
           <div class="w-36 flex-shrink-0 truncate text-neutral-600 dark:text-neutral-400">{assignment.auditor_name || '\u2014'}</div>
+          <div class="w-24 flex-shrink-0">
+            {#if assignment.completed_at}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"></span>
+                Done
+              </span>
+            {:else}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                Pending
+              </span>
+            {/if}
+          </div>
           <div class="w-20 flex-shrink-0">
             <button
               onclick={() => openReassign(assignment)}
@@ -511,7 +607,7 @@
     <!-- Section 4: Footer -->
     <p class="mt-2 ml-1 text-xs text-neutral-500 dark:text-neutral-400">
       Showing {filteredAndSorted.length} of {assignments.length} assignment{assignments.length === 1 ? '' : 's'}
-      {#if filterLocation || filterAssetType}
+      {#if filterLocation || filterAssetType || filterStatus !== 'all'}
         &middot; <button onclick={clearFilters} class="text-blue-500 hover:underline cursor-pointer">clear filters</button>
       {/if}
     </p>

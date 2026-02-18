@@ -101,7 +101,7 @@ export interface PedDetailsTable {
 export interface AssetAuditTable {
     asset_id: ColumnType<number, number, never>;
     audit_start_date: ColumnType<Date, string, never>;
-    assigned_to: number;
+    assigned_to: number | null;
     completed_at: ColumnType<Date | null, string | null, string | null>;
     result: string | null;
 }
@@ -113,6 +113,14 @@ export interface AssetAuditHistoryTable {
     assigned_to: ColumnType<number, number, never>;
     completed_at: ColumnType<Date, string, never>;
     result: string | null;
+}
+
+export interface AssetAuditCyclesTable {
+    id: ColumnType<number, never, never>;
+    started_at: ColumnType<Date, string, never>;
+    closed_at: ColumnType<Date | null, string | null, string | null>;
+    started_by: number | null;
+    closed_by: number | null;
 }
 
 export interface AuditSettingsTable {
@@ -135,6 +143,7 @@ export interface Database {
     asset_audit: AssetAuditTable;
     asset_audit_history: AssetAuditHistoryTable;
     audit_settings: AuditSettingsTable;
+    asset_audit_cycles: AssetAuditCyclesTable;
 }
 
 const dialect = new MysqlDialect({

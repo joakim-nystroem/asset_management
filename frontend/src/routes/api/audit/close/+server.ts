@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/db/conn';
+import { sql } from 'kysely';
 
 export const POST: RequestHandler = async ({ locals }) => {
     if (!locals.user) {
@@ -26,40 +27,31 @@ export const POST: RequestHandler = async ({ locals }) => {
             .select(db.fn.count('asset_id').as('count'))
             .executeTakeFirst();
 
-        if (Number(total?.count ?? 0) === 0) {
+        const totalCount = Number(total?.count ?? 0);
+        if (totalCount === 0) {
             return json({ error: 'No active audit cycle to close' }, { status: 400 });
         }
 
-        // Move all rows to history
-        const auditRows = await db.selectFrom('asset_audit')
-            .selectAll()
-            .execute();
-
         const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-        for (const row of auditRows) {
-            const completedAt = row.completed_at instanceof Date
-                ? row.completed_at.toISOString().slice(0, 19).replace('T', ' ')
-                : (row.completed_at ?? now);
-            const startDate = row.audit_start_date instanceof Date
-                ? row.audit_start_date.toISOString().split('T')[0]
-                : String(row.audit_start_date);
+        // Atomic close: bulk copy → update cycle record → clear working table
+        await sql`
+            START TRANSACTION;
 
-            await db.insertInto('asset_audit_history')
-                .values({
-                    audit_start_date: startDate,
-                    asset_id: row.asset_id,
-                    assigned_to: row.assigned_to,
-                    completed_at: completedAt,
-                    result: row.result,
-                })
-                .execute();
-        }
+            INSERT INTO asset_audit_history (audit_start_date, asset_id, assigned_to, completed_at, result)
+            SELECT audit_start_date, asset_id, assigned_to, completed_at, result
+            FROM asset_audit;
 
-        // Clear the current cycle
-        await db.deleteFrom('asset_audit').execute();
+            UPDATE asset_audit_cycles
+            SET closed_at = ${now}, closed_by = ${locals.user.id}
+            WHERE closed_at IS NULL;
 
-        return json({ success: true, archived: auditRows.length });
+            DELETE FROM asset_audit;
+
+            COMMIT;
+        `.execute(db);
+
+        return json({ success: true, archived: totalCount });
     } catch (error) {
         return json(
             {
