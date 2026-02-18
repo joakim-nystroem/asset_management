@@ -72,6 +72,17 @@
         filterStatus = 'all';
     }
 
+    // Column header filter dropdown state
+    let openFilterCol = $state<'location' | 'auditor' | 'status' | null>(null);
+
+    function toggleFilter(col: 'location' | 'auditor' | 'status') {
+        openFilterCol = openFilterCol === col ? null : col;
+    }
+
+    function closeFilters() {
+        openFilterCol = null;
+    }
+
     function formatDate(val: Date | string | null): string {
         if (!val) return '—';
         const d = val instanceof Date ? val : new Date(val);
@@ -184,6 +195,12 @@
     }
 </script>
 
+<svelte:window onpointerdown={(e) => {
+    if (openFilterCol && !(e.target as HTMLElement).closest('th')) {
+        openFilterCol = null;
+    }
+}} />
+
 <div class="px-4 py-6">
 
     <!-- Page header -->
@@ -274,56 +291,6 @@
             <p class="text-sm mt-1">All items have been archived or no cycle has been started.</p>
         </div>
     {:else}
-        <!-- Filter bar -->
-        <div class="mb-3 flex flex-wrap items-center gap-2 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3">
-            <span class="text-sm font-medium text-neutral-600 dark:text-neutral-400 mr-1">Filter:</span>
-
-            <!-- Location filter -->
-            <select
-                bind:value={filterLocation}
-                class="rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-                <option value="">All Locations</option>
-                {#each uniqueLocations as loc}
-                    <option value={loc}>{loc}</option>
-                {/each}
-            </select>
-
-            <!-- Auditor filter -->
-            <select
-                bind:value={filterAuditor}
-                class="rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-                <option value="">All Auditors</option>
-                {#each uniqueAuditors as [id, name]}
-                    <option value={id}>{name}</option>
-                {/each}
-            </select>
-
-            <!-- Status filter -->
-            <select
-                bind:value={filterStatus}
-                class="rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-            </select>
-
-            {#if filterLocation || filterAuditor !== '' || filterStatus !== 'all'}
-                <button
-                    onclick={clearFilters}
-                    class="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer ml-1"
-                >
-                    Clear filters
-                </button>
-            {/if}
-
-            <span class="ml-auto text-xs text-neutral-500 dark:text-neutral-400">
-                {filteredAssignments.length} of {assignments.length}
-            </span>
-        </div>
-
         <!-- Bulk assignment toolbar -->
         <div class="mb-3 flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3">
             <span class="text-sm text-neutral-600 dark:text-neutral-400 font-medium">
@@ -367,9 +334,124 @@
                         </th>
                         <th class="text-left px-4 py-3 w-28 font-semibold text-neutral-600 dark:text-neutral-300">WBD Tag</th>
                         <th class="text-left px-4 py-3 w-36 font-semibold text-neutral-600 dark:text-neutral-300">Asset Type</th>
-                        <th class="text-left px-4 py-3 w-40 font-semibold text-neutral-600 dark:text-neutral-300">Location</th>
-                        <th class="text-left px-4 py-3 w-40 font-semibold text-neutral-600 dark:text-neutral-300">Auditor</th>
-                        <th class="text-left px-4 py-3 w-28 font-semibold text-neutral-600 dark:text-neutral-300">Status</th>
+                        <!-- Location filter header -->
+                        <th class="text-left px-3 py-3 font-semibold text-neutral-600 dark:text-neutral-300 w-40 relative">
+                            <button
+                                onclick={() => toggleFilter('location')}
+                                class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
+                                    {filterLocation ? 'text-blue-600 dark:text-blue-400' : ''}"
+                            >
+                                Location
+                                {#if filterLocation}
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                                {:else}
+                                    <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                {/if}
+                            </button>
+                            {#if openFilterCol === 'location'}
+                                <div class="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
+                                    <button
+                                        onclick={() => { filterLocation = ''; closeFilters(); }}
+                                        class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer
+                                            {!filterLocation ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                                    >
+                                        All Locations
+                                    </button>
+                                    {#each uniqueLocations as loc}
+                                        <button
+                                            onclick={() => { filterLocation = loc; closeFilters(); }}
+                                            class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer truncate
+                                                {filterLocation === loc ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                                        >
+                                            {loc}
+                                        </button>
+                                    {/each}
+                                </div>
+                            {/if}
+                        </th>
+
+                        <!-- Auditor filter header -->
+                        <th class="text-left px-3 py-3 font-semibold text-neutral-600 dark:text-neutral-300 w-40 relative">
+                            <button
+                                onclick={() => toggleFilter('auditor')}
+                                class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
+                                    {filterAuditor !== '' ? 'text-blue-600 dark:text-blue-400' : ''}"
+                            >
+                                Auditor
+                                {#if filterAuditor !== ''}
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                                {:else}
+                                    <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                {/if}
+                            </button>
+                            {#if openFilterCol === 'auditor'}
+                                <div class="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
+                                    <button
+                                        onclick={() => { filterAuditor = ''; closeFilters(); }}
+                                        class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer
+                                            {filterAuditor === '' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                                    >
+                                        All Auditors
+                                    </button>
+                                    {#each uniqueAuditors as [id, name]}
+                                        <button
+                                            onclick={() => { filterAuditor = id; closeFilters(); }}
+                                            class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer truncate
+                                                {filterAuditor === id ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                                        >
+                                            {name}
+                                        </button>
+                                    {/each}
+                                </div>
+                            {/if}
+                        </th>
+
+                        <!-- Status filter header -->
+                        <th class="text-left px-3 py-3 font-semibold text-neutral-600 dark:text-neutral-300 w-28 relative">
+                            <button
+                                onclick={() => toggleFilter('status')}
+                                class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
+                                    {filterStatus !== 'all' ? 'text-blue-600 dark:text-blue-400' : ''}"
+                            >
+                                Status
+                                {#if filterStatus !== 'all'}
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                                {:else}
+                                    <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                {/if}
+                            </button>
+                            {#if openFilterCol === 'status'}
+                                <div class="absolute left-0 top-full mt-1 w-40 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1">
+                                    <button
+                                        onclick={() => { filterStatus = 'all'; closeFilters(); }}
+                                        class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer
+                                            {filterStatus === 'all' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                                    >
+                                        All
+                                    </button>
+                                    <button
+                                        onclick={() => { filterStatus = 'pending'; closeFilters(); }}
+                                        class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer
+                                            {filterStatus === 'pending' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                                    >
+                                        Pending
+                                    </button>
+                                    <button
+                                        onclick={() => { filterStatus = 'completed'; closeFilters(); }}
+                                        class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer
+                                            {filterStatus === 'completed' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                                    >
+                                        Done
+                                    </button>
+                                </div>
+                            {/if}
+                        </th>
                         <th class="text-left px-4 py-3 w-24 font-semibold text-neutral-600 dark:text-neutral-300">Reassign</th>
                     </tr>
                 </thead>
@@ -432,7 +514,10 @@
         </div>
 
         <p class="mt-2 ml-1 text-xs text-neutral-500 dark:text-neutral-400">
-            {filteredAssignments.length} of {assignments.length} assignment{assignments.length === 1 ? '' : 's'}
+            Showing {filteredAssignments.length} of {assignments.length} assignment{assignments.length === 1 ? '' : 's'}
+            {#if filterLocation || filterAuditor !== '' || filterStatus !== 'all'}
+                · <button onclick={clearFilters} class="text-blue-500 hover:underline cursor-pointer">clear filters</button>
+            {/if}
         </p>
     {/if}
 
