@@ -9,9 +9,8 @@ export const load = (async ({ locals }) => {
         return { assets: [], locations: [], statuses: [], conditions: [], user: null };
     }
 
-    const auditName = `${locals.user.lastname}, ${locals.user.firstname}`;
     const [assets, locations, statuses, conditions] = await Promise.all([
-        getAuditAssignments(auditName),
+        getAuditAssignments(locals.user.id),
         getLocations(),
         getStatuses(),
         getConditions(),

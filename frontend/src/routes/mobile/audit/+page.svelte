@@ -106,12 +106,8 @@
         status: 'Status',
         condition: 'Condition',
         comment: 'Comment',
-        last_audited_on: 'Last Audited On',
-        last_audited_by: 'Last Audited By',
-        next_audit_on: 'Next Audit On',
-        to_be_audited_by_date: 'Audit Deadline',
-        to_be_audited_by: 'Assigned To',
-        audit_result: 'Audit Result',
+        audit_start_date: 'Audit Cycle Start',
+        result: 'Audit Result',
     };
 
     const editableFields = [
@@ -333,12 +329,12 @@
         }
     });
 
-    function formatDate(val: string | null): string {
+    function formatDate(val: Date | string | null): string {
         if (!val) return '-';
         try {
-            return new Date(val).toLocaleDateString();
+            return (val instanceof Date ? val : new Date(val)).toLocaleDateString();
         } catch {
-            return val;
+            return String(val);
         }
     }
 </script>
@@ -425,9 +421,9 @@
                                         <p class="font-bold text-base truncate">{asset.wbd_tag || 'No Tag'}</p>
                                         <p class="text-sm text-neutral-600 dark:text-neutral-300 truncate">{asset.asset_type} - {asset.manufacturer} {asset.model}</p>
                                         <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1 truncate">{asset.location} | {asset.node}</p>
-                                        {#if asset.to_be_audited_by_date}
+                                        {#if asset.audit_start_date}
                                             <p class="text-xs mt-1 font-medium text-amber-600 dark:text-amber-400">
-                                                Deadline: {formatDate(asset.to_be_audited_by_date)}
+                                                Audit started: {formatDate(asset.audit_start_date)}
                                             </p>
                                         {/if}
                                     </div>

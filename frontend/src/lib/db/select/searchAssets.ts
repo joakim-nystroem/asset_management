@@ -1,6 +1,7 @@
 import { db } from '$lib/db/conn';
+import { sql } from 'kysely';
 import {
-    CORE_COLUMNS, WARRANTY_COLUMNS, AUDIT_COLUMNS, HISTORY_COLUMNS,
+    CORE_COLUMNS, WARRANTY_COLUMNS, HISTORY_COLUMNS,
     PED_COLUMNS, NETWORK_COLUMNS
 } from './columnDefinitions';
 
@@ -15,7 +16,17 @@ export async function searchAssets(searchTerm: string | null, filters: Record<st
   // Add view-specific joins and select columns
   switch (view) {
     case 'audit':
-      query = query.select([...CORE_COLUMNS, ...HISTORY_COLUMNS, ...AUDIT_COLUMNS]);
+      query = query
+        .leftJoin('asset_audit as aa', 'ai.id', 'aa.asset_id')
+        .leftJoin('users as au', 'aa.assigned_to', 'au.id')
+        .select([
+            ...CORE_COLUMNS,
+            ...HISTORY_COLUMNS,
+            'aa.audit_start_date',
+            sql<string | null>`CONCAT(au.lastname, ', ', au.firstname)`.as('assigned_to'),
+            'aa.completed_at',
+            'aa.result',
+        ]);
       break;
     case 'ped':
       query = query

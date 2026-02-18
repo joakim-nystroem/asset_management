@@ -1,8 +1,8 @@
 import { db } from '$lib/db/conn';
+import { sql } from 'kysely';
 import {
 	CORE_COLUMNS,
 	WARRANTY_COLUMNS,
-	AUDIT_COLUMNS,
 	HISTORY_COLUMNS,
 	PED_COLUMNS,
 	NETWORK_COLUMNS
@@ -40,7 +40,16 @@ async function getAuditAssets() {
         .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
         .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
         .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id')
-        .select([...CORE_COLUMNS, ...HISTORY_COLUMNS, ...AUDIT_COLUMNS])
+        .leftJoin('asset_audit as aa', 'ai.id', 'aa.asset_id')
+        .leftJoin('users as au', 'aa.assigned_to', 'au.id')
+        .select([
+            ...CORE_COLUMNS,
+            ...HISTORY_COLUMNS,
+            'aa.audit_start_date',
+            sql<string | null>`CONCAT(au.lastname, ', ', au.firstname)`.as('assigned_to'),
+            'aa.completed_at',
+            'aa.result',
+        ])
         .orderBy('ai.id')
         .execute();
 }

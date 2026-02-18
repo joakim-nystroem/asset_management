@@ -22,16 +22,6 @@ export const CORE_COLUMNS = [
 // Warranty columns (Default + extension views only)
 export const WARRANTY_COLUMNS = ['ai.under_warranty_until', 'ai.warranty_details'] as const;
 
-// Audit columns (Audit view only)
-export const AUDIT_COLUMNS = [
-	'ai.last_audited_on',
-	'ai.last_audited_by',
-	'ai.next_audit_on',
-	'ai.to_be_audited_by_date',
-	'ai.to_be_audited_by',
-	'ai.audit_result'
-] as const;
-
 // Change history columns
 export const HISTORY_COLUMNS = ['ai.modified', 'ai.modified_by'] as const;
 

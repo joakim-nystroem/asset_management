@@ -1,7 +1,8 @@
 import { db } from '$lib/db/conn';
 
-export async function getAuditAssignments(auditName: string) {
-    return await db.selectFrom('asset_inventory as ai')
+export async function getAuditAssignments(userId: number) {
+    return await db.selectFrom('asset_audit as aa')
+        .innerJoin('asset_inventory as ai', 'aa.asset_id', 'ai.id')
         .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
         .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
         .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
@@ -12,14 +13,11 @@ export async function getAuditAssignments(auditName: string) {
             'ai.node', 'ast.status_name as status', 'ac.condition_name as condition',
             'ai.bu_estate', 'ad.department_name as department', 'ai.shelf_cabinet_table',
             'ai.asset_set_type', 'ai.comment',
-            'ai.last_audited_on', 'ai.last_audited_by',
-            'ai.next_audit_on', 'ai.ready_for_audit',
-            'ai.include_in_current_audit',
-            'ai.to_be_audited_by_date', 'ai.to_be_audited_by',
-            'ai.audit_result',
+            'aa.audit_start_date',
+            'aa.result',
         ])
-        .where('ai.to_be_audited_by', '=', auditName)
-        .where('ai.include_in_current_audit', '=', true)
-        .orderBy('ai.to_be_audited_by_date')
+        .where('aa.assigned_to', '=', userId)
+        .where('aa.completed_at', 'is', null)
+        .orderBy('ai.id')
         .execute();
 }

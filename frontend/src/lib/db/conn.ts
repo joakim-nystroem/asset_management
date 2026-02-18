@@ -22,14 +22,6 @@ export interface AssetTable {
     comment: string | null;
     under_warranty_until: string | null;
     warranty_details: string | null;
-    last_audited_on: string | null;
-    last_audited_by: string | null;
-    next_audit_on: string | null;
-    ready_for_audit: boolean | null;
-    include_in_current_audit: boolean | null;
-    to_be_audited_by_date: string | null;
-    to_be_audited_by: string | null;
-    audit_result: string | null;
     created: ColumnType<Date, string | undefined, never>;
     created_by: string | null;
     modified: ColumnType<Date, string | undefined, never>;
@@ -106,6 +98,30 @@ export interface PedDetailsTable {
     physical_security_method_ped_emv: string | null;
 }
 
+export interface AssetAuditTable {
+    asset_id: ColumnType<number, number, never>;
+    audit_start_date: ColumnType<Date, string, never>;
+    assigned_to: number;
+    completed_at: ColumnType<Date | null, string | null, string | null>;
+    result: string | null;
+}
+
+export interface AssetAuditHistoryTable {
+    id: ColumnType<number, never, never>;
+    audit_start_date: ColumnType<Date, string, never>;
+    asset_id: ColumnType<number, number, never>;
+    assigned_to: ColumnType<number, number, never>;
+    completed_at: ColumnType<Date, string, never>;
+    result: string | null;
+}
+
+export interface AuditSettingsTable {
+    id: ColumnType<number, never, never>;
+    next_audit_date: string | null;
+    updated_at: ColumnType<Date, string | undefined, string>;
+    updated_by: number | null;
+}
+
 export interface Database {
     asset_inventory: AssetTable;
     asset_locations: LocationTable;
@@ -117,6 +133,9 @@ export interface Database {
     change_log: ChangeLogTable;
     asset_network_details: NetworkDetailsTable;
     asset_ped_details: PedDetailsTable;
+    asset_audit: AssetAuditTable;
+    asset_audit_history: AssetAuditHistoryTable;
+    audit_settings: AuditSettingsTable;
 }
 
 const dialect = new MysqlDialect({

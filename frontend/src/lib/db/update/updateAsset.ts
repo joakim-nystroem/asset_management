@@ -3,10 +3,7 @@ import { db } from '$lib/db/conn';
 const assetInventoryCols = [
     'bu_estate', 'shelf_cabinet_table', 'node', 'asset_type',
     'asset_set_type', 'manufacturer', 'model', 'wbd_tag', 'serial_number',
-    'comment', 'under_warranty_until', 'warranty_details', 'last_audited_on',
-    'last_audited_by', 'next_audit_on', 'ready_for_audit',
-    'include_in_current_audit', 'to_be_audited_by_date', 'to_be_audited_by',
-    'audit_result'
+    'comment', 'under_warranty_until', 'warranty_details'
 ];
 
 const extensionTableMap: Record<string, { table: string; idColumn: string }> = {
