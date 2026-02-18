@@ -1,13 +1,8 @@
 import type { PageServerLoad } from './$types';
-import { redirect } from '@sveltejs/kit';
 import { db } from '$lib/db/conn';
 import { sql } from 'kysely';
 
 export const load = (async ({ locals }) => {
-    if (!locals.user) {
-        redirect(303, '/login');
-    }
-
     const [assignments, users, settings] = await Promise.all([
         // All current cycle assignments with asset details and auditor name
         db.selectFrom('asset_audit as aa')

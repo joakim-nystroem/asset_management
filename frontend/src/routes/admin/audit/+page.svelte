@@ -7,14 +7,22 @@
     let assignments = $state(data.assignments);
     let summary = $derived(data.summary);
 
-    let reassignAssetId = $state<number | null>(null);
+    let reassignModal = $state<{ assetId: number; assetLabel: string; currentUserId: number } | null>(null);
     let reassignUserId = $state<number | null>(null);
     let saving = $state(false);
     let closing = $state(false);
     let message = $state<{ type: 'success' | 'error'; text: string } | null>(null);
 
+    let selectedAssetIds = $state<Set<number>>(new Set());
+    let bulkUserId = $state<number | null>(null);
+    let bulkAssigning = $state(false);
+
     let progressPct = $derived(
         summary.total > 0 ? Math.round((summary.completed / summary.total) * 100) : 0
+    );
+
+    let allSelected = $derived(
+        assignments.length > 0 && assignments.every(a => selectedAssetIds.has(a.asset_id))
     );
 
     function formatDate(val: Date | string | null): string {
@@ -31,6 +39,20 @@
 
     function dismissMessage() {
         message = null;
+    }
+
+    function openReassign(assignment: { asset_id: number; wbd_tag: string | null; asset_type: string | null; assigned_to: number }) {
+        reassignModal = {
+            assetId: assignment.asset_id,
+            assetLabel: `${assignment.wbd_tag || '—'} · ${assignment.asset_type || '—'}`,
+            currentUserId: assignment.assigned_to,
+        };
+        reassignUserId = assignment.assigned_to;
+    }
+
+    function closeReassign() {
+        reassignModal = null;
+        reassignUserId = null;
     }
 
     async function reassign(assetId: number) {
@@ -50,8 +72,7 @@
                     const user = data.users.find(u => u.id === reassignUserId);
                     if (user) assignment.auditor_name = `${user.lastname}, ${user.firstname}`;
                 }
-                reassignAssetId = null;
-                reassignUserId = null;
+                closeReassign();
                 message = { type: 'success', text: 'Auditor reassigned successfully.' };
             } else {
                 const err = await res.json();
@@ -79,9 +100,58 @@
             closing = false;
         }
     }
+
+    function toggleAll() {
+        if (allSelected) {
+            selectedAssetIds = new Set();
+        } else {
+            selectedAssetIds = new Set(assignments.map(a => a.asset_id));
+        }
+    }
+
+    function toggleOne(assetId: number) {
+        const next = new Set(selectedAssetIds);
+        if (next.has(assetId)) {
+            next.delete(assetId);
+        } else {
+            next.add(assetId);
+        }
+        selectedAssetIds = next;
+    }
+
+    async function bulkAssign() {
+        if (selectedAssetIds.size === 0 || !bulkUserId) return;
+        bulkAssigning = true;
+        message = null;
+        try {
+            const res = await fetch('/api/audit/bulk-assign', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assetIds: [...selectedAssetIds], userId: bulkUserId }),
+            });
+            const json = await res.json();
+            if (res.ok) {
+                const user = data.users.find(u => u.id === bulkUserId);
+                const auditorName = user ? `${user.lastname}, ${user.firstname}` : '—';
+                for (const a of assignments) {
+                    if (selectedAssetIds.has(a.asset_id)) {
+                        a.assigned_to = bulkUserId!;
+                        a.auditor_name = auditorName;
+                    }
+                }
+                message = { type: 'success', text: `Assigned ${selectedAssetIds.size} item${selectedAssetIds.size === 1 ? '' : 's'}.` };
+                selectedAssetIds = new Set();
+                bulkUserId = null;
+            } else {
+                message = { type: 'error', text: json.error ?? 'Bulk assign failed.' };
+            }
+        } finally {
+            bulkAssigning = false;
+        }
+    }
 </script>
 
-<div class="px-4 py-6 max-w-7xl mx-auto">
+<div class="px-4 py-6">
 
     <!-- Page header -->
     <div class="mb-6 flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
@@ -171,11 +241,48 @@
             <p class="text-sm mt-1">All items have been archived or no cycle has been started.</p>
         </div>
     {:else}
+        <!-- Bulk assignment toolbar -->
+        <div class="mb-3 flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3">
+            <span class="text-sm text-neutral-600 dark:text-neutral-400 font-medium">
+                Bulk assign:
+            </span>
+            <select
+                bind:value={bulkUserId}
+                class="rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                <option value={null} disabled selected>Select auditor…</option>
+                {#each data.users as user (user.id)}
+                    <option value={user.id}>{user.lastname}, {user.firstname}</option>
+                {/each}
+            </select>
+            <button
+                onclick={bulkAssign}
+                disabled={bulkAssigning || selectedAssetIds.size === 0 || !bulkUserId}
+                class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
+            >
+                {bulkAssigning ? 'Assigning…' : `Assign${selectedAssetIds.size > 0 ? ` (${selectedAssetIds.size})` : ''}`}
+            </button>
+            {#if selectedAssetIds.size > 0}
+                <button
+                    onclick={() => selectedAssetIds = new Set()}
+                    class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+                >
+                    Clear selection
+                </button>
+                <span class="text-sm text-neutral-500 dark:text-neutral-400">
+                    {selectedAssetIds.size} selected
+                </span>
+            {/if}
+        </div>
+
         <div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-700/50">
+                            <th class="px-4 py-3 w-10">
+                                <input type="checkbox" checked={allSelected} onchange={toggleAll} class="rounded cursor-pointer" />
+                            </th>
                             <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">WBD Tag</th>
                             <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">Asset Type</th>
                             <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">Model</th>
@@ -190,8 +297,15 @@
                     <tbody>
                         {#each assignments as assignment (assignment.asset_id)}
                             {@const isPending = !assignment.completed_at}
-                            {@const isReassigning = reassignAssetId === assignment.asset_id}
                             <tr class="border-b border-neutral-100 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700/30 transition-colors">
+                                <td class="px-4 py-3 w-10">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedAssetIds.has(assignment.asset_id)}
+                                        onchange={() => toggleOne(assignment.asset_id)}
+                                        class="rounded cursor-pointer"
+                                    />
+                                </td>
                                 <td class="px-4 py-3 font-mono text-xs text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
                                     {assignment.wbd_tag || '—'}
                                 </td>
@@ -205,11 +319,7 @@
                                     {assignment.location || '—'}
                                 </td>
                                 <td class="px-4 py-3 text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
-                                    {#if isReassigning}
-                                        <span class="text-neutral-400 dark:text-neutral-500 italic text-xs">{assignment.auditor_name || '—'}</span>
-                                    {:else}
-                                        {assignment.auditor_name || '—'}
-                                    {/if}
+                                    {assignment.auditor_name || '—'}
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     {#if isPending}
@@ -235,39 +345,12 @@
                                     {/if}
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap">
-                                    {#if isReassigning}
-                                        <div class="flex items-center gap-2">
-                                            <select
-                                                bind:value={reassignUserId}
-                                                class="text-xs rounded-md border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            >
-                                                <option value={null} disabled selected>Pick auditor…</option>
-                                                {#each data.users as user (user.id)}
-                                                    <option value={user.id}>{user.lastname}, {user.firstname}</option>
-                                                {/each}
-                                            </select>
-                                            <button
-                                                onclick={() => reassign(assignment.asset_id)}
-                                                disabled={saving || !reassignUserId}
-                                                class="px-2.5 py-1.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
-                                            >
-                                                {saving ? '…' : 'Save'}
-                                            </button>
-                                            <button
-                                                onclick={() => { reassignAssetId = null; reassignUserId = null; }}
-                                                class="px-2 py-1.5 rounded-md text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
-                                            >
-                                                Cancel
-                                            </button>
-                                        </div>
-                                    {:else}
-                                        <button
-                                            onclick={() => { reassignAssetId = assignment.asset_id; reassignUserId = assignment.assigned_to; }}
-                                            class="px-3 py-1.5 rounded-md text-xs font-medium border border-neutral-300 dark:border-slate-600 text-neutral-600 dark:text-neutral-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                                        >
-                                            Reassign
-                                        </button>
-                                    {/if}
+                                    <button
+                                        onclick={() => openReassign(assignment)}
+                                        class="px-3 py-1.5 rounded-md text-xs font-medium border border-neutral-300 dark:border-slate-600 text-neutral-600 dark:text-neutral-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                                    >
+                                        Reassign
+                                    </button>
                                 </td>
                             </tr>
                         {/each}
@@ -279,5 +362,50 @@
         <p class="mt-2 ml-1 text-xs text-neutral-500 dark:text-neutral-400">
             {assignments.length} assignment{assignments.length === 1 ? '' : 's'} in current cycle
         </p>
+    {/if}
+
+    <!-- Reassign modal -->
+    {#if reassignModal}
+        <div
+            class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onclick={closeReassign}
+            role="dialog"
+            aria-modal="true"
+        >
+            <div
+                class="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-sm p-6"
+                onclick={(e) => e.stopPropagation()}
+            >
+                <h3 class="text-base font-semibold text-neutral-800 dark:text-neutral-100 mb-1">Reassign Auditor</h3>
+                <p class="text-sm text-neutral-500 dark:text-neutral-400 mb-4">{reassignModal.assetLabel}</p>
+
+                <label class="block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1.5">Assign to</label>
+                <select
+                    bind:value={reassignUserId}
+                    class="w-full rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                >
+                    <option value={null} disabled>Select auditor…</option>
+                    {#each data.users as user (user.id)}
+                        <option value={user.id}>{user.lastname}, {user.firstname}</option>
+                    {/each}
+                </select>
+
+                <div class="flex gap-2 justify-end">
+                    <button
+                        onclick={closeReassign}
+                        class="px-4 py-2 rounded-lg text-sm text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        onclick={() => reassign(reassignModal!.assetId)}
+                        disabled={saving || !reassignUserId}
+                        class="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
+                    >
+                        {saving ? 'Saving…' : 'Save'}
+                    </button>
+                </div>
+            </div>
+        </div>
     {/if}
 </div>
