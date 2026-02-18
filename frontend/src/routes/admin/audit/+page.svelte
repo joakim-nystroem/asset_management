@@ -17,21 +17,62 @@
     let bulkUserId = $state<number | null>(null);
     let bulkAssigning = $state(false);
 
+    // Filters
+    let filterLocation = $state('');
+    let filterAuditor = $state<number | ''>('');
+    let filterStatus = $state<'all' | 'pending' | 'completed'>('all');
+
     let progressPct = $derived(
         summary.total > 0 ? Math.round((summary.completed / summary.total) * 100) : 0
     );
 
-    let allSelected = $derived(
-        assignments.length > 0 && assignments.every(a => selectedAssetIds.has(a.asset_id))
+    // Unique values for filter dropdowns (derived from full assignments list)
+    let uniqueLocations = $derived(
+        [...new Set(assignments.map(a => a.location ?? '').filter(Boolean))].sort() as string[]
     );
 
-    function formatDate(val: Date | string | null): string {
-        if (!val) return '—';
-        const d = val instanceof Date ? val : new Date(val);
-        return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+    let uniqueAuditors = $derived(
+        [...new Map(
+            assignments.map(a => [a.assigned_to, a.auditor_name ?? ''] as [number, string])
+        ).entries()]
+            .filter(([, name]) => name)
+            .sort(([, a], [, b]) => a.localeCompare(b))
+    );
+
+    // Filtered view of assignments
+    let filteredAssignments = $derived.by(() => {
+        return assignments.filter(a => {
+            if (filterLocation && a.location !== filterLocation) return false;
+            if (filterAuditor !== '' && a.assigned_to !== filterAuditor) return false;
+            if (filterStatus === 'pending' && !!a.completed_at) return false;
+            if (filterStatus === 'completed' && !a.completed_at) return false;
+            return true;
+        });
+    });
+
+    // Whether all FILTERED items are selected
+    let allFilteredSelected = $derived(
+        filteredAssignments.length > 0 &&
+        filteredAssignments.every(a => selectedAssetIds.has(a.asset_id))
+    );
+
+    function toggleAllFiltered() {
+        const next = new Set(selectedAssetIds);
+        if (allFilteredSelected) {
+            filteredAssignments.forEach(a => next.delete(a.asset_id));
+        } else {
+            filteredAssignments.forEach(a => next.add(a.asset_id));
+        }
+        selectedAssetIds = next;
     }
 
-    function formatDateTime(val: Date | string | null): string {
+    function clearFilters() {
+        filterLocation = '';
+        filterAuditor = '';
+        filterStatus = 'all';
+    }
+
+    function formatDate(val: Date | string | null): string {
         if (!val) return '—';
         const d = val instanceof Date ? val : new Date(val);
         return d.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -98,14 +139,6 @@
             }
         } finally {
             closing = false;
-        }
-    }
-
-    function toggleAll() {
-        if (allSelected) {
-            selectedAssetIds = new Set();
-        } else {
-            selectedAssetIds = new Set(assignments.map(a => a.asset_id));
         }
     }
 
@@ -201,7 +234,7 @@
 
     <!-- Summary bar -->
     {#if summary.total > 0}
-        <div class="mb-6 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-5 py-4">
+        <div class="mb-4 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-5 py-4">
             <div class="flex flex-wrap gap-6 items-center mb-3">
                 <div class="text-center">
                     <p class="text-2xl font-bold text-neutral-800 dark:text-neutral-100">{summary.total}</p>
@@ -241,6 +274,56 @@
             <p class="text-sm mt-1">All items have been archived or no cycle has been started.</p>
         </div>
     {:else}
+        <!-- Filter bar -->
+        <div class="mb-3 flex flex-wrap items-center gap-2 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3">
+            <span class="text-sm font-medium text-neutral-600 dark:text-neutral-400 mr-1">Filter:</span>
+
+            <!-- Location filter -->
+            <select
+                bind:value={filterLocation}
+                class="rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                <option value="">All Locations</option>
+                {#each uniqueLocations as loc}
+                    <option value={loc}>{loc}</option>
+                {/each}
+            </select>
+
+            <!-- Auditor filter -->
+            <select
+                bind:value={filterAuditor}
+                class="rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                <option value="">All Auditors</option>
+                {#each uniqueAuditors as [id, name]}
+                    <option value={id}>{name}</option>
+                {/each}
+            </select>
+
+            <!-- Status filter -->
+            <select
+                bind:value={filterStatus}
+                class="rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+            </select>
+
+            {#if filterLocation || filterAuditor !== '' || filterStatus !== 'all'}
+                <button
+                    onclick={clearFilters}
+                    class="text-sm text-blue-600 dark:text-blue-400 hover:underline cursor-pointer ml-1"
+                >
+                    Clear filters
+                </button>
+            {/if}
+
+            <span class="ml-auto text-xs text-neutral-500 dark:text-neutral-400">
+                {filteredAssignments.length} of {assignments.length}
+            </span>
+        </div>
+
         <!-- Bulk assignment toolbar -->
         <div class="mb-3 flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3">
             <span class="text-sm text-neutral-600 dark:text-neutral-400 font-medium">
@@ -275,92 +358,81 @@
             {/if}
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-700/50">
-                            <th class="px-4 py-3 w-10">
-                                <input type="checkbox" checked={allSelected} onchange={toggleAll} class="rounded cursor-pointer" />
-                            </th>
-                            <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">WBD Tag</th>
-                            <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">Asset Type</th>
-                            <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">Model</th>
-                            <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">Location</th>
-                            <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">Auditor</th>
-                            <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">Status</th>
-                            <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">Completed</th>
-                            <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">Result</th>
-                            <th class="text-left px-4 py-3 font-semibold text-neutral-600 dark:text-neutral-300 whitespace-nowrap">Reassign</th>
+        <div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm">
+            <table class="w-full text-sm table-fixed">
+                <thead>
+                    <tr class="border-b border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-700/50">
+                        <th class="px-4 py-3 w-10">
+                            <input type="checkbox" checked={allFilteredSelected} onchange={toggleAllFiltered} class="rounded cursor-pointer" />
+                        </th>
+                        <th class="text-left px-4 py-3 w-28 font-semibold text-neutral-600 dark:text-neutral-300">WBD Tag</th>
+                        <th class="text-left px-4 py-3 w-36 font-semibold text-neutral-600 dark:text-neutral-300">Asset Type</th>
+                        <th class="text-left px-4 py-3 w-40 font-semibold text-neutral-600 dark:text-neutral-300">Location</th>
+                        <th class="text-left px-4 py-3 w-40 font-semibold text-neutral-600 dark:text-neutral-300">Auditor</th>
+                        <th class="text-left px-4 py-3 w-28 font-semibold text-neutral-600 dark:text-neutral-300">Status</th>
+                        <th class="text-left px-4 py-3 w-24 font-semibold text-neutral-600 dark:text-neutral-300">Reassign</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each filteredAssignments as assignment (assignment.asset_id)}
+                        {@const isPending = !assignment.completed_at}
+                        <tr class="border-b border-neutral-100 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700/30 transition-colors">
+                            <td class="px-4 py-3 w-10">
+                                <input
+                                    type="checkbox"
+                                    checked={selectedAssetIds.has(assignment.asset_id)}
+                                    onchange={() => toggleOne(assignment.asset_id)}
+                                    class="rounded cursor-pointer"
+                                />
+                            </td>
+                            <td class="px-4 py-3 font-mono text-xs text-neutral-700 dark:text-neutral-300 truncate">
+                                {assignment.wbd_tag || '—'}
+                            </td>
+                            <td class="px-4 py-3 text-neutral-700 dark:text-neutral-300 truncate">
+                                {assignment.asset_type || '—'}
+                            </td>
+                            <td class="px-4 py-3 text-neutral-600 dark:text-neutral-400 min-w-0 truncate">
+                                {assignment.location || '—'}
+                            </td>
+                            <td class="px-4 py-3 text-neutral-700 dark:text-neutral-300 min-w-0 truncate">
+                                {assignment.auditor_name || '—'}
+                            </td>
+                            <td class="px-4 py-3">
+                                {#if isPending}
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                        Pending
+                                    </span>
+                                {:else}
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                        Done
+                                    </span>
+                                {/if}
+                            </td>
+                            <td class="px-4 py-3">
+                                <button
+                                    onclick={() => openReassign(assignment)}
+                                    class="px-3 py-1.5 rounded-md text-xs font-medium border border-neutral-300 dark:border-slate-600 text-neutral-600 dark:text-neutral-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors cursor-pointer"
+                                >
+                                    Reassign
+                                </button>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        {#each assignments as assignment (assignment.asset_id)}
-                            {@const isPending = !assignment.completed_at}
-                            <tr class="border-b border-neutral-100 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700/30 transition-colors">
-                                <td class="px-4 py-3 w-10">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedAssetIds.has(assignment.asset_id)}
-                                        onchange={() => toggleOne(assignment.asset_id)}
-                                        class="rounded cursor-pointer"
-                                    />
-                                </td>
-                                <td class="px-4 py-3 font-mono text-xs text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
-                                    {assignment.wbd_tag || '—'}
-                                </td>
-                                <td class="px-4 py-3 text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
-                                    {assignment.asset_type || '—'}
-                                </td>
-                                <td class="px-4 py-3 text-neutral-600 dark:text-neutral-400 whitespace-nowrap">
-                                    {assignment.model || '—'}
-                                </td>
-                                <td class="px-4 py-3 text-neutral-600 dark:text-neutral-400 whitespace-nowrap">
-                                    {assignment.location || '—'}
-                                </td>
-                                <td class="px-4 py-3 text-neutral-700 dark:text-neutral-300 whitespace-nowrap">
-                                    {assignment.auditor_name || '—'}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    {#if isPending}
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-                                            Pending
-                                        </span>
-                                    {:else}
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                                            Completed
-                                        </span>
-                                    {/if}
-                                </td>
-                                <td class="px-4 py-3 text-neutral-500 dark:text-neutral-400 whitespace-nowrap text-xs">
-                                    {formatDateTime(assignment.completed_at)}
-                                </td>
-                                <td class="px-4 py-3 text-neutral-600 dark:text-neutral-400 max-w-xs">
-                                    {#if assignment.result}
-                                        <span class="truncate block max-w-[160px]" title={assignment.result}>{assignment.result}</span>
-                                    {:else}
-                                        <span class="text-neutral-300 dark:text-neutral-600">—</span>
-                                    {/if}
-                                </td>
-                                <td class="px-4 py-3 whitespace-nowrap">
-                                    <button
-                                        onclick={() => openReassign(assignment)}
-                                        class="px-3 py-1.5 rounded-md text-xs font-medium border border-neutral-300 dark:border-slate-600 text-neutral-600 dark:text-neutral-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors cursor-pointer"
-                                    >
-                                        Reassign
-                                    </button>
-                                </td>
-                            </tr>
-                        {/each}
-                    </tbody>
-                </table>
-            </div>
+                    {/each}
+                    {#if filteredAssignments.length === 0}
+                        <tr>
+                            <td colspan="7" class="px-4 py-10 text-center text-sm text-neutral-400 dark:text-neutral-500">
+                                No assignments match the current filters.
+                            </td>
+                        </tr>
+                    {/if}
+                </tbody>
+            </table>
         </div>
 
         <p class="mt-2 ml-1 text-xs text-neutral-500 dark:text-neutral-400">
-            {assignments.length} assignment{assignments.length === 1 ? '' : 's'} in current cycle
+            {filteredAssignments.length} of {assignments.length} assignment{assignments.length === 1 ? '' : 's'}
         </p>
     {/if}
 
