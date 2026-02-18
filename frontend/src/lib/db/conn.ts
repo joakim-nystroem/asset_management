@@ -117,7 +117,6 @@ export interface AssetAuditHistoryTable {
 
 export interface AuditSettingsTable {
     id: ColumnType<number, never, never>;
-    next_audit_date: string | null;
     updated_at: ColumnType<Date, string | undefined, string>;
     updated_by: number | null;
 }

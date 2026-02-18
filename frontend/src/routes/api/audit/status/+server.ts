@@ -30,17 +30,11 @@ export const GET: RequestHandler = async ({ locals }) => {
             .limit(1)
             .executeTakeFirst();
 
-        const settings = await db.selectFrom('audit_settings')
-            .select('next_audit_date')
-            .where('id', '=', 1)
-            .executeTakeFirst();
-
         return json({
             total: Number(rows?.total ?? 0),
             pending: Number(pending?.count ?? 0),
             completed: Number(completed?.count ?? 0),
             auditStartDate: startDateRow?.audit_start_date ?? null,
-            nextAuditDate: settings?.next_audit_date ?? null,
             isActive: Number(rows?.total ?? 0) > 0,
         });
     } catch (error) {

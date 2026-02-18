@@ -3,7 +3,7 @@ import { db } from '$lib/db/conn';
 import { sql } from 'kysely';
 
 export const load = (async ({ locals }) => {
-    const [assignments, users, settings] = await Promise.all([
+    const [assignments, users] = await Promise.all([
         // All current cycle assignments with asset details and auditor name
         db.selectFrom('asset_audit as aa')
             .innerJoin('asset_inventory as ai', 'aa.asset_id', 'ai.id')
@@ -17,6 +17,7 @@ export const load = (async ({ locals }) => {
                 'aa.result',
                 'ai.wbd_tag',
                 'ai.asset_type',
+                'ai.node',
                 'ai.manufacturer',
                 'ai.model',
                 'ai.serial_number',
@@ -32,12 +33,6 @@ export const load = (async ({ locals }) => {
             .select(['id', 'firstname', 'lastname', 'username'])
             .orderBy('lastname')
             .execute(),
-
-        // Audit settings
-        db.selectFrom('audit_settings')
-            .select(['next_audit_date'])
-            .where('id', '=', 1)
-            .executeTakeFirst(),
     ]);
 
     const total = assignments.length;
@@ -48,7 +43,6 @@ export const load = (async ({ locals }) => {
     return {
         assignments,
         users,
-        nextAuditDate: settings?.next_audit_date ?? null,
         summary: { total, pending, completed, auditStartDate },
         user: locals.user,
     };
