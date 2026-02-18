@@ -131,59 +131,74 @@
   });
 </script>
 
-<div class="bg-white dark:bg-slate-800 shadow-md p-6">
-  <h1 class="text-3xl font-bold capitalize mb-6">{data.title} Management</h1>
+<div class="px-4 py-6">
 
-  <div class="mb-4 flex items-center">
+  <!-- Page header + create form -->
+  <div class="mb-6 flex items-center justify-between gap-4">
+    <h1 class="text-2xl font-bold text-neutral-800 dark:text-neutral-100 capitalize">{data.title} Management</h1>
+  </div>
+
+  <!-- Create new item card -->
+  <div class="mb-4 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3 flex items-center gap-3">
     <input
       type="text"
       bind:value={newItemName}
       onkeydown={(e) => { if (e.key === 'Enter') createItem() }}
-      placeholder="New Item..."
-      class="flex-1 bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 border border-neutral-300 dark:border-none focus:outline-none"
+      placeholder="New item name…"
+      class="flex-1 rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
     />
     <button
       onclick={createItem}
-      class="ml-4 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none hover:cursor-pointer"
+      class="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer"
     >
       Create
     </button>
   </div>
 
-  <div class="flex flex-col overflow-y-auto h-[calc(100dvh-15.3rem)]">
-    <div class="flex bg-gray-200 dark:bg-slate-600 rounded-t-lg sticky top-0 z-10">
-      <div class="flex-1 px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">ID</div>
-      <div class="flex-1 px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</div>
-      <div class="flex-1 px-6 py-3 text-right text-xs font-medium uppercase tracking-wider">Actions</div>
+  <!-- Items list -->
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center px-4 py-2 border-b border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-700/50 text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
+      <div class="w-16 flex-shrink-0">ID</div>
+      <div class="flex-1 min-w-0">Name</div>
+      <div class="w-32 flex-shrink-0 text-right">Actions</div>
     </div>
-    <div class="divide-y divide-gray-200 dark:divide-slate-600">
+
+    <!-- Rows -->
+    <div class="overflow-y-auto" style="max-height: calc(100dvh - 17rem)">
       {#each pageItems as item}
-        <div class="flex items-center h-16">
-          <div class="flex-1 px-6 whitespace-nowrap">{item.id}</div>
-          <div class="flex-1 px-6">
+        <div class="flex items-center px-4 py-3 border-b border-neutral-100 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700/30 transition-colors text-sm">
+          <div class="w-16 flex-shrink-0 text-neutral-500 dark:text-neutral-400 font-mono text-xs">{item.id}</div>
+          <div class="flex-1 min-w-0 text-neutral-700 dark:text-neutral-300">
             {#if editingId === item.id}
               <textarea
                 bind:this={textareaRef}
                 bind:value={editValue}
                 onkeydown={handleKeydown}
                 onblur={saveEdit}
-                class="w-full h-10 resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
+                class="w-full h-9 resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 border-2 border-blue-500 rounded-lg px-2 py-1 text-sm focus:outline-none"
               ></textarea>
             {:else}
-              <div class="truncate">{getDynamicName(item, pathname)}</div>
+              <span class="truncate block">{getDynamicName(item, pathname)}</span>
             {/if}
           </div>
-          <div class="flex-1 px-6 whitespace-nowrap text-right">
+          <div class="w-32 flex-shrink-0 text-right">
             {#if editingId === item.id}
-              <button onclick={saveEdit} class="text-green-600 dark:text-green-500 hover:text-green-800 dark:hover:text-green-600 mr-4 hover:cursor-pointer">Save</button>
-              <button onclick={cancelEdit} class="text-red-600 hover:text-red-900 hover:cursor-pointer">Cancel</button>
+              <button onclick={saveEdit} class="text-sm text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 font-medium cursor-pointer mr-3 transition-colors">Save</button>
+              <button onclick={cancelEdit} class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer transition-colors">Cancel</button>
             {:else}
-              <button onclick={() => startEdit(item)} class="text-blue-600 dark:text-blue-400 hover:text-indigo-900 hover:cursor-pointer mr-4">Edit</button>
-              <button onclick={() => deleteItem(item)} class="text-red-600 hover:text-red-900 hover:cursor-pointer">Delete</button>
+              <button onclick={() => startEdit(item)} class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium cursor-pointer mr-3 transition-colors">Edit</button>
+              <button onclick={() => deleteItem(item)} class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 cursor-pointer transition-colors">Delete</button>
             {/if}
           </div>
         </div>
       {/each}
+
+      {#if pageItems.length === 0}
+        <div class="px-4 py-10 text-center text-sm text-neutral-400 dark:text-neutral-500">
+          No items yet. Create one above.
+        </div>
+      {/if}
     </div>
   </div>
 </div>

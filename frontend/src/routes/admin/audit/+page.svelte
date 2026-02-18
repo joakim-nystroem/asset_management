@@ -228,11 +228,18 @@
   }
 </script>
 
-<svelte:window onpointerdown={(e) => {
-  if (openFilterCol && !(e.target as HTMLElement).closest('[data-filter]')) {
-    openFilterCol = null;
-  }
-}} />
+<svelte:window
+  onpointerdown={(e) => {
+    if (openFilterCol && !(e.target as HTMLElement).closest('[data-filter]')) {
+      openFilterCol = null;
+    }
+  }}
+  onkeydown={(e) => {
+    if (e.key === 'Escape' && reassignModal) {
+      closeReassign();
+    }
+  }}
+/>
 
 <div class="px-4 py-6">
 
@@ -387,7 +394,7 @@
         </div>
 
         <!-- Location: filter + sort -->
-        <div class="w-40 flex-shrink-0 flex items-center gap-1 relative" data-filter>
+        <div class="flex-1 min-w-0 flex items-center gap-1 relative" data-filter>
           <button
             onclick={() => toggleFilter('location')}
             class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
@@ -437,7 +444,7 @@
         </div>
 
         <!-- Node: sort only -->
-        <div class="w-28 flex-shrink-0 flex items-center gap-1">
+        <div class="flex-1 min-w-0 flex items-center gap-1">
           <button
             onclick={() => toggleSort('node')}
             class="flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
@@ -503,7 +510,7 @@
         </div>
 
         <!-- Auditor: sort only -->
-        <div class="w-36 flex-shrink-0 flex items-center gap-1">
+        <div class="flex-1 min-w-0 flex items-center gap-1">
           <button
             onclick={() => toggleSort('auditor')}
             class="flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
@@ -519,7 +526,7 @@
         </div>
 
         <!-- Status: filter only -->
-        <div class="w-24 flex-shrink-0 relative" data-filter>
+        <div class="flex-1 min-w-0 relative" data-filter>
           <button
             onclick={() => toggleFilter('status')}
             class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
@@ -555,7 +562,7 @@
           {/if}
         </div>
 
-        <div class="w-20 flex-shrink-0">Reassign</div>
+        <div class="flex-1 min-w-0">Reassign</div>
       </div>
 
       <!-- Data rows -->
@@ -569,11 +576,11 @@
               class="rounded cursor-pointer"
             />
           </div>
-          <div class="w-40 flex-shrink-0 truncate text-neutral-700 dark:text-neutral-300">{assignment.location || '\u2014'}</div>
-          <div class="w-28 flex-shrink-0 truncate text-neutral-600 dark:text-neutral-400">{assignment.node || '\u2014'}</div>
+          <div class="flex-1 min-w-0 truncate text-neutral-700 dark:text-neutral-300">{assignment.location || '\u2014'}</div>
+          <div class="flex-1 min-w-0 truncate text-neutral-600 dark:text-neutral-400">{assignment.node || '\u2014'}</div>
           <div class="flex-1 min-w-0 truncate text-neutral-700 dark:text-neutral-300">{assignment.asset_type || '\u2014'}</div>
-          <div class="w-36 flex-shrink-0 truncate text-neutral-600 dark:text-neutral-400">{assignment.auditor_name || '\u2014'}</div>
-          <div class="w-24 flex-shrink-0">
+          <div class="flex-1 min-w-0 truncate text-neutral-600 dark:text-neutral-400">{assignment.auditor_name || '\u2014'}</div>
+          <div class="flex-1 min-w-0">
             {#if assignment.completed_at}
               <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
                 <span class="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"></span>
@@ -586,7 +593,7 @@
               </span>
             {/if}
           </div>
-          <div class="w-20 flex-shrink-0">
+          <div class="flex-1 min-w-0">
             <button
               onclick={() => openReassign(assignment)}
               class="px-3 py-1.5 rounded-md text-xs font-medium border border-neutral-300 dark:border-slate-600 text-neutral-600 dark:text-neutral-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors cursor-pointer"
