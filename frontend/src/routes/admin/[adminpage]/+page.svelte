@@ -17,6 +17,7 @@
     return item[propName] || item.name || '';
   }
 
+  // svelte-ignore state_referenced_locally
   let pageItems = $state(data.items);
 
   let editingId = $state<number | null>(null);
@@ -131,21 +132,21 @@
   });
 </script>
 
-<div class="px-4 py-6">
+<div class="px-2 h-full flex flex-col gap-4">
 
   <!-- Page header + create form -->
-  <div class="mb-6 flex items-center justify-between gap-4">
+  <div class="flex items-center justify-between gap-4">
     <h1 class="text-2xl font-bold text-neutral-800 dark:text-neutral-100 capitalize">{data.title} Management</h1>
   </div>
 
   <!-- Create new item card -->
-  <div class="mb-4 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3 flex items-center gap-3">
+  <div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3 flex items-center gap-3">
     <input
       type="text"
       bind:value={newItemName}
       onkeydown={(e) => { if (e.key === 'Enter') createItem() }}
       placeholder="New item name…"
-      class="flex-1 rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 placeholder-neutral-400 dark:placeholder-neutral-500 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      class="flex-1 rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-400 placeholder-neutral-400! dark:placeholder-neutral-400! px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
     />
     <button
       onclick={createItem}
@@ -156,7 +157,7 @@
   </div>
 
   <!-- Items list -->
-  <div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm overflow-hidden">
+  <div class="h-full bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm overflow-hidden overflow-auto">
     <!-- Header -->
     <div class="flex items-center px-4 py-2 border-b border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-700/50 text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
       <div class="w-16 flex-shrink-0">ID</div>
@@ -182,13 +183,13 @@
               <span class="truncate block">{getDynamicName(item, pathname)}</span>
             {/if}
           </div>
-          <div class="w-32 flex-shrink-0 text-right">
+          <div class="w-32 flex-shrink-0 flex items-center justify-end gap-1.5">
             {#if editingId === item.id}
-              <button onclick={saveEdit} class="text-sm text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300 font-medium cursor-pointer mr-3 transition-colors">Save</button>
-              <button onclick={cancelEdit} class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 cursor-pointer transition-colors">Cancel</button>
+              <button onclick={saveEdit} class="px-2.5 py-1 rounded-md text-xs font-semibold bg-green-600 hover:bg-green-700 text-white cursor-pointer transition-colors">Save</button>
+              <button onclick={cancelEdit} class="px-2.5 py-1 rounded-md text-xs font-medium border border-neutral-300 dark:border-slate-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer transition-colors">Cancel</button>
             {:else}
-              <button onclick={() => startEdit(item)} class="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium cursor-pointer mr-3 transition-colors">Edit</button>
-              <button onclick={() => deleteItem(item)} class="text-sm text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 cursor-pointer transition-colors">Delete</button>
+              <button onclick={() => startEdit(item)} class="px-2.5 py-1 rounded-md text-xs font-medium border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer transition-colors">Edit</button>
+              <button onclick={() => deleteItem(item)} class="px-2.5 py-1 rounded-md text-xs font-medium border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer transition-colors">Delete</button>
             {/if}
           </div>
         </div>

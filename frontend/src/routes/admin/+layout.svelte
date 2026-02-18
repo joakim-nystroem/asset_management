@@ -5,8 +5,8 @@
   const menuItems = ["locations", "status", "conditions", "audit"]
 </script>
 
-<div class="flex h-full bg-neutral-50 dark:bg-slate-900 mt-2 text-neutral-900 dark:text-neutral-100 px-4 py-4">
-  <div class="w-56 flex-shrink-0 h-[calc(100dvh-5rem)] bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm p-4 mr-4">
+<div class="flex h-full bg-neutral-50 dark:bg-slate-600 mt-2 text-neutral-900 dark:text-neutral-100 px-4 py-4">
+  <div class="w-56 flex-shrink-0 h-[calc(100dvh-5.8rem)] bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm p-4 mr-4">
     <h2 class="text-sm font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wide px-2 mb-3">Admin</h2>
     <ul class="space-y-0.5">
       {#each menuItems as item}
@@ -30,7 +30,7 @@
     </ul>
   </div>
 
-  <div class="flex-1 min-w-0 overflow-auto">
+  <div class="flex-1 min-w-0">
     {@render children?.()}
   </div>
 </div>

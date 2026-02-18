@@ -22,8 +22,9 @@
   let filterLocation = $state('');
   let filterAssetType = $state('');
   let filterStatus = $state<'all' | 'pending' | 'completed'>('all');
-  let openFilterCol = $state<'location' | 'assetType' | 'status' | null>(null);
-  let activeSort = $state<{ col: 'location' | 'node' | 'assetType' | 'auditor'; dir: 'asc' | 'desc' } | null>(null);
+  let filterAuditor = $state<number | '' | null>('');
+  let filterNode = $state('');
+  let openFilterCol = $state<'location' | 'assetType' | 'status' | 'auditor' | 'node' | null>(null);
 
   let progressPct = $derived(
     summary.total > 0 ? Math.round((summary.completed / summary.total) * 100) : 0
@@ -37,27 +38,29 @@
     [...new Set(assignments.map(a => a.asset_type ?? '').filter(Boolean))].sort() as string[]
   );
 
+  let uniqueAuditors = $derived(
+    [...new Map(
+      assignments
+        .filter(a => a.assigned_to !== null && a.auditor_name)
+        .map(a => [a.assigned_to as number, a.auditor_name as string])
+    ).entries()]
+      .sort(([, a], [, b]) => a.localeCompare(b))
+  );
+
+  let uniqueNodes = $derived(
+    [...new Set(assignments.map(a => a.node ?? '').filter(Boolean))].sort() as string[]
+  );
+
   let filteredAndSorted = $derived.by(() => {
-    let result = assignments.filter(a => {
+    return assignments.filter(a => {
       if (filterLocation && a.location !== filterLocation) return false;
+      if (filterNode && a.node !== filterNode) return false;
       if (filterAssetType && a.asset_type !== filterAssetType) return false;
+      if (filterAuditor !== '' && a.assigned_to !== filterAuditor) return false;
       if (filterStatus === 'pending' && !!a.completed_at) return false;
       if (filterStatus === 'completed' && !a.completed_at) return false;
       return true;
     });
-    if (activeSort) {
-      const { col, dir } = activeSort;
-      result = [...result].sort((a, b) => {
-        let va = '';
-        let vb = '';
-        if (col === 'location') { va = a.location ?? ''; vb = b.location ?? ''; }
-        else if (col === 'node') { va = a.node ?? ''; vb = b.node ?? ''; }
-        else if (col === 'assetType') { va = a.asset_type ?? ''; vb = b.asset_type ?? ''; }
-        else if (col === 'auditor') { va = a.auditor_name ?? ''; vb = b.auditor_name ?? ''; }
-        return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-      });
-    }
-    return result;
   });
 
   let allFilteredSelected = $derived(
@@ -65,15 +68,7 @@
     filteredAndSorted.every(a => selectedAssetIds.has(a.asset_id))
   );
 
-  function toggleSort(col: 'location' | 'node' | 'assetType' | 'auditor') {
-    if (activeSort?.col === col) {
-      activeSort = { col, dir: activeSort.dir === 'asc' ? 'desc' : 'asc' };
-    } else {
-      activeSort = { col, dir: 'asc' };
-    }
-  }
-
-  function toggleFilter(col: 'location' | 'assetType' | 'status') {
+  function toggleFilter(col: 'location' | 'assetType' | 'status' | 'auditor' | 'node') {
     openFilterCol = openFilterCol === col ? null : col;
   }
 
@@ -93,7 +88,9 @@
 
   function clearFilters() {
     filterLocation = '';
+    filterNode = '';
     filterAssetType = '';
+    filterAuditor = '';
     filterStatus = 'all';
   }
 
@@ -241,7 +238,7 @@
   }}
 />
 
-<div class="px-4 py-6">
+<div class="px-2 h-full">
 
   <!-- Page header -->
   <div class="mb-4 flex justify-between items-start gap-4">
@@ -316,301 +313,328 @@
     </div>
   {:else}
 
-    <!-- Section 1: Summary + Close Cycle bar -->
-    <div class="mb-4 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-5 py-4">
-      <div class="flex flex-wrap items-center gap-5 mb-3 flex justify-between">
-        <div class="flex flex-row items-center gap-6">
-          <div class="flex items-baseline gap-1.5">
-            <span class="text-xl font-bold text-neutral-800 dark:text-neutral-100">{summary.total}</span>
-            <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Total</span>
+    <div class="flex flex-col gap-4">
+      <!-- Section 1: Summary + Close Cycle bar -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-5 py-4">
+        <div class="flex flex-wrap items-center gap-5 mb-3 flex justify-between">
+          <div class="flex flex-row items-center gap-6">
+            <div class="flex items-baseline gap-1.5">
+              <span class="text-xl font-bold text-neutral-800 dark:text-neutral-100">{summary.total}</span>
+              <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Total</span>
+            </div>
+            <div class="flex items-baseline gap-1.5">
+              <span class="text-xl font-bold text-amber-600 dark:text-amber-400">{summary.pending}</span>
+              <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Pending</span>
+            </div>
+            <div class="flex items-baseline gap-1.5">
+              <span class="text-xl font-bold text-green-600 dark:text-green-400">{summary.completed}</span>
+              <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Completed</span>
+            </div>
           </div>
           <div class="flex items-baseline gap-1.5">
-            <span class="text-xl font-bold text-amber-600 dark:text-amber-400">{summary.pending}</span>
-            <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Pending</span>
-          </div>
-          <div class="flex items-baseline gap-1.5">
-            <span class="text-xl font-bold text-green-600 dark:text-green-400">{summary.completed}</span>
-            <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Completed</span>
+            <span class="text-xl font-bold text-blue-600 dark:text-blue-400">{progressPct}%</span>
+            <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Progress</span>
           </div>
         </div>
-        <div class="flex items-baseline gap-1.5">
-          <span class="text-xl font-bold text-blue-600 dark:text-blue-400">{progressPct}%</span>
-          <span class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">Progress</span>
+        <!-- Progress bar -->
+        <div class="w-full h-2 bg-neutral-200 dark:bg-slate-700 rounded-full overflow-hidden">
+          <div
+            class="h-full rounded-full transition-all duration-500
+              {progressPct === 100 ? 'bg-green-500' : 'bg-blue-500'}"
+            style="width: {progressPct}%"
+          ></div>
         </div>
       </div>
-      <!-- Progress bar -->
-      <div class="w-full h-2 bg-neutral-200 dark:bg-slate-700 rounded-full overflow-hidden">
-        <div
-          class="h-full rounded-full transition-all duration-500
-            {progressPct === 100 ? 'bg-green-500' : 'bg-blue-500'}"
-          style="width: {progressPct}%"
-        ></div>
-      </div>
-    </div>
 
-    <!-- Section 2: Bulk assign toolbar -->
-    <div class="mb-4 flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3">
-      <span class="text-sm text-neutral-600 dark:text-neutral-400 font-medium">
-        Assign selected to
-      </span>
-      <select
-        bind:value={bulkUserId}
-        class="rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value={null} disabled selected>Select auditor...</option>
-        {#each data.users as user (user.id)}
-          <option value={user.id}>{user.lastname}, {user.firstname}</option>
+      <!-- Section 2: Bulk assign toolbar -->
+      <div class="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3">
+        <span class="text-sm text-neutral-600 dark:text-neutral-400 font-medium">
+          Assign selected to
+        </span>
+        <select
+          bind:value={bulkUserId}
+          class="rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value={null} disabled selected>Select auditor...</option>
+          {#each data.users as user (user.id)}
+            <option value={user.id}>{user.lastname}, {user.firstname}</option>
+          {/each}
+        </select>
+        <button
+          onclick={bulkAssign}
+          disabled={bulkAssigning || selectedAssetIds.size === 0 || !bulkUserId}
+          class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
+        >
+          {bulkAssigning ? 'Assigning...' : `Assign${selectedAssetIds.size > 0 ? ` (${selectedAssetIds.size})` : ''}`}
+        </button>
+        <div class="ml-auto flex items-center gap-3">
+          {#if selectedAssetIds.size > 0}
+            <span class="text-sm text-neutral-500 dark:text-neutral-400">
+              {selectedAssetIds.size} selected
+            </span>
+            <button
+              onclick={() => selectedAssetIds = new Set()}
+              class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
+            >
+              Clear selection
+            </button>
+          {/if}
+        </div>
+      </div>
+
+      <!-- Section 3: Assignment list -->
+      <div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm overflow-hidden min-h-full">
+
+        <!-- Header row -->
+        <div class="flex items-center px-4 py-2 border-b bg-neutral-50 dark:bg-slate-700/50 text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
+          <div class="w-8 flex-shrink-0">
+            <input type="checkbox" checked={allFilteredSelected} onchange={toggleAllFiltered} class="rounded cursor-pointer" />
+          </div>
+
+          <!-- Location: filter only -->
+          <div class="flex-1 min-w-0 flex items-center gap-1 relative" data-filter>
+            <button
+              onclick={() => toggleFilter('location')}
+              class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
+                {filterLocation ? 'text-blue-600 dark:text-blue-400' : ''}"
+            >
+              Location
+              {#if filterLocation}
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+              {:else}
+                <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              {/if}
+            </button>
+            {#if openFilterCol === 'location'}
+              <div class="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
+                <button
+                  onclick={() => { filterLocation = ''; closeFilters(); }}
+                  class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                    {!filterLocation ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                >
+                  All Locations
+                </button>
+                {#each uniqueLocations as loc}
+                  <button
+                    onclick={() => { filterLocation = loc; closeFilters(); }}
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer truncate normal-case tracking-normal
+                      {filterLocation === loc ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                  >
+                    {loc}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+
+          <!-- Node: filter only -->
+          <div class="flex-1 min-w-0 flex items-center gap-1 relative" data-filter>
+            <button
+              onclick={() => toggleFilter('node')}
+              class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
+                {filterNode ? 'text-blue-600 dark:text-blue-400' : ''}"
+            >
+              Node
+              {#if filterNode}
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+              {:else}
+                <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              {/if}
+            </button>
+            {#if openFilterCol === 'node'}
+              <div class="absolute left-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
+                <button
+                  onclick={() => { filterNode = ''; closeFilters(); }}
+                  class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                    {!filterNode ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                >
+                  All Nodes
+                </button>
+                {#each uniqueNodes as node}
+                  <button
+                    onclick={() => { filterNode = node; closeFilters(); }}
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer truncate normal-case tracking-normal
+                      {filterNode === node ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                  >
+                    {node}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+
+          <!-- Asset Type: filter only -->
+          <div class="flex-1 min-w-0 flex items-center gap-1 relative" data-filter>
+            <button
+              onclick={() => toggleFilter('assetType')}
+              class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
+                {filterAssetType ? 'text-blue-600 dark:text-blue-400' : ''}"
+            >
+              Asset Type
+              {#if filterAssetType}
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+              {:else}
+                <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              {/if}
+            </button>
+            {#if openFilterCol === 'assetType'}
+              <div class="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
+                <button
+                  onclick={() => { filterAssetType = ''; closeFilters(); }}
+                  class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                    {!filterAssetType ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                >
+                  All Asset Types
+                </button>
+                {#each uniqueAssetTypes as atype}
+                  <button
+                    onclick={() => { filterAssetType = atype; closeFilters(); }}
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer truncate normal-case tracking-normal
+                      {filterAssetType === atype ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                  >
+                    {atype}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+
+          <div class="flex-1 min-w-0 flex items-center gap-1 relative" data-filter>
+            <button
+              onclick={() => toggleFilter('auditor')}
+              class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
+                {filterAuditor !== '' ? 'text-blue-600 dark:text-blue-400' : ''}"
+            >
+              Auditor
+              {#if filterAuditor !== ''}
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+              {:else}
+                <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              {/if}
+            </button>
+            {#if openFilterCol === 'auditor'}
+              <div class="absolute left-0 top-full mt-1 w-48 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
+                <button
+                  onclick={() => { filterAuditor = ''; closeFilters(); }}
+                  class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                    {filterAuditor === '' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                >
+                  All Auditors
+                </button>
+                <button
+                  onclick={() => { filterAuditor = null; closeFilters(); }}
+                  class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                    {filterAuditor === null ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                >
+                  Unassigned
+                </button>
+                {#each uniqueAuditors as [auditorId, auditorName]}
+                  <button
+                    onclick={() => { filterAuditor = auditorId; closeFilters(); }}
+                    class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer truncate normal-case tracking-normal
+                      {filterAuditor === auditorId ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                  >
+                    {auditorName}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+
+          <!-- Status: filter only -->
+          <div class="flex-1 min-w-0 relative" data-filter>
+            <button
+              onclick={() => toggleFilter('status')}
+              class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
+                {filterStatus !== 'all' ? 'text-blue-600 dark:text-blue-400' : ''}"
+            >
+              Status
+              {#if filterStatus !== 'all'}
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+              {:else}
+                <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              {/if}
+            </button>
+            {#if openFilterCol === 'status'}
+              <div class="absolute left-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1">
+                <button
+                  onclick={() => { filterStatus = 'all'; closeFilters(); }}
+                  class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                    {filterStatus === 'all' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                >All</button>
+                <button
+                  onclick={() => { filterStatus = 'pending'; closeFilters(); }}
+                  class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                    {filterStatus === 'pending' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                >Pending</button>
+                <button
+                  onclick={() => { filterStatus = 'completed'; closeFilters(); }}
+                  class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
+                    {filterStatus === 'completed' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
+                >Done</button>
+              </div>
+            {/if}
+          </div>
+
+          <div class="flex-1 min-w-0">Reassign</div>
+        </div>
+
+        <!-- Data rows -->
+        {#each filteredAndSorted as assignment (assignment.asset_id)}
+          <div class="flex items-center px-4 py-2.5 border-b border-neutral-100 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700/30 transition-colors text-sm">
+            <div class="w-8 flex-shrink-0">
+              <input
+                type="checkbox"
+                checked={selectedAssetIds.has(assignment.asset_id)}
+                onchange={() => toggleOne(assignment.asset_id)}
+                class="rounded cursor-pointer"
+              />
+            </div>
+            <div class="flex-1 min-w-0 truncate text-neutral-700 dark:text-neutral-300">{assignment.location || '\u2014'}</div>
+            <div class="flex-1 min-w-0 truncate text-neutral-600 dark:text-neutral-400">{assignment.node || '\u2014'}</div>
+            <div class="flex-1 min-w-0 truncate text-neutral-700 dark:text-neutral-300">{assignment.asset_type || '\u2014'}</div>
+            <div class="flex-1 min-w-0 truncate text-neutral-600 dark:text-neutral-400">{assignment.auditor_name || '\u2014'}</div>
+            <div class="flex-1 min-w-0">
+              {#if assignment.completed_at}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+                  <span class="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"></span>
+                  Done
+                </span>
+              {:else}
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                  <span class="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
+                  Pending
+                </span>
+              {/if}
+            </div>
+            <div class="flex-1 min-w-0">
+              <button
+                onclick={() => openReassign(assignment)}
+                class="px-3 py-1.5 rounded-md text-xs font-medium border border-neutral-300 dark:border-slate-600 text-neutral-600 dark:text-neutral-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors cursor-pointer"
+              >
+                Reassign
+              </button>
+            </div>
+          </div>
         {/each}
-      </select>
-      <button
-        onclick={bulkAssign}
-        disabled={bulkAssigning || selectedAssetIds.size === 0 || !bulkUserId}
-        class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
-      >
-        {bulkAssigning ? 'Assigning...' : `Assign${selectedAssetIds.size > 0 ? ` (${selectedAssetIds.size})` : ''}`}
-      </button>
-      <div class="ml-auto flex items-center gap-3">
-        {#if selectedAssetIds.size > 0}
-          <span class="text-sm text-neutral-500 dark:text-neutral-400">
-            {selectedAssetIds.size} selected
-          </span>
-          <button
-            onclick={() => selectedAssetIds = new Set()}
-            class="text-sm text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors cursor-pointer"
-          >
-            Clear selection
-          </button>
+
+        {#if filteredAndSorted.length === 0}
+          <div class="px-4 py-10 text-center text-sm text-neutral-400 dark:text-neutral-500">
+            No assignments match the current filters.
+          </div>
         {/if}
       </div>
     </div>
-
-    <!-- Section 3: Assignment list -->
-    <div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm overflow-hidden">
-
-      <!-- Header row -->
-      <div class="flex items-center px-4 py-2 border-b bg-neutral-50 dark:bg-slate-700/50 text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
-        <div class="w-8 flex-shrink-0">
-          <input type="checkbox" checked={allFilteredSelected} onchange={toggleAllFiltered} class="rounded cursor-pointer" />
-        </div>
-
-        <!-- Location: filter + sort -->
-        <div class="flex-1 min-w-0 flex items-center gap-1 relative" data-filter>
-          <button
-            onclick={() => toggleFilter('location')}
-            class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
-              {filterLocation ? 'text-blue-600 dark:text-blue-400' : ''}"
-          >
-            Location
-            {#if filterLocation}
-              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-            {:else}
-              <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            {/if}
-          </button>
-          <button
-            onclick={() => toggleSort('location')}
-            class="p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-slate-600 cursor-pointer transition-colors
-              {activeSort?.col === 'location' ? 'text-blue-600 dark:text-blue-400' : 'text-neutral-400 dark:text-neutral-500'}"
-            title="Sort by location"
-          >
-            {#if activeSort?.col === 'location'}
-              <span class="text-xs font-bold">{activeSort.dir === 'asc' ? '\u2191' : '\u2193'}</span>
-            {:else}
-              <span class="text-xs">{'\u21C5'}</span>
-            {/if}
-          </button>
-          {#if openFilterCol === 'location'}
-            <div class="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
-              <button
-                onclick={() => { filterLocation = ''; closeFilters(); }}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
-                  {!filterLocation ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
-              >
-                All Locations
-              </button>
-              {#each uniqueLocations as loc}
-                <button
-                  onclick={() => { filterLocation = loc; closeFilters(); }}
-                  class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer truncate normal-case tracking-normal
-                    {filterLocation === loc ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
-                >
-                  {loc}
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-
-        <!-- Node: sort only -->
-        <div class="flex-1 min-w-0 flex items-center gap-1">
-          <button
-            onclick={() => toggleSort('node')}
-            class="flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
-              {activeSort?.col === 'node' ? 'text-blue-600 dark:text-blue-400' : ''}"
-          >
-            Node
-            {#if activeSort?.col === 'node'}
-              <span class="text-xs font-bold">{activeSort.dir === 'asc' ? '\u2191' : '\u2193'}</span>
-            {:else}
-              <span class="text-xs text-neutral-400 dark:text-neutral-500">{'\u21C5'}</span>
-            {/if}
-          </button>
-        </div>
-
-        <!-- Asset Type: filter + sort -->
-        <div class="flex-1 min-w-0 flex items-center gap-1 relative" data-filter>
-          <button
-            onclick={() => toggleFilter('assetType')}
-            class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
-              {filterAssetType ? 'text-blue-600 dark:text-blue-400' : ''}"
-          >
-            Asset Type
-            {#if filterAssetType}
-              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-            {:else}
-              <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            {/if}
-          </button>
-          <button
-            onclick={() => toggleSort('assetType')}
-            class="p-0.5 rounded hover:bg-neutral-200 dark:hover:bg-slate-600 cursor-pointer transition-colors
-              {activeSort?.col === 'assetType' ? 'text-blue-600 dark:text-blue-400' : 'text-neutral-400 dark:text-neutral-500'}"
-            title="Sort by asset type"
-          >
-            {#if activeSort?.col === 'assetType'}
-              <span class="text-xs font-bold">{activeSort.dir === 'asc' ? '\u2191' : '\u2193'}</span>
-            {:else}
-              <span class="text-xs">{'\u21C5'}</span>
-            {/if}
-          </button>
-          {#if openFilterCol === 'assetType'}
-            <div class="absolute left-0 top-full mt-1 w-52 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1 max-h-64 overflow-y-auto">
-              <button
-                onclick={() => { filterAssetType = ''; closeFilters(); }}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
-                  {!filterAssetType ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
-              >
-                All Asset Types
-              </button>
-              {#each uniqueAssetTypes as atype}
-                <button
-                  onclick={() => { filterAssetType = atype; closeFilters(); }}
-                  class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer truncate normal-case tracking-normal
-                    {filterAssetType === atype ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
-                >
-                  {atype}
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-
-        <!-- Auditor: sort only -->
-        <div class="flex-1 min-w-0 flex items-center gap-1">
-          <button
-            onclick={() => toggleSort('auditor')}
-            class="flex items-center gap-1 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
-              {activeSort?.col === 'auditor' ? 'text-blue-600 dark:text-blue-400' : ''}"
-          >
-            Auditor
-            {#if activeSort?.col === 'auditor'}
-              <span class="text-xs font-bold">{activeSort.dir === 'asc' ? '\u2191' : '\u2193'}</span>
-            {:else}
-              <span class="text-xs text-neutral-400 dark:text-neutral-500">{'\u21C5'}</span>
-            {/if}
-          </button>
-        </div>
-
-        <!-- Status: filter only -->
-        <div class="flex-1 min-w-0 relative" data-filter>
-          <button
-            onclick={() => toggleFilter('status')}
-            class="flex items-center gap-1 group cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors
-              {filterStatus !== 'all' ? 'text-blue-600 dark:text-blue-400' : ''}"
-          >
-            Status
-            {#if filterStatus !== 'all'}
-              <span class="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
-            {:else}
-              <svg class="w-3 h-3 opacity-40 group-hover:opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            {/if}
-          </button>
-          {#if openFilterCol === 'status'}
-            <div class="absolute left-0 top-full mt-1 w-36 bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-600 rounded-lg shadow-lg z-20 py-1">
-              <button
-                onclick={() => { filterStatus = 'all'; closeFilters(); }}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
-                  {filterStatus === 'all' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
-              >All</button>
-              <button
-                onclick={() => { filterStatus = 'pending'; closeFilters(); }}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
-                  {filterStatus === 'pending' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
-              >Pending</button>
-              <button
-                onclick={() => { filterStatus = 'completed'; closeFilters(); }}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-slate-700 transition-colors cursor-pointer normal-case tracking-normal
-                  {filterStatus === 'completed' ? 'font-semibold text-blue-600 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300'}"
-              >Done</button>
-            </div>
-          {/if}
-        </div>
-
-        <div class="flex-1 min-w-0">Reassign</div>
-      </div>
-
-      <!-- Data rows -->
-      {#each filteredAndSorted as assignment (assignment.asset_id)}
-        <div class="flex items-center px-4 py-2.5 border-b border-neutral-100 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700/30 transition-colors text-sm">
-          <div class="w-8 flex-shrink-0">
-            <input
-              type="checkbox"
-              checked={selectedAssetIds.has(assignment.asset_id)}
-              onchange={() => toggleOne(assignment.asset_id)}
-              class="rounded cursor-pointer"
-            />
-          </div>
-          <div class="flex-1 min-w-0 truncate text-neutral-700 dark:text-neutral-300">{assignment.location || '\u2014'}</div>
-          <div class="flex-1 min-w-0 truncate text-neutral-600 dark:text-neutral-400">{assignment.node || '\u2014'}</div>
-          <div class="flex-1 min-w-0 truncate text-neutral-700 dark:text-neutral-300">{assignment.asset_type || '\u2014'}</div>
-          <div class="flex-1 min-w-0 truncate text-neutral-600 dark:text-neutral-400">{assignment.auditor_name || '\u2014'}</div>
-          <div class="flex-1 min-w-0">
-            {#if assignment.completed_at}
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
-                <span class="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"></span>
-                Done
-              </span>
-            {:else}
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0"></span>
-                Pending
-              </span>
-            {/if}
-          </div>
-          <div class="flex-1 min-w-0">
-            <button
-              onclick={() => openReassign(assignment)}
-              class="px-3 py-1.5 rounded-md text-xs font-medium border border-neutral-300 dark:border-slate-600 text-neutral-600 dark:text-neutral-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors cursor-pointer"
-            >
-              Reassign
-            </button>
-          </div>
-        </div>
-      {/each}
-
-      {#if filteredAndSorted.length === 0}
-        <div class="px-4 py-10 text-center text-sm text-neutral-400 dark:text-neutral-500">
-          No assignments match the current filters.
-        </div>
-      {/if}
-    </div>
-
     <!-- Section 4: Footer -->
     <p class="mt-2 ml-1 text-xs text-neutral-500 dark:text-neutral-400">
       Showing {filteredAndSorted.length} of {assignments.length} assignment{assignments.length === 1 ? '' : 's'}
