@@ -39,3 +39,4 @@ package.json
 .omc
 .claude
 deploy.sh
+.planning
