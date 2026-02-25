@@ -25,9 +25,9 @@
     VIEW_CONFIGS.find(v => v.name === ctx.activeView)?.label ?? 'Default'
   );
 
+  // F2.5: 1 data prop (user); all callbacks are exempt from the 3-prop rule
   type Props = {
     user: SafeUser | null;
-    filterPanel: FilterPanelState;
     getCurrentUrlState: () => { q: string; filters: Filter[]; view: string };
     updateSearchUrl: (params: { q?: string; filters?: Filter[]; view?: string }) => void;
     onAddNewRow: () => void;
@@ -36,12 +36,10 @@
     onDiscard: () => void;
     onViewChange: (view: string) => void;
     onNavigateError: (direction: 'prev' | 'next') => void;
-    invalidCount: number;
   };
 
   let {
     user,
-    filterPanel,
     getCurrentUrlState,
     updateSearchUrl,
     onAddNewRow,
@@ -50,8 +48,12 @@
     onDiscard,
     onViewChange,
     onNavigateError,
-    invalidCount,
   }: Props = $props();
+
+  // Read filterPanel from context (removed from Props per F2.5)
+  const invalidCount = $derived(
+    changes.getInvalidCellKeys().length + (rowGen.hasNewRows ? rowGen.invalidNewRowCount : 0)
+  );
 
   let viewDropdownOpen = $state(false);
 
@@ -104,7 +106,7 @@
     <div class="flex flex-row w-full justify-between items-center">
       <div class="flex flex-row gap-2">
         <FilterPanel
-          state={filterPanel}
+          state={ctx.filterPanel!}
           {searchManager}
           onRemoveFilter={(filter) => {
             const { q, filters, view } = getCurrentUrlState();
