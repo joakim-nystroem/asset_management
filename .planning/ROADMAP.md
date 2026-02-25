@@ -17,14 +17,14 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 **Success:** No direct singleton imports in grid components; all state accessed via context getters.
 
-**Plans:** 4/7 plans executed
+**Plans:** 5/7 plans executed
 
 Plans:
 - [x] 01-01-PLAN.md — Create gridContext.svelte.ts + InventoryGrid.svelte context provider + slim +page.svelte
-- [ ] 01-02-PLAN.md — Migrate validationManager, columnManager, rowManager (leaf managers, no deps)
-- [ ] 01-03-PLAN.md — Migrate selectionManager, historyManager (leaf managers, no deps)
-- [ ] 01-04-PLAN.md — Migrate editManager, changeManager, rowGenerationManager (depend on Plans 02-03)
-- [ ] 01-05-PLAN.md — Migrate clipboardManager, sortManager, viewManager (depend on Plans 02-03)
+- [x] 01-02-PLAN.md — Migrate validationManager, columnManager, rowManager (leaf managers, no deps)
+- [x] 01-03-PLAN.md — Migrate selectionManager, historyManager (leaf managers, no deps)
+- [x] 01-04-PLAN.md — Migrate editManager, changeManager, rowGenerationManager (depend on Plans 02-03)
+- [x] 01-05-PLAN.md — Migrate clipboardManager, sortManager, viewManager (depend on Plans 02-03)
 - [ ] 01-06-PLAN.md — Audit + fix all grid component consumers; verify edit/selection/overlay chain
 - [ ] 01-07-PLAN.md — Move toastState, keep realtimeManager as singleton, delete utils/ tree, svelte-check gate
 
@@ -122,7 +122,7 @@ Plans:
 
 | Phase | Name | Key Output | Complexity |
 |-------|------|-----------|------------|
-| 1 | 4/7 | In Progress|  |
+| 1 | 5/7 | In Progress | Context Foundation |
 | 2 | Component Decomposition | `InventoryGrid`, `GridContainer`, thin page | High |
 | 3 | FloatingEditor & ContextMenu | `FloatingEditor.svelte`, clean GridRow | Medium |
 | 4 | DB-Side Filtering | API filter endpoint, no client-side filtering | Medium |
