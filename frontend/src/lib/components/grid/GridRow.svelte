@@ -22,7 +22,6 @@
     keys: string[];
     actualIndex: number;
     user: SafeUser | null;
-    textareaRef: HTMLTextAreaElement | null;
     editDropdown: EditDropdown;
     autocomplete: Autocomplete;
     assets: Record<string, any>[];
@@ -34,9 +33,21 @@
   };
 
   let {
-    asset, keys, actualIndex, user, textareaRef = $bindable(),
+    asset, keys, actualIndex, user,
     editDropdown, autocomplete, assets, onSaveEdit, onCancelEdit, onEditAction, onContextMenu, visibleIndex,
   }: Props = $props();
+
+  // GridRow owns its own textareaRef — no bind propagation needed
+  let textareaRef: HTMLTextAreaElement | null = $state(null);
+
+  // When this row becomes the active edit row, focus and select the textarea
+  $effect(() => {
+    if (textareaRef && ctx.isEditing && ctx.editRow === actualIndex) {
+      edit.updateRowHeight(textareaRef);
+      textareaRef.focus();
+      textareaRef.select();
+    }
+  });
 </script>
 
 {#each keys as key, j}

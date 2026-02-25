@@ -16,14 +16,10 @@
 
   // --- COMPONENTS ---
   import ContextMenu from "$lib/components/grid/context-menu/contextMenu.svelte";
-  import HeaderMenu from "$lib/components/grid/header-menu/headerMenu.svelte";
   import Toolbar from "$lib/components/grid/Toolbar.svelte";
-  import GridHeader from "$lib/components/grid/GridHeader.svelte";
-  import GridOverlays from "$lib/components/grid/GridOverlays.svelte";
-  import GridRow from "$lib/components/grid/GridRow.svelte";
+  import GridContainer from "$lib/components/grid/GridContainer.svelte";
 
-  // --- UTILS IMPORTS ---
-  import { createInteractionHandler } from "$lib/utils/interaction/interactionHandler";
+  // createInteractionHandler removed — interaction handling delegated to GridOverlays via {@attach gridShortcuts(...)}
 
   // --- STATE CLASSES ---
   import { ContextMenuState } from "$lib/components/grid/context-menu/contextMenu.svelte.ts";
@@ -91,6 +87,17 @@
     filteredAssetsCount: (searchResults ?? initialAssets).length,
     virtualScroll: createVirtualScroll(),
     scrollToRow: null,
+    // Context-channel fields (02-02) — assigned after controllers init below
+    assets: [],
+    filterPanel: null,
+    pageActions: null,
+    editDropdown: null,
+    autocomplete: null,
+    headerMenu: null,
+    baseAssets: [],
+    applySort: null,
+    handleFilterSelect: null,
+    contextMenu: null,
   });
 
   setGridContext(ctx);
@@ -115,6 +122,65 @@
   const filterPanel = new FilterPanelState();
   const editDropdown = createEditDropdown();
   const autocomplete = createAutocomplete();
+
+  // --- Context-channel assignments (02-02) ---
+  // Set after controllers are created so GridContainer/GridOverlays can read them from context
+  ctx.filterPanel = filterPanel;
+  ctx.editDropdown = editDropdown;
+  ctx.autocomplete = autocomplete;
+  ctx.headerMenu = headerMenu;
+  ctx.contextMenu = contextMenu;
+  ctx.pageActions = {
+    onSaveEdit: (_value: string) => { saveEdit(); },
+    onCancelEdit: cancelEdit,
+    onEditAction: (_action: string, _row: number, _col: number) => { handleEditAction(); },
+    onCopy: handleCopy,
+    onPaste: handlePaste,
+    onUndo: () => {
+      const undoneBatch = history.undo(assets);
+      if (undoneBatch) {
+        for (const action of undoneBatch) {
+          changes.update({
+            id: action.id,
+            key: action.key,
+            newValue: action.oldValue,
+            oldValue: action.newValue,
+          });
+        }
+      }
+    },
+    onRedo: () => {
+      const redoneBatch = history.redo(assets);
+      if (redoneBatch) {
+        for (const action of redoneBatch) {
+          changes.update(action);
+        }
+      }
+    },
+    onEscape: () => {
+      if (ctx.isEditing) {
+        releaseEditLock();
+        edit.cancel();
+        return;
+      }
+      if (selection.hasSelection) {
+        selection.resetAll();
+      }
+      clipboard.clear();
+      if (contextMenu.visible) contextMenu.close();
+      headerMenu.close();
+    },
+    user: user,
+  };
+  ctx.applySort = applySort;
+  ctx.handleFilterSelect = (item: string, key: string) => {
+    const { q, filters, view } = getCurrentUrlState();
+    const exists = filters.some(f => f.key === key && f.value === item);
+    const newFilters = exists
+      ? filters.filter(f => !(f.key === key && f.value === item))
+      : [...filters, { key, value: item }];
+    updateSearchUrl({ q, filters: newFilters, view });
+  };
 
   // Clear stale controller state on page load/refresh
   rowGen.clearNewRows();
@@ -143,6 +209,16 @@
     ctx.filteredAssetsCount = filteredAssets.length;
   });
 
+  // Sync combined assets array to context (for GridOverlays + GridContainer children)
+  $effect(() => {
+    ctx.assets = assets;
+  });
+
+  // Sync baseAssets to context (for HeaderMenu filter items)
+  $effect(() => {
+    ctx.baseAssets = baseAssets;
+  });
+
   // Check logged in status
   let isLoggedIn = $derived(!!user);
   // svelte-ignore state_referenced_locally
@@ -168,47 +244,7 @@
 
   // Realtime State (Derived from Singleton)
   // Map other users' positions based on asset IDs to current filtered view
-  let otherUserSelections = $derived(
-    Object.entries(realtime.connectedUsers).reduce(
-      (acc, [clientId, position]) => {
-        // If the user has an assetId, find it in our current filtered view
-        if (position.assetId !== undefined) {
-          const rowIndex = assets.findIndex(a => a.id === position.assetId);
-          // Only include if asset exists in current filtered view
-          if (rowIndex !== -1) {
-            acc[clientId] = {
-              ...position,
-              row: rowIndex, // Use the mapped row index
-              initials: (
-                (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
-              ).toUpperCase(),
-              fullName:
-                `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim(),
-              editing: Object.entries(realtime.lockedCells).some(
-                ([, lock]) => lock.userId === clientId
-              ),
-            };
-          }
-        } else {
-          // Fallback for old clients that don't send assetId
-          acc[clientId] = {
-            ...position,
-            initials: (
-              (position.firstname?.[0] || "") + (position.lastname?.[0] || "")
-            ).toUpperCase(),
-            fullName:
-              `${position.firstname?.[0]?.toUpperCase() || ""}${position.firstname?.slice(1) || ""} ${position.lastname?.[0]?.toUpperCase() || ""}${position.lastname?.slice(1) || ""}`.trim(),
-            editing: Object.entries(realtime.lockedCells).some(
-              ([, lock]) => lock.userId === clientId
-            ),
-          };
-        }
-        return acc;
-      },
-      {} as Record<string, any>,
-    ),
-  );
-  let hoveredUser: string | null = $state(null);
+  // otherUserSelections and hoveredUser moved to GridOverlays (self-computes from context + realtime)
 
   let keys = $derived(assets.length > 0 ? Object.keys(assets[0]) : []);
 
@@ -279,37 +315,8 @@
     });
   });
 
-  const dirtyCellOverlays = $derived(
-    selection.computeDirtyCellOverlays(
-      virtualScroll.visibleRange,
-      keys,
-      (key) => columns.getWidth(key),
-      virtualScroll.rowHeight,
-      (row, col) => {
-        const asset = assets[row];
-        if (!asset) return false;
-        const key = keys[col];
-
-        // Check if it's a new row (row index >= filtered assets length)
-        const isNewRow = row >= filteredAssets.length;
-        if (isNewRow) {
-          const newRowIndex = row - filteredAssets.length;
-          return rowGen.isNewRowFieldInvalid(newRowIndex, key);
-        }
-
-        // Use changes controller for existing rows
-        return changes.isInvalid(asset.id, key);
-      },
-    ),
-  );
-
-  const totalInvalidCount = $derived.by(() => {
-    let count = changes.getInvalidCellKeys().length;
-    if (rowGen.hasInvalidNewRows) {
-      count += rowGen.invalidNewRowCount;
-    }
-    return count;
-  });
+  // dirtyCellOverlays moved to GridOverlays (self-computes from context)
+  // totalInvalidCount moved to Toolbar (self-computes via $derived)
 
   const updateAssetInList = (
     list: Record<string, any>[],
@@ -366,111 +373,17 @@
     // Add a new row with empty values for all columns
     const newRows = rowGen.addNewRows(1, template);
 
-    // Scroll to the bottom of the grid
+    // Scroll to the bottom of the grid — GridContainer observes ctx.scrollToRow
     await tick();
-    if (scrollContainer) {
-      const totalRows = assets.length;
-      const lastRowIndex = totalRows - 1;
-
-      // Ensure the last row is visible
-      virtualScroll.ensureVisible(
-        lastRowIndex,
-        1,
-        scrollContainer,
-        keys,
-        columns,
-        rows
-      );
-
-      // Select the first cell of the new row
-      selection.selectCell(lastRowIndex, 1);
-    }
+    const totalRows = assets.length;
+    const lastRowIndex = totalRows - 1;
+    ctx.scrollToRow = lastRowIndex;
+    // Select the first cell of the new row
+    selection.selectCell(lastRowIndex, 1);
   }
 
-  let scrollContainer: HTMLDivElement | null = $state(null);
-  let textareaRef: HTMLTextAreaElement | null = $state(null);
+  // scrollContainer, visibleData, selectionOverlay, copyOverlay moved to GridContainer/GridOverlays
   let errorNavigationIndex = $state(-1);
-  const visibleData = $derived(virtualScroll.getVisibleItems(assets));
-
-  const selectionOverlay = $derived(
-    selection.computeVisualOverlay(
-      selection.start,
-      selection.end,
-      virtualScroll.visibleRange,
-      keys,
-      (key) => columns.getWidth(key),
-      virtualScroll.rowHeight,
-    ),
-  );
-  const copyOverlay = $derived(
-    selection.isCopyVisible
-      ? selection.computeVisualOverlay(
-          selection.copyStart,
-          selection.copyEnd,
-          virtualScroll.visibleRange,
-          keys,
-          (key) => columns.getWidth(key),
-          virtualScroll.rowHeight,
-        )
-      : null,
-  );
-  const mountInteraction = createInteractionHandler(
-    { selection, columns, contextMenu, headerMenu },
-    {
-      onCopy: async () => {
-        await handleCopy();
-      },
-      onPaste: handlePaste,
-      onUndo: () => {
-        const undoneBatch = history.undo(assets);
-        if (undoneBatch) {
-          for (const action of undoneBatch) {
-            changes.update({
-              id: action.id,
-              key: action.key,
-              newValue: action.oldValue,
-              oldValue: action.newValue,
-            });
-          }
-        }
-      },
-      onRedo: () => {
-        const redoneBatch = history.redo(assets);
-        if (redoneBatch) {
-          for (const action of redoneBatch) {
-            changes.update(action);
-          }
-        }
-      },
-      onEscape: () => {
-        if (ctx.isEditing) {
-          releaseEditLock();
-          edit.cancel();
-          return;
-        }
-
-        if (selection.hasSelection) {
-          selection.resetAll();
-        }
-
-        clipboard.clear();
-        if (contextMenu.visible) contextMenu.close();
-        headerMenu.close();
-      },
-      onEdit: handleEditAction,
-      onScrollIntoView: (row, col) => {
-        virtualScroll.ensureVisible(
-          row,
-          col,
-          scrollContainer,
-          keys,
-          columns,
-          rows,
-        );
-      },
-      getGridSize: () => ({ rows: assets.length, cols: keys.length }),
-    },
-  );
   // Reactive URL — SvelteURL makes searchParams deeply reactive
   // (page.url uses $state.raw which is shallow — doesn't react to replaceState changes)
   const reactiveUrl = new SvelteURL(page.url);
@@ -663,7 +576,7 @@
 
     const target = invalidCells[errorNavigationIndex];
     selection.selectCell(target.row, target.col);
-    virtualScroll.ensureVisible(target.row, target.col, scrollContainer, keys, columns);
+    ctx.scrollToRow = target.row; // GridContainer observes and calls ensureVisible
   }
 
   async function handlePaste() {
@@ -818,12 +731,7 @@
     contextMenu.close();
     selection.reset();
 
-    await tick();
-    if (textareaRef) {
-      edit.updateRowHeight(textareaRef);
-      textareaRef.focus();
-      textareaRef.select();
-    }
+    // GridRow observes ctx.isEditing + ctx.editRow via $effect and handles focus/updateRowHeight locally
   }
 
   async function saveEdit() {
@@ -1091,15 +999,12 @@
   }
 
   // Separate effect for one-time setup (runs only once)
+  // mountInteraction removed — interaction handling delegated to GridOverlays via {@attach gridShortcuts(...)}
   $effect(() => {
-    const cleanupInteraction = mountInteraction(window);
-
     // Register this page's handler
     realtime.setAssetUpdateHandler(handleRealtimeUpdate);
 
     return () => {
-      cleanupInteraction();
-
       // CHANGED: Overwrite with an empty function to "remove" the handler
       realtime.setAssetUpdateHandler(() => {});
 
@@ -1110,26 +1015,7 @@
     };
   });
 
-  // Separate effect for resize observer (depends on scrollContainer)
-  $effect(() => {
-    let resizeObserver: ResizeObserver | null = null;
-    if (scrollContainer) {
-      // Reset scroll position to top on page load/refresh
-      // (browser may preserve scroll position, but virtual scroller won't have loaded that data)
-      scrollContainer.scrollTop = 0;
-
-      resizeObserver = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          virtualScroll.updateContainerHeight(entry.contentRect.height);
-        }
-      });
-      resizeObserver.observe(scrollContainer);
-    }
-
-    return () => {
-      if (resizeObserver) resizeObserver.disconnect();
-    };
-  });
+  // ResizeObserver moved to GridContainer — it owns the scroll container now
 
   let skipInitialFetch = true; // Server already returned correct data for initial load
   $effect(() => {
@@ -1283,7 +1169,6 @@
 <div class="px-4 py-2 flex-grow flex flex-col">
   <Toolbar
     user={user}
-    {filterPanel}
     {getCurrentUrlState}
     {updateSearchUrl}
     onAddNewRow={handleAddNewRow}
@@ -1292,113 +1177,27 @@
     onDiscard={discardChanges}
     onViewChange={handleViewChange}
     onNavigateError={navigateToError}
-    invalidCount={totalInvalidCount}
   />
 
-{#if assets.length > 0}
-  <div
-    bind:this={scrollContainer}
-    onscroll={handleScroll}
-    class="rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
-    tabindex="-1"
-  >
-
-    <HeaderMenu
-      state={headerMenu}
-      sortState={{ key: ctx.sortKey ?? '', direction: ctx.sortDirection ?? 'asc' }}
-      {searchManager}
+  {#if searchError}
+    <p class="text-red-500">Error: {searchError}</p>
+  {:else}
+    <GridContainer
       {assets}
-      {baseAssets}
-      onSort={applySort}
-      onFilterSelect={(item, key) => {
-        const { q, filters, view } = getCurrentUrlState();
-        const exists = filters.some(f => f.key === key && f.value === item);
-        const newFilters = exists
-          ? filters.filter(f => !(f.key === key && f.value === item))
-          : [...filters, { key, value: item }];
-        updateSearchUrl({ q, filters: newFilters, view });
-      }}
+      onHeaderClick={(e, key, _filterItems, isLast) =>
+        headerMenu.toggle(e, key, searchManager.getFilterItems(key, assets, baseAssets), isLast)}
+      onContextMenu={handleContextMenu}
+      onCloseContextMenu={() => contextMenu.close()}
     />
+  {/if}
 
-    <div
-      class="w-max min-w-full bg-white dark:bg-slate-800 text-left relative"
-      style="height: {virtualScroll.getTotalHeight(assets.length, rows) +
-        32 + 16}px;"
-    >
-      <GridHeader
-        {keys}
-        onHeaderClick={(e, key, _filterItems, isLast) => {
-          headerMenu.toggle(e, key, searchManager.getFilterItems(key, assets, baseAssets), isLast);
-        }}
-        onCloseContextMenu={() => contextMenu.close()}
-      />
-
-      <div
-        class="absolute top-8 w-full"
-        style="transform: translateY({virtualScroll.getOffsetY(rows)}px);"
-      >
-        <GridOverlays
-          {keys}
-          {assets}
-          filteredAssetsLength={filteredAssets.length}
-          {otherUserSelections}
-          {hoveredUser}
-          {selectionOverlay}
-          {copyOverlay}
-          {dirtyCellOverlays}
-          {virtualScroll}
-          onHoverUser={(id) => hoveredUser = id}
-        />
-
-        {#each visibleData.items as asset, i (asset.id || visibleData.startIndex + i)}
-          {@const actualIndex = visibleData.startIndex + i}
-          {@const rowHeight = rows.getHeight(actualIndex)}
-          {@const isNewRow = actualIndex >= filteredAssets.length}
-
-          <div
-            class="flex border-b border-neutral-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700 {isNewRow ? 'bg-blue-200 dark:bg-blue-500/20' : ''}"
-            style="height: {rowHeight}px;"
-          >
-            <GridRow
-              {asset}
-              {keys}
-              {actualIndex}
-              user={user}
-              bind:textareaRef
-              {editDropdown}
-              {autocomplete}
-              {assets}
-              onSaveEdit={saveEdit}
-              onCancelEdit={cancelEdit}
-              onEditAction={handleEditAction}
-              onContextMenu={handleContextMenu}
-              visibleIndex={i}
-            />
-          </div>
-        {/each}
-      </div>
-    </div>
-  </div>
-  <p class="mt-2 ml-1 text-sm text-neutral-600 dark:text-neutral-300">
-    Showing {assets.length} items.
-  </p>
-{:else if searchError}
-  <p class="text-red-500">Error: {searchError}</p>
-{:else}
-  <div
-    class="flex items-center justify-center rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
-  >
-    <p class="text-lg text-neutral-400">Query successful, but no data was returned.</p>
-  </div>
-{/if}
-
-<ContextMenu
-  state={contextMenu}
-  onEdit={handleEditAction}
-  onCopy={handleCopy}
-  onPaste={handlePaste}
-  onFilterByValue={handleFilterByValue}
-  onDelete={handleDeleteNewRow}
-  showDelete={contextMenu.row >= filteredAssets.length}
-/>
+  <ContextMenu
+    state={contextMenu}
+    onEdit={handleEditAction}
+    onCopy={handleCopy}
+    onPaste={handlePaste}
+    onFilterByValue={handleFilterByValue}
+    onDelete={handleDeleteNewRow}
+    showDelete={contextMenu.row >= filteredAssets.length}
+  />
 </div>
