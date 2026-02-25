@@ -5,7 +5,7 @@
 - **Current Phase:** Phase 1 — Context Foundation
 - **Current Plan:** 01-04 (01-01, 01-02, 01-03 complete)
 - **Last Action:** Executed 01-03-PLAN.md — migrated selectionManager and historyManager to co-located controllers
-- **Last Session:** 2026-02-25T07:30:00Z
+- **Last Session:** 2026-02-25T07:10:46.971Z
 
 ## Active Work
 Execute Phase 1 plans sequentially: 01-02 through 01-07.
@@ -28,6 +28,8 @@ Execute Phase 1 plans sequentially: 01-02 through 01-07.
 - History state is InventoryGrid-local $state (only InventoryGrid + keyboard handlers need it)
 - computeVisualOverlay/computeDirtyCellOverlays accept getWidth callback instead of ColumnManager interface
 - interactionHandler state type renamed columnManager->columns to match plan 02 call-site rename
+- [Phase 01]: Known breakage accepted: changeManager and rowGenerationManager still import validationManager — to be fixed in Plans 04-05
+- [Phase 01]: Transient resize state (startX, startWidth) kept as local $state inside column controller, not in context
 
 ## Key Context
 - Working dir: `/home/joakim/asset_management`
@@ -56,6 +58,7 @@ Execute Phase 1 plans sequentially: 01-02 through 01-07.
 | 01 | 01 | 5 min | 2/2 | 3 |
 | 01 | 02 | ~10 min | 1/1 | 3 |
 | 01 | 03 | 6 min | 2/2 | 8 |
+| Phase 01 P02 | 15 | 2 tasks | 7 files |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
