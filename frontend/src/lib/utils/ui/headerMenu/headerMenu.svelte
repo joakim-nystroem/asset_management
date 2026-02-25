@@ -1,11 +1,12 @@
 <script lang="ts">
   import type { HeaderMenuState } from './headerMenu.svelte.ts';
   import type { SearchManager } from '$lib/utils/data/searchManager.svelte';
-  import type { SortManager, SortDirection } from '$lib/utils/data/sortManager.svelte';
-  
+
+  type SortDirection = 'asc' | 'desc';
+
   type Props = {
     state: HeaderMenuState;
-    sortManager: SortManager;
+    sortState: { key: string; direction: SortDirection };
     searchManager: SearchManager;
     assets: any[];
     baseAssets: any[];
@@ -13,7 +14,7 @@
     onFilterSelect?: (item: string, key: string) => void;
   };
 
-  let { state, sortManager, searchManager, assets, baseAssets, onSort, onFilterSelect }: Props = $props();
+  let { state, sortState, searchManager, assets, baseAssets, onSort, onFilterSelect }: Props = $props();
 
   $effect(() => {
     if (state.activeKey) {
@@ -36,7 +37,7 @@
       onclick={() => onSort(state.activeKey, 'asc')}
     >
       <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
-        {#if sortManager.key === state.activeKey && sortManager.direction === 'asc'}✓{/if}
+        {#if sortState.key === state.activeKey && sortState.direction === 'asc'}✓{/if}
       </div>
       <span>Sort A to Z</span>
     </button>
@@ -46,7 +47,7 @@
       onclick={() => onSort(state.activeKey, 'desc')}
     >
       <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
-        {#if sortManager.key === state.activeKey && sortManager.direction === 'desc'}✓{/if}
+        {#if sortState.key === state.activeKey && sortState.direction === 'desc'}✓{/if}
       </div>
       <span>Sort Z to A</span>
     </button>

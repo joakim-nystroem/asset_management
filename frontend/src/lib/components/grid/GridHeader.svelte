@@ -1,8 +1,9 @@
 <script lang="ts">
   import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
-  import { sortManager } from "$lib/utils/data/sortManager.svelte";
+  import { getGridContext } from '$lib/context/gridContext.svelte.ts';
 
   const columns = createColumnController();
+  const ctx = getGridContext();
 
   type Props = {
     keys: string[];
@@ -34,8 +35,8 @@
       >
         <span class="truncate">{key.replaceAll("_", " ")}</span>
         <span class="ml-1">
-          {#if sortManager.key === key}
-            <span>{sortManager.direction === "asc" ? "▲" : "▼"}</span>
+          {#if ctx.sortKey === key}
+            <span>{ctx.sortDirection === "asc" ? "▲" : "▼"}</span>
           {:else}
             <span class="invisible group-hover:visible text-neutral-400">▾</span>
           {/if}

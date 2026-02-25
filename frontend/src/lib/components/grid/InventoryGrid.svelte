@@ -29,16 +29,14 @@
   import { createHistoryController } from "$lib/components/grid/history/gridHistory.svelte.ts";
   import { createHeaderMenu } from "$lib/utils/ui/headerMenu/headerMenu.svelte.ts";
   import { createSelectionController } from "$lib/components/grid/selection/gridSelection.svelte.ts";
-  import { createClipboard } from "$lib/utils/interaction/clipboardManager.svelte";
+  import { createClipboardController } from "$lib/components/grid/clipboard/gridClipboard.svelte.ts";
   import { createEditDropdown } from "$lib/utils/ui/editDropdown/editDropdown.svelte.ts";
   import { createAutocomplete } from "$lib/utils/ui/suggestionMenu/autocomplete.svelte.ts";
   import { searchManager } from "$lib/utils/data/searchManager.svelte";
-  import { sortManager } from "$lib/utils/data/sortManager.svelte";
   import { createVirtualScroll } from "$lib/utils/core/virtualScrollManager.svelte";
   import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
   import { createRowController } from "$lib/components/grid/rows/gridRows.svelte.ts";
   import { createValidationController } from "$lib/components/grid/validation/gridValidation.svelte.ts";
-  import { viewManager } from "$lib/utils/core/viewManager.svelte";
   import { createEditController } from "$lib/components/grid/edit/gridEdit.svelte.ts";
   import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.ts";
   import { createChangeController } from "$lib/components/grid/changes/gridChanges.svelte.ts";
@@ -116,7 +114,7 @@
   // Initialize State Classes
   const contextMenu = new ContextMenuState();
   const headerMenu = createHeaderMenu();
-  const clipboard = createClipboard(selection);
+  const clipboard = createClipboardController();
   const virtualScroll = createVirtualScroll();
   const filterPanel = new FilterPanelState();
   const editDropdown = createEditDropdown();
@@ -127,9 +125,8 @@
   changes.clear();
   history.clear();
 
-  // Always sync view from server data (prevents singleton stale state on navigation)
-  // svelte-ignore state_referenced_locally
-  viewManager.setView(initialView || 'default');
+  // Always sync view from server data (prevents stale state on navigation)
+  // ctx.activeView is already initialised from initialView prop above (in the ctx $state literal)
 
   // --- Data State ---
   // svelte-ignore state_referenced_locally
@@ -528,16 +525,48 @@
 
   // --- View Switching ---
   function handleViewChange(viewName: string) {
-    if (viewName === viewManager.currentView) return;
+    if (viewName === ctx.activeView) return;
     // Just update URL — the URL-driven effect handles view loading, state reset, etc.
     updateSearchUrl({ view: viewName });
   }
 
   async function applySort(key: string, dir: "asc" | "desc") {
     selection.reset();
-    sortManager.update(key, dir);
-    filteredAssets = await sortManager.applyAsync(filteredAssets);
+    // Toggle off if same key+direction
+    if (ctx.sortKey === key && ctx.sortDirection === dir) {
+      ctx.sortKey = null;
+      ctx.sortDirection = null;
+      filteredAssets = [...baseAssets];
+    } else {
+      ctx.sortKey = key;
+      ctx.sortDirection = dir;
+      filteredAssets = await sortDataAsync(filteredAssets, key, dir);
+    }
     headerMenu.close();
+  }
+
+  type SortDirection = 'asc' | 'desc';
+
+  function sortData<T>(list: T[], key: keyof T, dir: SortDirection): T[] {
+    const direction = dir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (valA == null) return 1;
+      if (valB == null) return -1;
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return (valA - valB) * direction;
+      }
+      return String(valA).localeCompare(String(valB)) * direction;
+    });
+  }
+
+  async function sortDataAsync(data: any[], key: string, dir: SortDirection): Promise<any[]> {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(sortData(data, key as any, dir));
+      }, 0);
+    });
   }
 
   async function handleCopy() {
@@ -1131,13 +1160,13 @@
 
     (async () => {
       // Handle view change if needed (load view data FIRST before search)
-      // Use untrack for viewManager reads/writes — we only want this effect to react to URL changes,
-      // not to viewManager state changes (which would cancel the async fetch)
-      const validViews = untrack(() => viewManager.views.map(v => v.name));
-      const currentView = untrack(() => viewManager.currentView);
+      // Use untrack for ctx reads/writes — we only want this effect to react to URL changes,
+      // not to ctx.activeView state changes (which would cancel the async fetch)
+      const validViews = ['default', 'audit', 'ped', 'galaxy', 'network'];
+      const currentView = untrack(() => ctx.activeView);
       if (urlView !== currentView) {
         if (validViews.includes(urlView)) {
-          untrack(() => viewManager.setView(urlView));
+          untrack(() => { ctx.activeView = urlView; });
           try {
             const response = await fetch(`/api/assets/view?view=${urlView}`);
             if (cancelled) return;
@@ -1149,8 +1178,8 @@
                 filteredAssets = result.assets;
                 searchError = '';
                 selection.reset();
-                sortManager.invalidateCache();
-                sortManager.reset();
+                ctx.sortKey = null;
+                ctx.sortDirection = null;
                 changes.clear();
                 history.clear();
                 rowGen.clearNewRows();
@@ -1162,7 +1191,7 @@
             console.error(`Failed to load ${urlView} view:`, err);
           }
         } else {
-          untrack(() => viewManager.setView('default'));
+          untrack(() => { ctx.activeView = 'default'; });
         }
       }
 
@@ -1171,8 +1200,8 @@
         // No search params — show all base data
         filteredAssets = [...baseAssets];
         searchError = '';
-        sortManager.invalidateCache();
-        sortManager.reset();
+        ctx.sortKey = null;
+        ctx.sortDirection = null;
         selection.reset();
       } else {
         // Has search params — fetch from search API
@@ -1205,8 +1234,8 @@
           filteredAssets = result || [];
           searchError = '';
           selection.reset();
-          sortManager.invalidateCache();
-          sortManager.reset();
+          ctx.sortKey = null;
+          ctx.sortDirection = null;
         } catch (err) {
           if (cancelled) return;
           searchError = err instanceof Error ? err.message : 'Search failed';
@@ -1226,7 +1255,7 @@
   $effect(() => {
     filteredAssets;
     searchManager.cleanupFilterCache();
-    sortManager.invalidateCache();
+    // Sort state is reset by the URL-driven effect when data changes
   });
 
   let updatePositionTimeout: NodeJS.Timeout | null = null;
@@ -1275,7 +1304,7 @@
 
     <HeaderMenu
       state={headerMenu}
-      {sortManager}
+      sortState={{ key: ctx.sortKey ?? '', direction: ctx.sortDirection ?? 'asc' }}
       {searchManager}
       {assets}
       {baseAssets}

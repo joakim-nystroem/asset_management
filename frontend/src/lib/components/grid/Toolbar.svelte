@@ -6,10 +6,24 @@
   import { searchManager } from "$lib/utils/data/searchManager.svelte";
   import { createChangeController } from "$lib/components/grid/changes/gridChanges.svelte.ts";
   import { createRowGenerationController } from "$lib/components/grid/rows/rowGeneration.svelte.ts";
-  import { viewManager } from "$lib/utils/core/viewManager.svelte";
+  import { getGridContext } from '$lib/context/gridContext.svelte.ts';
 
   const changes = createChangeController();
   const rowGen = createRowGenerationController();
+  const ctx = getGridContext();
+
+  // Static view config (was in viewManager.VIEW_CONFIGS)
+  const VIEW_CONFIGS = [
+    { name: 'default', label: 'Default' },
+    { name: 'audit', label: 'Audit' },
+    { name: 'ped', label: 'PED' },
+    { name: 'galaxy', label: 'Galaxy' },
+    { name: 'network', label: 'Network' },
+  ];
+
+  const currentViewLabel = $derived(
+    VIEW_CONFIGS.find(v => v.name === ctx.activeView)?.label ?? 'Default'
+  );
 
   type Props = {
     user: SafeUser | null;
@@ -178,7 +192,7 @@
           onclick={() => viewDropdownOpen = !viewDropdownOpen}
           class="flex items-center gap-1 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
         >
-          <span>{viewManager.currentLabel}</span>
+          <span>{currentViewLabel}</span>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
         </button>
         {#if viewDropdownOpen}
@@ -189,10 +203,10 @@
             onclick={() => viewDropdownOpen = false}
           ></div>
           <div class="absolute right-0 mt-1 w-40 bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 rounded shadow-lg z-50">
-            {#each viewManager.views as view}
+            {#each VIEW_CONFIGS as view}
               <button
                 onclick={() => handleViewChange(view.name)}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {viewManager.currentView === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {ctx.activeView === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
               >
                 {view.label}
               </button>
