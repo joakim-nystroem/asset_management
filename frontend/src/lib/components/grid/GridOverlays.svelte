@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { getGridContext } from "$lib/context/gridContext.svelte.ts";
   import { createSelectionController } from "$lib/components/grid/selection/gridSelection.svelte.ts";
   import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
   import { createChangeController } from "$lib/components/grid/changes/gridChanges.svelte.ts";
   import { createRowGenerationController } from "$lib/components/grid/rows/rowGeneration.svelte.ts";
 
+  const ctx = getGridContext();
   const selection = createSelectionController();
   const columns = createColumnController();
   const changes = createChangeController();
@@ -108,7 +110,7 @@
   ></div>
 {/if}
 
-{#if selectionOverlay && selection.isSelectionVisible}
+{#if selectionOverlay && ctx.selectionStart.row !== -1 && !ctx.isHiddenAfterCopy}
   <div
     class="absolute pointer-events-none z-10 border-blue-600 dark:border-blue-500 bg-blue-900/10"
     style="
