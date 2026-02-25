@@ -1,6 +1,8 @@
 <script lang="ts">
-  import { columnManager } from "$lib/utils/core/columnManager.svelte";
+  import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
   import { sortManager } from "$lib/utils/data/sortManager.svelte";
+
+  const columns = createColumnController();
 
   type Props = {
     keys: string[];
@@ -16,7 +18,7 @@
     <div
       data-header-col={i}
       class="header-interactive relative group border-r border-neutral-200 dark:border-slate-600 last:border-r-0"
-      style="width: {columnManager.getWidth(key)}px; min-width: {columnManager.getWidth(key)}px;"
+      style="width: {columns.getWidth(key)}px; min-width: {columns.getWidth(key)}px;"
     >
       <button
         class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
@@ -49,12 +51,12 @@
           e.preventDefault();
           e.stopPropagation();
           document.body.style.cursor = "col-resize";
-          columnManager.startResize(key, e.clientX);
+          columns.startResize(key, e.clientX);
         }}
         onclick={(e) => e.stopPropagation()}
         ondblclick={(e) => {
           e.stopPropagation();
-          columnManager.resetWidth(key);
+          columns.resetWidth(key);
         }}
       ></div>
     </div>
