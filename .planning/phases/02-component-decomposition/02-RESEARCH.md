@@ -595,3 +595,199 @@ Current sizes for planning reference:
 
 **Research date:** 2026-02-25
 **Valid until:** 2026-03-25 (stable framework, internal refactor — low decay risk)
+
+---
+
+## Targeted Research: `{@attach}` Directive
+
+**Researched:** 2026-02-25
+**Confidence:** HIGH (official Svelte docs fetched directly; API verified against `svelte/attachments` module docs)
+
+### API Summary
+
+**Availability:** Svelte 5.29 and newer. The project runs 5.49.1 — fully supported.
+
+**Type definition** (from `svelte/attachments`):
+```typescript
+import type { Attachment } from 'svelte/attachments';
+
+interface Attachment<T extends EventTarget = Element> {
+  (element: T): void | (() => void);
+}
+```
+
+**Import for type only:** `import type { Attachment } from 'svelte/attachments'`
+
+The `{@attach fn}` syntax itself requires no import — it is a template directive like `{#if}`. The `svelte/attachments` module exports utilities (`createAttachmentKey`, `fromAction`) and the `Attachment` type, not the directive itself.
+
+**Lifecycle:** Attachments run inside an `$effect` when the element mounts to the DOM. If state read inside the attachment function changes, the attachment re-runs (cleanup first, then re-run). This is automatic — no `update()` method needed unlike Svelte 4 actions.
+
+**Cleanup:** Return a function from the attachment. It is called:
+1. Before the attachment re-runs (due to state change), and
+2. After the element is removed from the DOM.
+
+**Parameter passing:** Use a factory function (closure). The outer function takes config and returns the `(element) => cleanup` function:
+```typescript
+function myFactory(config: Config): Attachment {
+  return (element) => {
+    // setup using config
+    return () => { /* cleanup */ };
+  };
+}
+// Usage: <div {@attach myFactory(config)}>
+```
+
+**Multiple attachments:** Fully supported. An element can have any number of `{@attach ...}` directives.
+
+**Conditional:** `{@attach condition && myAttachment}` — falsy values (`false`, `undefined`) are treated as no attachment.
+
+**Element scope:** Works on any HTML element. Also works on Svelte components (creates symbol-keyed props that spread through).
+
+**Comparison to `use:action`:**
+| Aspect | `use:action` (Svelte 4/5) | `{@attach}` (Svelte 5.29+) |
+|--------|--------------------------|---------------------------|
+| Reactivity | Manual `update()` method | Automatic re-run on state change |
+| Inline usage | No | Yes (`{@attach (el) => ...}`) |
+| Conditional | Workaround needed | Native: `{@attach cond && fn}` |
+| Spreadable | No | Yes (`{...props}`) |
+| On components | No | Yes |
+| Element type | DOM elements only | DOM elements + components |
+| Cleanup | `destroy()` return object | Return function directly |
+
+**Migration bridge:** `fromAction(action, () => arg)` from `svelte/attachments` converts a Svelte 4 action to an attachment. The second argument must be a function returning the arg (not the arg itself).
+
+### Usage Pattern for gridShortcuts
+
+The existing `createInteractionHandler` in `interactionHandler.ts` takes `state` + `callbacks` and returns a `mount(window)` function. The `{@attach}` approach wraps this differently: the attachable receives the element but the keyboard listeners go on `window` (not the element itself), so the element is only used as a mount/unmount signal.
+
+**Recommended `gridShortcuts` attachable factory:**
+
+```typescript
+// frontend/src/lib/grid/utils/gridShortcuts.svelte.ts
+import type { Attachment } from 'svelte/attachments';
+import { createInteractionHandler, type InteractionCallbacks } from '$lib/utils/interaction/interactionHandler';
+import type { GridContext } from '$lib/context/gridContext.svelte.ts';
+
+interface ShortcutState {
+  selection: Parameters<typeof createInteractionHandler>[0]['selection'];
+  columns: Parameters<typeof createInteractionHandler>[0]['columns'];
+  contextMenu: Parameters<typeof createInteractionHandler>[0]['contextMenu'];
+  headerMenu: Parameters<typeof createInteractionHandler>[0]['headerMenu'];
+}
+
+export function gridShortcuts(
+  state: ShortcutState,
+  callbacks: InteractionCallbacks
+): Attachment<HTMLElement> {
+  return (_element: HTMLElement) => {
+    // Keyboard/mouse listeners go on window (not the element),
+    // so _element is only used for mount/unmount lifecycle.
+    const mount = createInteractionHandler(state, callbacks);
+    const cleanup = mount(window);
+    return cleanup;
+  };
+}
+```
+
+**Usage in GridOverlay or GridContainer:**
+```svelte
+<!-- GridContainer.svelte or a dedicated GridKeyboardHandler -->
+<script lang="ts">
+  import { gridShortcuts } from '$lib/grid/utils/gridShortcuts.svelte.ts';
+  import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+
+  const ctx = getGridContext();
+  const selection = createSelectionController();
+  const columns = createColumnController();
+  const contextMenu = createContextMenuController();
+  const headerMenu = createHeaderMenuController();
+
+  // Callbacks defined inline or imported from page controller
+  let { onCopy, onPaste, onUndo, onRedo, onEscape, onEdit, onScrollIntoView, getGridSize } = $props();
+</script>
+
+<div
+  tabindex="-1"
+  class="..."
+  {@attach gridShortcuts(
+    { selection, columns, contextMenu, headerMenu },
+    { onCopy, onPaste, onUndo, onRedo, onEscape, onEdit, onScrollIntoView, getGridSize }
+  )}
+>
+  <!-- grid content -->
+</div>
+```
+
+**Alternative — inline factory call, callbacks from context:**
+
+If the callbacks are stable (created once in the page controller and stored in context or as stable references), passing them directly works. If they close over reactive state that changes, the attachment re-runs automatically and re-registers the listeners (with the old ones cleaned up first via the returned cleanup function).
+
+**Important reactivity note:** Because `createInteractionHandler` uses closures over `state` (which is a reactive object), and keyboard handlers read from `state.selection.primaryRange` etc. at call time, the handlers naturally see current state. The attachment itself does NOT need to re-run when selection changes — the handlers already close over the reactive state object reference.
+
+This means the cleanest pattern is: pass stable references to `state` and `callbacks`. The attachment runs once on mount, registers listeners on `window`, and the cleanup function removes them on unmount. No re-runs needed.
+
+```typescript
+// Simplest correct pattern — attachment runs ONCE, handlers close over reactive state
+export function gridShortcuts(
+  state: ShortcutState,
+  callbacks: InteractionCallbacks
+): Attachment<HTMLElement> {
+  return (_element: HTMLElement) => {
+    const mount = createInteractionHandler(state, callbacks);
+    const removeListeners = mount(window);
+    return removeListeners; // called when element unmounts
+  };
+}
+```
+
+### Gotchas
+
+**1. Listeners on `window`, not the element**
+The existing `createInteractionHandler` attaches to `window`, not the element. This means the attachment is used purely as a mount/unmount lifecycle hook — the element itself receives no listeners. This is fine and intentional (global keyboard shortcuts). Do not change this to attach to the element unless keyboard focus management is added (element needs `tabindex` and must be focused for `element.addEventListener('keydown')` to fire).
+
+**2. Avoid creating new objects inline as attachment parameters**
+```svelte
+<!-- BAD: creates new object on every render, triggers unnecessary re-runs -->
+<div {@attach gridShortcuts({ selection, columns, contextMenu, headerMenu }, callbacks)}>
+
+<!-- GOOD: derive stable references outside the template -->
+<script>
+  const shortcutState = { selection, columns, contextMenu, headerMenu };
+  // shortcutState is stable (object reference doesn't change, properties are reactive)
+</script>
+<div {@attach gridShortcuts(shortcutState, callbacks)}>
+```
+
+Since `{@attach fn(arg)}` re-runs when `arg` changes by reference, passing a freshly-created object literal on every render causes the attachment to teardown and re-register window listeners on every re-render. Creating the state object once (or using `$derived.by`) avoids this.
+
+**3. Cleanup must remove ALL listeners**
+The returned cleanup function must remove every `addEventListener` call made in the attachment. Forgetting any one causes a memory leak (old handler survives alongside new one after re-run). The existing `createInteractionHandler` already handles this correctly — it returns a cleanup that removes all four event listeners.
+
+**4. No `update()` needed — but watch re-run triggers**
+Unlike Svelte 4 actions, there is no `update()`. If the callbacks passed to `gridShortcuts` are stable function references (defined once in the page controller), the attachment runs exactly once. If they are arrow functions defined inline in the template, the attachment re-runs on every render. Define callbacks outside the template.
+
+**5. `{@attach}` is NOT a replacement for `onkeydown` on the element**
+If the grid element needs to handle keyboard events only when focused (not globally), use `onkeydown={handler}` on the element instead. The `{@attach}` approach with `window.addEventListener` intercepts ALL keyboard events site-wide regardless of focus. This matches the existing behavior of `createInteractionHandler` (which already checks `if (isInput) return` to skip input targets).
+
+**6. Available since Svelte 5.29 — confirmed safe for 5.49.1**
+No compatibility concerns for this project.
+
+### Recommendation for This Codebase
+
+The CONTEXT.md says: "Existing `createInteractionHandler` factory is replaced by the `{@attach}` approach." However, after reading `interactionHandler.ts` in full, the existing factory already:
+- Returns a cleanup function
+- Attaches to `window` (not an element)
+- Has all keyboard shortcuts implemented correctly
+
+The `{@attach}` migration is a thin wrapper: the factory itself stays unchanged, and a new `gridShortcuts` attachable wraps the existing `mount(window)` call. The result is the same behavior with cleaner lifecycle management (no manual `$effect` with cleanup needed in the component).
+
+The place to attach: GridContainer's root `<div>` is the natural anchor (it already has `tabindex="-1"`). The attachment mounts when GridContainer mounts and unmounts when GridContainer unmounts — which is the correct lifecycle for grid-wide keyboard shortcuts.
+
+### Sources
+
+- [Svelte `{@attach}` directive docs](https://svelte.dev/docs/svelte/@attach) — official, fetched directly (HIGH)
+- [svelte/attachments module docs](https://svelte.dev/docs/svelte/svelte-attachments) — `Attachment` type, `fromAction`, `createAttachmentKey` (HIGH)
+- [Joy of Code — Svelte attachments explained](https://joyofcode.xyz/svelte-attachments-explained) — concrete patterns, reactivity details (MEDIUM)
+- [Svelte Talk — Attachments vs Actions migration guide](https://sveltetalk.com/posts/svelte-5-attachments-vs-actions-complete-migration-guide) — gotchas, parameter stability, TypeScript patterns (MEDIUM)
+- [InfoQ — Svelte releases attachments](https://www.infoq.com/news/2025/06/svelte-releases-attachments/) — introduction, use cases including "provisioning of shortcut keys" (MEDIUM)
+- Codebase read — `interactionHandler.ts` (201 lines, fully read) — existing implementation confirmed (HIGH)

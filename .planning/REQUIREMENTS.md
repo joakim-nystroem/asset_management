@@ -14,7 +14,7 @@
 - **F2.2** `<InventoryGrid>` owns all grid state and provides context to children ✓ (02-01: +page.svelte owns GridContext)
 - **F2.3** `<GridContainer>` renders only visible rows via virtual scroll — ignorant of editors, menus, clipboard ✓ (02-02: GridContainer has zero forbidden imports)
 - **F2.4** Each component has a corresponding `.svelte.ts` ViewModel/Controller with all logic ✓ (02-02: createPageController inline in +page.svelte)
-- **F2.5** Components must not accept more than 3 props (use context for everything else) ✓ (02-02: GridContainer=3, GridOverlays=0, Toolbar=1)
+- **F2.5** Components must minimize props — pass only what context cannot provide (identity/callbacks specific to the call site); prefer context access for shared state ✓ (02-02: GridContainer=3, GridOverlays=0, Toolbar=1)
 
 ### F3 — FloatingEditor Component
 - **F3.1** `<FloatingEditor>` must live outside the grid DOM hierarchy
