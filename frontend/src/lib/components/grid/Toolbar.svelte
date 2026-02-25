@@ -4,9 +4,12 @@
   import type { Filter } from '$lib/utils/data/searchManager.svelte';
   import FilterPanel from "$lib/utils/ui/filterPanel/filterPanel.svelte";
   import { searchManager } from "$lib/utils/data/searchManager.svelte";
-  import { changeManager } from "$lib/utils/interaction/changeManager.svelte";
-  import { rowGenerationManager } from "$lib/utils/interaction/rowGenerationManager.svelte";
+  import { createChangeController } from "$lib/components/grid/changes/gridChanges.svelte.ts";
+  import { createRowGenerationController } from "$lib/components/grid/rows/rowGeneration.svelte.ts";
   import { viewManager } from "$lib/utils/core/viewManager.svelte";
+
+  const changes = createChangeController();
+  const rowGen = createRowGenerationController();
 
   type Props = {
     user: SafeUser | null;
@@ -108,7 +111,7 @@
             <span>New Row</span>
           </button>
         {/if}
-        {#if changeManager.hasChanges && user}
+        {#if changes.hasChanges && user}
           <div class="flex gap-2 items-center">
             <button
               onclick={onCommit}
@@ -137,7 +140,7 @@
               </div>
             {/if}
           </div>
-        {:else if rowGenerationManager.hasNewRows && user}
+        {:else if rowGen.hasNewRows && user}
           <div class="flex gap-2 items-center">
             <button
               onclick={onAddRows}

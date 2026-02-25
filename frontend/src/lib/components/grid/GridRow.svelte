@@ -2,7 +2,8 @@
   import type { SafeUser } from '$lib/types';
   import type { EditDropdown } from "$lib/utils/ui/editDropdown/editDropdown.svelte.ts";
   import type { Autocomplete } from "$lib/utils/ui/suggestionMenu/autocomplete.svelte.ts";
-  import { editManager } from "$lib/utils/interaction/editManager.svelte";
+  import { getGridContext } from "$lib/context/gridContext.svelte.ts";
+  import { createEditController } from "$lib/components/grid/edit/gridEdit.svelte.ts";
   import { createSelectionController } from "$lib/components/grid/selection/gridSelection.svelte.ts";
   import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
   import { createRowController } from "$lib/components/grid/rows/gridRows.svelte.ts";
@@ -10,6 +11,8 @@
   import EditDropdownComponent from "$lib/utils/ui/editDropdown/editDropdown.svelte";
   import AutocompleteComponent from "$lib/utils/ui/suggestionMenu/autocomplete.svelte";
 
+  const ctx = getGridContext();
+  const edit = createEditController();
   const selection = createSelectionController();
   const columns = createColumnController();
   const rows = createRowController();
@@ -37,7 +40,7 @@
 </script>
 
 {#each keys as key, j}
-  {@const isEditingThisCell = editManager.isEditingCell(
+  {@const isEditingThisCell = edit.isEditingCell(
     actualIndex,
     j,
   )}
@@ -51,7 +54,7 @@
       // Don't interfere if we're about to double-click
       if (e.detail === 2) return;
 
-      if (editManager.isEditing) {
+      if (ctx.isEditing) {
         // Save the current edit and select new cell without drag mode
         onSaveEdit();
         selection.selectCell(actualIndex, j);
@@ -105,12 +108,12 @@
       <div class="relative w-full h-full">
         <textarea
           bind:this={textareaRef}
-          bind:value={editManager.inputValue}
+          bind:value={ctx.inputValue}
           oninput={() => {
-            editManager.updateRowHeight(textareaRef, rows, columns);
+            edit.updateRowHeight(textareaRef);
             // Update suggestions for free-text columns (not constrained dropdown columns)
             if (!editDropdown.isVisible) {
-              autocomplete.updateSuggestions(assets, key, editManager.inputValue);
+              autocomplete.updateSuggestions(assets, key, ctx.inputValue);
             }
           }}
           onkeydown={(e) => {
@@ -127,13 +130,13 @@
               } else if (e.key === "Tab") {
                 e.preventDefault();
                 const v = autocomplete.getSelectedValue();
-                if (v) editManager.inputValue = v;
+                if (v) ctx.inputValue = v;
                 autocomplete.clear();
                 return;
               } else if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 const v = autocomplete.getSelectedValue();
-                if (v !== null) editManager.inputValue = v;
+                if (v !== null) ctx.inputValue = v;
                 autocomplete.clear();
                 onSaveEdit();
                 return;
@@ -159,7 +162,7 @@
                 e.preventDefault();
                 const selectedValue = editDropdown.getSelectedValue();
                 if (selectedValue !== null) {
-                  editManager.inputValue = selectedValue;
+                  ctx.inputValue = selectedValue;
                 }
                 editDropdown.hide();
                 onSaveEdit();
@@ -188,7 +191,7 @@
             autocomplete.clear();
             // Always save on blur (clicking outside)
             setTimeout(() => {
-              if (editManager.isEditing) {
+              if (ctx.isEditing) {
                 onSaveEdit();
               }
             }, 0);
@@ -199,7 +202,7 @@
         <EditDropdownComponent
           dropdown={editDropdown}
           onSelect={(value) => {
-            editManager.inputValue = value;
+            ctx.inputValue = value;
             editDropdown.hide();
             onSaveEdit();
           }}
@@ -207,7 +210,7 @@
         <AutocompleteComponent
           {autocomplete}
           onSelect={(value) => {
-            editManager.inputValue = value;
+            ctx.inputValue = value;
             autocomplete.clear();
             onSaveEdit();
           }}

@@ -1,11 +1,13 @@
 <script lang="ts">
   import { createSelectionController } from "$lib/components/grid/selection/gridSelection.svelte.ts";
   import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
-  import { changeManager } from "$lib/utils/interaction/changeManager.svelte";
-  import { rowGenerationManager } from "$lib/utils/interaction/rowGenerationManager.svelte";
+  import { createChangeController } from "$lib/components/grid/changes/gridChanges.svelte.ts";
+  import { createRowGenerationController } from "$lib/components/grid/rows/rowGeneration.svelte.ts";
 
   const selection = createSelectionController();
   const columns = createColumnController();
+  const changes = createChangeController();
+  const rowGen = createRowGenerationController();
 
   type Props = {
     keys: string[];
@@ -147,8 +149,8 @@
   {@const overlayAsset = assets[overlayRowIndex]}
   {@const isNewRowOverlay = overlayRowIndex >= filteredAssetsLength}
   {@const isInvalid = isNewRowOverlay
-    ? rowGenerationManager.isNewRowFieldInvalid(overlayRowIndex - filteredAssetsLength, overlayKey)
-    : changeManager.isInvalid(overlayAsset?.id, overlayKey)}
+    ? rowGen.isNewRowFieldInvalid(overlayRowIndex - filteredAssetsLength, overlayKey)
+    : changes.isInvalid(overlayAsset?.id, overlayKey)}
   <div
     class="absolute pointer-events-none z-40 border-2
       {isInvalid

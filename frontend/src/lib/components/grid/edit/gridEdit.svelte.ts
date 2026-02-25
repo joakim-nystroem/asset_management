@@ -43,8 +43,8 @@ export function createEditController() {
     }
   }
 
-  async function save(assets: Record<string, unknown>[]): Promise<{
-    id: unknown; key: string; oldValue: unknown; newValue: unknown;
+  async function save(assets: Record<string, any>[]): Promise<{
+    id: any; key: string; oldValue: any; newValue: any;
   } | null> {
     if (!ctx.isEditing || ctx.editKey === null) return null;
 

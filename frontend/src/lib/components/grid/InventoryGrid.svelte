@@ -39,12 +39,12 @@
   import { createRowController } from "$lib/components/grid/rows/gridRows.svelte.ts";
   import { createValidationController } from "$lib/components/grid/validation/gridValidation.svelte.ts";
   import { viewManager } from "$lib/utils/core/viewManager.svelte";
-  import { editManager } from "$lib/utils/interaction/editManager.svelte";
+  import { createEditController } from "$lib/components/grid/edit/gridEdit.svelte.ts";
   import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.ts";
-  import { changeManager } from "$lib/utils/interaction/changeManager.svelte";
+  import { createChangeController } from "$lib/components/grid/changes/gridChanges.svelte.ts";
   import { realtime } from "$lib/utils/interaction/realtimeManager.svelte";
   import { toastState } from "$lib/utils/ui/toast/toastState.svelte";
-  import { rowGenerationManager } from "$lib/utils/interaction/rowGenerationManager.svelte";
+  import { createRowGenerationController } from "$lib/components/grid/rows/rowGeneration.svelte.ts";
 
   // --- PROPS ---
   type Props = {
@@ -109,6 +109,9 @@
   const validation = createValidationController();
   const selection = createSelectionController();
   const history = createHistoryController();
+  const edit = createEditController();
+  const changes = createChangeController();
+  const rowGen = createRowGenerationController();
 
   // Initialize State Classes
   const contextMenu = new ContextMenuState();
@@ -119,10 +122,9 @@
   const editDropdown = createEditDropdown();
   const autocomplete = createAutocomplete();
 
-  // Clear stale singleton state on page load/refresh
-  // (singletons persist across client-side navigation, causing stale data on refresh)
-  rowGenerationManager.clearNewRows();
-  changeManager.clear();
+  // Clear stale controller state on page load/refresh
+  rowGen.clearNewRows();
+  changes.clear();
   history.clear();
 
   // Always sync view from server data (prevents singleton stale state on navigation)
@@ -141,7 +143,7 @@
   let departments = $derived(initialDepartments || []);
 
   // Combine filtered assets with new rows at the bottom
-  let assets = $derived([...filteredAssets, ...rowGenerationManager.newRows]);
+  let assets = $derived([...filteredAssets, ...rowGen.newRows]);
 
   // Check logged in status
   let isLoggedIn = $derived(!!user);
@@ -214,18 +216,18 @@
 
   // Set up the next ID provider for new rows (based on full original array, not filtered)
   $effect(() => {
-    rowGenerationManager.setNextIdProvider(() => {
+    rowGen.setNextIdProvider(() => {
       if (baseAssets.length === 0) return 1;
       const maxId = Math.max(...baseAssets.map(a => typeof a.id === 'number' ? a.id : 0));
-      return maxId + 1 + rowGenerationManager.newRowCount;
+      return maxId + 1 + rowGen.newRowCount;
     });
   });
 
   // Track dirty cells for existing row changes (new row validation is triggered manually on commit)
   $effect(() => {
-    const changes = changeManager.getAllChanges();
+    const allChanges = changes.getAllChanges();
 
-    if (changes.length === 0) {
+    if (allChanges.length === 0) {
       selection.clearDirtyCells();
       return;
     }
@@ -235,7 +237,7 @@
       assets.map((asset, index) => [asset.id.toString(), index]),
     );
 
-    const dirtyCells = changes
+    const dirtyCells = allChanges
       .map((change) => {
         const row = assetIdMap.get(String(change.id));
         const col = keyMap.get(change.key);
@@ -271,7 +273,8 @@
         department: deptNames,
       };
 
-      changeManager.setConstraints(constraints);
+      // Update context constraints (used by changes and rowGen controllers directly)
+      ctx.validationConstraints = constraints;
       validation.setConstraints(constraints);
 
       // Note: Validation for new rows now happens only on commit
@@ -284,7 +287,6 @@
       keys,
       (key) => columns.getWidth(key),
       virtualScroll.rowHeight,
-      // Add this callback:
       (row, col) => {
         const asset = assets[row];
         if (!asset) return false;
@@ -294,19 +296,19 @@
         const isNewRow = row >= filteredAssets.length;
         if (isNewRow) {
           const newRowIndex = row - filteredAssets.length;
-          return rowGenerationManager.isNewRowFieldInvalid(newRowIndex, key);
+          return rowGen.isNewRowFieldInvalid(newRowIndex, key);
         }
 
-        // Use changeManager for existing rows
-        return changeManager.isInvalid(asset.id, key);
+        // Use changes controller for existing rows
+        return changes.isInvalid(asset.id, key);
       },
     ),
   );
 
   const totalInvalidCount = $derived.by(() => {
-    let count = changeManager.getInvalidCellKeys().length;
-    if (rowGenerationManager.hasInvalidNewRows) {
-      count += rowGenerationManager.invalidNewRowCount;
+    let count = changes.getInvalidCellKeys().length;
+    if (rowGen.hasInvalidNewRows) {
+      count += rowGen.invalidNewRowCount;
     }
     return count;
   });
@@ -337,7 +339,7 @@
     }
 
     // Block if an edit is in progress
-    if (editManager.isEditing) {
+    if (edit.isEditingCell(ctx.editRow, ctx.editCol) || ctx.isEditing) {
       toastState.addToast(
         "Please finish or cancel your current edit before adding new rows.",
         "warning"
@@ -347,7 +349,7 @@
 
     // Block only if there are unsaved changes to existing rows
     // Allow adding multiple new rows
-    if (changeManager.hasChanges) {
+    if (changes.hasChanges) {
       toastState.addToast(
         "Please save or discard your changes to existing rows before adding new rows.",
         "warning"
@@ -364,7 +366,7 @@
     });
 
     // Add a new row with empty values for all columns
-    const newRows = rowGenerationManager.addNewRows(1, template);
+    const newRows = rowGen.addNewRows(1, template);
 
     // Scroll to the bottom of the grid
     await tick();
@@ -425,7 +427,7 @@
         const undoneBatch = history.undo(assets);
         if (undoneBatch) {
           for (const action of undoneBatch) {
-            changeManager.update({
+            changes.update({
               id: action.id,
               key: action.key,
               newValue: action.oldValue,
@@ -438,14 +440,14 @@
         const redoneBatch = history.redo(assets);
         if (redoneBatch) {
           for (const action of redoneBatch) {
-            changeManager.update(action);
+            changes.update(action);
           }
         }
       },
       onEscape: () => {
-        if (editManager.isEditing) {
+        if (ctx.isEditing) {
           releaseEditLock();
-          editManager.cancel(columns, rows);
+          edit.cancel();
           return;
         }
 
@@ -562,7 +564,7 @@
     const isNewRow = row >= filteredAssets.length;
     if (isNewRow) {
       const newRowIndex = row - filteredAssets.length;
-      rowGenerationManager.deleteNewRow(newRowIndex);
+      rowGen.deleteNewRow(newRowIndex);
       contextMenu.close();
       selection.reset();
       toastState.addToast("New row deleted.", "info");
@@ -577,7 +579,7 @@
   }
 
   function releaseEditLock() {
-    const pos = editManager.getEditPosition();
+    const pos = edit.getEditPosition();
     if (pos) {
       const asset = assets[pos.row];
       const key = keys[pos.col];
@@ -593,7 +595,7 @@
     const assetIdMap = new Map(assets.map((asset, index) => [String(asset.id), index]));
 
     // Existing row errors
-    for (const { id, key } of changeManager.getInvalidCellKeys()) {
+    for (const { id, key } of changes.getInvalidCellKeys()) {
       const row = assetIdMap.get(id);
       const col = keyMap.get(key);
       if (row !== undefined && col !== undefined) {
@@ -602,11 +604,11 @@
     }
 
     // New row errors
-    const newRows = rowGenerationManager.newRows;
+    const newRows = rowGen.newRows;
     for (let i = 0; i < newRows.length; i++) {
       const rowIndex = filteredAssets.length + i;
       for (const key of keys) {
-        if (key !== 'id' && rowGenerationManager.isNewRowFieldInvalid(i, key)) {
+        if (key !== 'id' && rowGen.isNewRowFieldInvalid(i, key)) {
           const col = keyMap.get(key);
           if (col !== undefined) {
             invalidCells.push({ row: rowIndex, col });
@@ -642,7 +644,7 @@
     const target = getActionTarget();
     if (!target) return;
 
-    if (rowGenerationManager.hasNewRows && target.row < filteredAssets.length) {
+    if (rowGen.hasNewRows && target.row < filteredAssets.length) {
       toastState.addToast(
         "Please save or discard new rows before pasting into existing rows.",
         "warning",
@@ -671,7 +673,7 @@
 
           // Update new row in the manager
           const newRowIndex = rowIndex - filteredAssets.length;
-          rowGenerationManager.updateNewRowField(newRowIndex, change.key, change.newValue);
+          rowGen.updateNewRowField(newRowIndex, change.key, change.newValue);
         } else {
           // Don't allow pasting into ID column
           if (change.key === 'id') continue;
@@ -683,7 +685,7 @@
           }
 
           existingRowChanges.push(change);
-          changeManager.update(change);
+          changes.update(change);
         }
       }
 
@@ -735,7 +737,7 @@
 
     // Check if trying to edit an existing row while new rows exist
     const isExistingRow = row < filteredAssets.length;
-    if (isExistingRow && rowGenerationManager.hasNewRows) {
+    if (isExistingRow && rowGen.hasNewRows) {
       toastState.addToast(
         "Please save or discard new rows before editing existing rows.",
         "warning"
@@ -778,14 +780,7 @@
       editDropdown.hide();
     }
 
-    editManager.startEdit(
-      row,
-      col,
-      key,
-      currentValue,
-      columns,
-      rows,
-    );
+    edit.startEdit(row, col, key, currentValue);
 
     // Notify other users that we're editing this cell
     realtime.sendEditStart(asset.id, key);
@@ -795,7 +790,7 @@
 
     await tick();
     if (textareaRef) {
-      editManager.updateRowHeight(textareaRef, rows, columns);
+      edit.updateRowHeight(textareaRef);
       textareaRef.focus();
       textareaRef.select();
     }
@@ -806,7 +801,7 @@
       toastState.addToast("Log in to edit.", "warning");
       return;
     }
-    const pos = editManager.getEditPosition();
+    const pos = edit.getEditPosition();
     if (!pos) return;
 
     autocomplete.clear();
@@ -820,18 +815,18 @@
     if (isNewRow) {
       // Handle new row editing
       const key = keys[pos.col];
-      const newValue = editManager.inputValue.trim();
+      const newValue = ctx.inputValue.trim();
 
-      // Update the new row field directly in the manager
+      // Update the new row field directly in the controller
       const newRowIndex = pos.row - filteredAssets.length;
-      rowGenerationManager.updateNewRowField(newRowIndex, key, newValue);
+      rowGen.updateNewRowField(newRowIndex, key, newValue);
 
-      // Reset the edit manager
-      editManager.cancel(columns, rows);
+      // Reset the edit controller
+      edit.cancel();
     } else {
       // Existing row - validate first
       const key = keys[pos.col];
-      const newValue = editManager.inputValue.trim();
+      const newValue = ctx.inputValue.trim();
 
       // Validate the value before saving
       if (!validation.isValidValue(key, newValue)) {
@@ -844,7 +839,7 @@
       }
 
       // Existing row - use normal flow
-      const change = await editManager.save(filteredAssets, columns, rows);
+      const change = await edit.save(filteredAssets);
 
       if (change) {
         // Also update baseAssets to keep them in sync
@@ -861,7 +856,7 @@
           newValue: change.newValue,
         };
         history.recordBatch([action]);
-        changeManager.update(action);
+        changes.update(action);
       }
     }
 
@@ -869,11 +864,11 @@
   }
 
   function cancelEdit() {
-    const pos = editManager.getEditPosition();
+    const pos = edit.getEditPosition();
     editDropdown.hide();
     autocomplete.clear();
     releaseEditLock();
-    editManager.cancel(columns, rows);
+    edit.cancel();
     if (pos) selection.selectCell(pos.row, pos.col);
   }
 
@@ -889,7 +884,7 @@
     }
 
     // Block commit if any existing-row changes are invalid
-    if (changeManager.hasInvalidChanges) {
+    if (changes.hasInvalidChanges) {
       toastState.addToast(
         "Cannot commit: Fix all invalid values first.",
         "error"
@@ -897,7 +892,7 @@
       return;
     }
 
-    const validChanges = changeManager.getAllChanges();
+    const validChanges = changes.getAllChanges();
 
     if (validChanges.length === 0) {
       return;
@@ -926,7 +921,7 @@
         return;
       }
 
-      changeManager.clear();
+      changes.clear();
       selection.resetAll();
 
       toastState.addToast(
@@ -946,18 +941,18 @@
     }
 
     // Validate all new rows
-    const isValid = rowGenerationManager.validateAll();
+    const isValid = rowGen.validateAll();
 
     if (!isValid) {
       // Set dirty cells for invalid new row fields
       const keyMap = new Map(keys.map((key, index) => [key, index]));
       const invalidCells: { row: number; col: number }[] = [];
-      const newRows = rowGenerationManager.newRows;
+      const newRows = rowGen.newRows;
 
       for (let i = 0; i < newRows.length; i++) {
         const rowIndex = filteredAssets.length + i;
         for (const key of keys) {
-          if (key !== 'id' && rowGenerationManager.isNewRowFieldInvalid(i, key)) {
+          if (key !== 'id' && rowGen.isNewRowFieldInvalid(i, key)) {
             const col = keyMap.get(key);
             if (col !== undefined) {
               invalidCells.push({ row: rowIndex, col });
@@ -975,7 +970,7 @@
     }
 
     // Check if any new rows are incomplete (have empty required fields)
-    const newRows = rowGenerationManager.newRows;
+    const newRows = rowGen.newRows;
     const incompleteRows = newRows.filter(row => {
       const hasData = Object.entries(row).some(([key, value]) => {
         return key !== 'id' && value !== undefined && value !== null && value !== '';
@@ -988,7 +983,7 @@
         `Cannot add: ${incompleteRows.length} new ${incompleteRows.length === 1 ? 'row is' : 'rows are'} incomplete. Please fill in data or delete empty rows.`,
         "error",
       );
-      rowGenerationManager.clearValidation();
+      rowGen.clearValidation();
       return;
     }
 
@@ -1011,7 +1006,7 @@
           errorData.error || "Failed to save new rows.",
           "error",
         );
-        rowGenerationManager.clearValidation();
+        rowGen.clearValidation();
         return;
       }
 
@@ -1023,7 +1018,7 @@
         filteredAssets = [...filteredAssets, ...createdRows];
       }
 
-      rowGenerationManager.clearNewRows();
+      rowGen.clearNewRows();
       selection.clearDirtyCells();
       selection.resetAll();
 
@@ -1034,7 +1029,7 @@
     } catch (error) {
       console.error("Add rows failed:", error);
       toastState.addToast("Network error while adding new rows.", "error");
-      rowGenerationManager.clearValidation();
+      rowGen.clearValidation();
     }
   }
 
@@ -1043,9 +1038,9 @@
       toastState.addToast("Log in to edit.", "warning");
       return;
     }
-    const changesToRevert = changeManager.getAllChanges(true);
+    const changesToRevert = changes.getAllChanges(true);
 
-    // Revert changes from changeManager
+    // Revert changes from changes controller
     for (const change of changesToRevert) {
         const item = filteredAssets.find(a => a.id === change.id);
         if (item) {
@@ -1057,8 +1052,8 @@
     history.clearCommitted(changesToRevert);
 
     // Clear all changes and new rows
-    changeManager.clear();
-    rowGenerationManager.clearNewRows();
+    changes.clear();
+    rowGen.clearNewRows();
     selection.clearDirtyCells();
     selection.resetAll();
 
@@ -1078,10 +1073,10 @@
       // CHANGED: Overwrite with an empty function to "remove" the handler
       realtime.setAssetUpdateHandler(() => {});
 
-      // Only clear managers on actual component unmount
-      changeManager.clear();
+      // Only clear controllers on actual component unmount
+      changes.clear();
       history.clear();
-      rowGenerationManager.clearNewRows();
+      rowGen.clearNewRows();
     };
   });
 
@@ -1156,9 +1151,9 @@
                 selection.reset();
                 sortManager.invalidateCache();
                 sortManager.reset();
-                changeManager.clear();
+                changes.clear();
                 history.clear();
-                rowGenerationManager.clearNewRows();
+                rowGen.clearNewRows();
                 return;
               }
             }
@@ -1193,19 +1188,19 @@
           const result = await response.json();
 
           // Discard pending changes when search results change
-          if (changeManager.hasChanges) {
-            const changesToRevert = changeManager.getAllChanges(true);
+          if (changes.hasChanges) {
+            const changesToRevert = changes.getAllChanges(true);
             for (const change of changesToRevert) {
               const item = baseAssets.find(a => a.id === change.id);
               if (item) {
                 item[change.key] = change.oldValue;
               }
             }
-            changeManager.clear();
+            changes.clear();
             history.clear();
           }
-          if (rowGenerationManager.hasNewRows) {
-            rowGenerationManager.clearNewRows();
+          if (rowGen.hasNewRows) {
+            rowGen.clearNewRows();
           }
           filteredAssets = result || [];
           searchError = '';
@@ -1242,7 +1237,7 @@
       }
       updatePositionTimeout = setTimeout(() => {
         if (selection.start.row === -1) {
-          if (!editManager.isEditing) {
+          if (!ctx.isEditing) {
             realtime.sendDeselect();
           }
         } else {
