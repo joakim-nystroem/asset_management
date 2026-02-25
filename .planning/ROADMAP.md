@@ -42,6 +42,13 @@ Plans:
 
 **Success:** `+page.svelte` < 100 lines; `GridContainer` has no editor/menu imports.
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Establish +page.svelte as context owner, create +page.svelte.ts controller, delete InventoryGrid.svelte
+- [ ] 02-02-PLAN.md — Create GridContainer.svelte, redesign GridOverlays and Toolbar to read context directly
+- [ ] 02-03-PLAN.md — Directory restructure: move controllers to lib/grid/utils/, component pairs to lib/grid/components/
+
 ---
 
 ## Phase 3 — FloatingEditor & ContextMenu
