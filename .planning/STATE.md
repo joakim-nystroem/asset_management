@@ -3,12 +3,12 @@
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 02
-- **Current Plan:** Not started
-- **Last Action:** Executed 01-07-PLAN.md — moved all UI components from utils/ to co-located positions, deleted utils/core + utils/data + utils/ui, svelte-check 0 errors — Phase 1 complete
-- **Last Session:** 2026-02-25T12:26:20.308Z
+- **Current Plan:** 02-02 complete; 02-03 next
+- **Last Action:** Executed 02-01 + 02-02-PLAN.md — inlined InventoryGrid into +page.svelte, created GridContainer + gridShortcuts, redesigned GridOverlays (0 props, @attach), Toolbar (1 prop), svelte-check 0 errors
+- **Last Session:** 2026-02-25T13:05:00Z
 
 ## Active Work
-Phase 1 complete. Ready for Phase 2 planning (admin/mobile import updates + next features).
+Phase 2 in progress. Plans 02-01 and 02-02 complete. Next: execute 02-03-PLAN.md.
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -22,6 +22,8 @@ Phase 1 complete. Ready for Phase 2 planning (admin/mobile import updates + next
 - [x] **01-05**: createClipboardController co-located; sortManager/viewManager inlined into ctx; all three singletons deleted (commits: 38cb91c, 4ea17c2)
 - [x] **01-06**: Audited all grid components; added getGridContext to GridOverlays; code-traced edit/selection/overlay chains; 0 errors (commit: 1de86cd)
 - [x] **01-07**: Moved all UI components from utils/ to co-located positions; deleted utils/core + utils/data + utils/ui; svelte-check 0 errors; Phase 1 complete (commit: 23963c3)
+- [x] **02-01**: Inlined InventoryGrid.svelte into +page.svelte; extended GridContext with filteredAssetsCount, virtualScroll, scrollToRow; deleted InventoryGrid.svelte (commit: 887dcf3)
+- [x] **02-02**: Created GridContainer.svelte + gridShortcuts.svelte.ts; redesigned GridOverlays (0 props, @attach keyboard), Toolbar (1 prop); removed mountInteraction from page; svelte-check 0 errors (commits: 8a6411e, f49701e, 3761dbe)
 
 ## Decisions
 - `setGridContext` called synchronously before any `$effect` to avoid `set_context_after_init`
@@ -45,13 +47,20 @@ Phase 1 complete. Ready for Phase 2 planning (admin/mobile import updates + next
 - [Phase 01 Plan 07]: virtualScrollManager is a factory (createVirtualScroll) — moved to components/grid/ where InventoryGrid instantiates it
 - [Phase 01 Plan 07]: realtimeManager stays in utils/interaction/ (guarded singleton, Symbol.for guard intact)
 - [Phase 01 Plan 07]: dropdownSelect.svelte deleted — zero consumers found anywhere in codebase (orphaned)
+- [Phase 02 Plan 02]: ctx.pageActions uses sync assignment (not $effect) — async function hoisting makes functions available at assignment time
+- [Phase 02 Plan 02]: GridRow owns textareaRef locally ($state + $effect watching ctx.isEditing + ctx.editRow) — no bind propagation through GridContainer
+- [Phase 02 Plan 02]: headerMenu/baseAssets/applySort/handleFilterSelect added to GridContext so GridContainer stays at 3 data props
+- [Phase 02 Plan 02]: GridOverlays callbacks use getter properties to avoid stale closures on ctx.pageActions
+- [Phase 02 Plan 02]: otherUserSelections computation (fullName/initials/editing) moved from +page.svelte to GridOverlays
+- [Phase 02 Plan 02]: Stable shortcutState object required for {@attach} — inline object literals would re-register window listeners on every render
 
 ## Key Context
 - Working dir: `/home/joakim/asset_management`
 - Frontend: `frontend/` (SvelteKit, run svelte-check from here)
 - API: `api/` (Go WebSocket server)
-- Main grid page: `frontend/src/routes/+page.svelte` (now 18 lines — thin orchestrator)
-- Grid component: `frontend/src/lib/components/grid/InventoryGrid.svelte` (owns template + context)
+- Main grid page: `frontend/src/routes/+page.svelte` (~1000 lines — context owner + all page logic inline)
+- Grid viewport: `frontend/src/lib/components/grid/GridContainer.svelte` (virtual-scroll; renders GridOverlays as child)
+- Keyboard handler: `frontend/src/lib/grid/utils/gridShortcuts.svelte.ts` ({@attach} factory)
 - Context file: `frontend/src/lib/context/gridContext.svelte.ts`
 - UI components: `frontend/src/lib/components/grid/` (co-located with controllers — Phase 1 complete)
 - Toast: `frontend/src/lib/components/toast/` (moved from utils/ui/toast/)
@@ -63,7 +72,7 @@ Phase 1 complete. Ready for Phase 2 planning (admin/mobile import updates + next
 | Phase | Status | Plan |
 |-------|--------|------|
 | 1 | complete | 01-01 ✓, 01-02 ✓, 01-03 ✓, 01-04 ✓, 01-05 ✓, 01-06 ✓, 01-07 ✓ |
-| 2 | pending | not planned |
+| 2 | in progress | 02-01 ✓, 02-02 ✓, 02-03 pending |
 | 3 | pending | not planned |
 | 4 | pending | not planned |
 | 5 | pending | not planned |
@@ -80,6 +89,8 @@ Phase 1 complete. Ready for Phase 2 planning (admin/mobile import updates + next
 | 01 | 05 | 15 min | 2/2 | 7 |
 | 01 | 06 | ~10 min | 2/2 | 1 |
 | 01 | 07 | 6 min | 2/2 | 19 |
+| 02 | 01 | ~5 min | 2/2 | 3 |
+| 02 | 02 | ~14 min | 3/3 | 7 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
@@ -89,3 +100,5 @@ Phase 1 complete. Ready for Phase 2 planning (admin/mobile import updates + next
 - Requirements satisfied by 01-01: F1.1, F1.3, F1.5, NF2
 - Requirements satisfied by 01-07: F1.4, NF1, NF3
 - Phase 1 ALL requirements complete: F1.1, F1.2, F1.3, F1.4, F1.5, NF1, NF2, NF3
+- Requirements satisfied by 02-01: F2.1, F2.2, F2.4
+- Requirements satisfied by 02-02: F2.3, F2.5

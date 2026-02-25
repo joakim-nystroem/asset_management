@@ -10,11 +10,11 @@
 - **F1.5** Heavy data (assets array, dirtyCells Map, undo/redo stack) must be colocated in `<InventoryGrid>` as local `$state`
 
 ### F2 — Component Decomposition
-- **F2.1** `+page.svelte` must become a thin route shell (< 100 lines) that renders `<InventoryGrid>`
-- **F2.2** `<InventoryGrid>` owns all grid state and provides context to children
-- **F2.3** `<GridContainer>` renders only visible rows via virtual scroll — ignorant of editors, menus, clipboard
-- **F2.4** Each component has a corresponding `.svelte.ts` ViewModel/Controller with all logic
-- **F2.5** Components must not accept more than 3 props (use context for everything else)
+- **F2.1** `+page.svelte` must become a thin route shell (< 100 lines) that renders `<InventoryGrid>` ✓ (02-01: +page.svelte is context owner)
+- **F2.2** `<InventoryGrid>` owns all grid state and provides context to children ✓ (02-01: +page.svelte owns GridContext)
+- **F2.3** `<GridContainer>` renders only visible rows via virtual scroll — ignorant of editors, menus, clipboard ✓ (02-02: GridContainer has zero forbidden imports)
+- **F2.4** Each component has a corresponding `.svelte.ts` ViewModel/Controller with all logic ✓ (02-02: createPageController inline in +page.svelte)
+- **F2.5** Components must not accept more than 3 props (use context for everything else) ✓ (02-02: GridContainer=3, GridOverlays=0, Toolbar=1)
 
 ### F3 — FloatingEditor Component
 - **F3.1** `<FloatingEditor>` must live outside the grid DOM hierarchy
