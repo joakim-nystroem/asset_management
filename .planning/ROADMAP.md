@@ -17,7 +17,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 **Success:** No direct singleton imports in grid components; all state accessed via context getters.
 
-**Plans:** 3/7 plans executed
+**Plans:** 4/7 plans executed
 
 Plans:
 - [x] 01-01-PLAN.md — Create gridContext.svelte.ts + InventoryGrid.svelte context provider + slim +page.svelte
@@ -122,7 +122,7 @@ Plans:
 
 | Phase | Name | Key Output | Complexity |
 |-------|------|-----------|------------|
-| 1 | 3/7 | In Progress|  |
+| 1 | 4/7 | In Progress|  |
 | 2 | Component Decomposition | `InventoryGrid`, `GridContainer`, thin page | High |
 | 3 | FloatingEditor & ContextMenu | `FloatingEditor.svelte`, clean GridRow | Medium |
 | 4 | DB-Side Filtering | API filter endpoint, no client-side filtering | Medium |
