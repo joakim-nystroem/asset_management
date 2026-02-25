@@ -17,6 +17,17 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 **Success:** No direct singleton imports in grid components; all state accessed via context getters.
 
+**Plans:** 7 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Create gridContext.svelte.ts + InventoryGrid.svelte context provider + slim +page.svelte
+- [ ] 01-02-PLAN.md — Migrate validationManager, columnManager, rowManager (leaf managers, no deps)
+- [ ] 01-03-PLAN.md — Migrate selectionManager, historyManager (leaf managers, no deps)
+- [ ] 01-04-PLAN.md — Migrate editManager, changeManager, rowGenerationManager (depend on Plans 02-03)
+- [ ] 01-05-PLAN.md — Migrate clipboardManager, sortManager, viewManager (depend on Plans 02-03)
+- [ ] 01-06-PLAN.md — Audit + fix all grid component consumers; verify edit/selection/overlay chain
+- [ ] 01-07-PLAN.md — Move toastState, keep realtimeManager as singleton, delete utils/ tree, svelte-check gate
+
 ---
 
 ## Phase 2 — Component Decomposition
