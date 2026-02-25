@@ -44,6 +44,11 @@ export type GridContext = {
 
   // Column keys (from +page.svelte)
   keys: string[];
+
+  // Phase 2 additions — page-level shared state
+  filteredAssetsCount: number;    // length of filteredAssets; read by GridOverlays and ContextMenu to distinguish new vs existing rows
+  virtualScroll: any;             // single shared virtualScroll instance; typed as any to avoid circular import — will be tightened in Plan 02-03 directory restructure
+  scrollToRow: number | null;     // page sets to a row index when navigation needed; GridContainer observes via $effect, calls ensureVisible, resets to null
 };
 
 export const [getGridContext, setGridContext] = createContext<GridContext>();
