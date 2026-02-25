@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "project": "asset-management-rehaul",
+  "workflow": {
+    "research": "auto",
+    "verification": true,
+    "atomic_commits": true,
+    "parallel_execution": true
+  },
+  "model_profile": "balanced",
+  "phases_dir": ".planning/phases"
+}
