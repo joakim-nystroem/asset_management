@@ -216,7 +216,7 @@ export function createPageController(ctx: GridContext, deps: PageDeps) {
 </div>
 ```
 
-**Critical decision for planner:** `virtualScroll` instance must be accessible to multiple components (GridContainer needs it for scroll, +page.svelte needs it for `ensureVisible` on add-row). Either: (a) add `virtualScroll` to gridContext, or (b) pass it as a prop from +page.svelte. Given F2.5 (max 3 props), option (a) — add to context — is cleaner.
+**RESOLVED:** `virtualScroll` is added to gridContext. Created in +page.svelte (single instance), read by GridContainer via `getGridContext()`. Page never calls `virtualScroll.ensureVisible()` directly — instead it sets `ctx.scrollToRow: number | null` and GridContainer reacts. This also covers future validation navigation (navigate-to-next-error) without extra architecture.
 
 ### Pattern 4: GridOverlays — self-computing overlays
 **What:** GridOverlays currently receives 9 pre-computed props from InventoryGrid. It should compute its own overlays from context.
@@ -253,7 +253,7 @@ type Props = {
 **Key risk:** Every import of these paths must be updated. With TypeScript aliases like `$lib/`, this is search-and-replace on the path segment.
 
 ### Anti-Patterns to Avoid
-- **Adding virtualScroll to context too late:** If GridContainer needs virtualScroll to render, and ensureVisible needs it in +page.svelte.ts, add it to context at creation time (in the $state literal in +page.svelte). Don't retrofit it.
+- **Adding virtualScroll to context too late:** GridContainer needs virtualScroll to render; create the single instance in +page.svelte and add it to the ctx literal at creation time. Don't retrofit it. Page sets `ctx.scrollToRow` — never calls `ensureVisible` directly.
 - **Keeping filteredAssets/baseAssets as component state in a child:** These are page-level data arrays (mutated by search, sort, realtime, paste, commit). They must stay in +page.svelte scope (or its controller). GridContainer reads only the final `assets` array, which is `$derived([...filteredAssets, ...rowGen.newRows])`.
 - **Moving $effects into .svelte.ts files incorrectly:** `$effect` works in `.svelte.ts` files only when the module is treated as a reactive module. The page controller factory pattern (called from within the .svelte component) ensures the reactive root is established correctly.
 - **prop-drilling textareaRef:** `textareaRef` is currently `bind:this` in GridRow, passed up via `bind:textareaRef` to InventoryGrid where `saveEdit` calls `edit.updateRowHeight(textareaRef)`. After decomposition, `textareaRef` handling stays inside GridRow — `edit.updateRowHeight` call moves inside GridRow's save flow, not passed up.
@@ -278,10 +278,11 @@ type Props = {
 **How to avoid:** The `const ctx = $state<GridContext>({...}); setGridContext(ctx);` block stays in `+page.svelte` script, at module top level, with no `await` before it. The page controller factory receives `ctx` as parameter — it does not create context.
 **Warning signs:** Runtime error "Cannot call setContext after component has mounted" or child components getting undefined context.
 
-### Pitfall 2: virtualScroll instance not shared
-**What goes wrong:** GridContainer creates its own `createVirtualScroll()` instance; +page.svelte.ts calls `ensureVisible` on a different instance; scroll doesn't work.
-**Why it happens:** `createVirtualScroll()` is a factory — each call creates independent reactive state. Two instances means two different `scrollTop` values.
-**How to avoid:** Create the single `virtualScroll` instance in +page.svelte (same as today in InventoryGrid), add it to gridContext, and have GridContainer read it from context with `getGridContext()`.
+### Pitfall 2: Page calling virtualScroll directly (wrong owner)
+**What goes wrong:** +page.svelte.ts calls `virtualScroll.ensureVisible(newIndex)` directly after adding a row. This couples the page to viewport mechanics, and breaks when validation navigation also needs scroll-to-row.
+**Why it happens:** Old InventoryGrid owned both data mutation and virtualScroll — the coupling was invisible. After decomposition, scroll is a viewport concern.
+**How to avoid:** Add `scrollToRow: number | null` to GridContext. Page sets `ctx.scrollToRow = index`; GridContainer watches it in `$effect` and calls `virtualScroll.ensureVisible()` internally. This serves both "add row" and future "navigate to next invalid cell" use cases.
+**Secondary risk:** GridContainer creating its own `createVirtualScroll()` instance while page holds a different one — two independent scroll states. Avoid by creating the single instance in +page.svelte, adding it to gridContext, and having GridContainer read it via `getGridContext()`.
 **Warning signs:** `ensureVisible` after "Add Row" does nothing; scroll position doesn't update after keyboard navigation.
 
 ### Pitfall 3: Toolbar callbacks need page-level data
@@ -508,10 +509,11 @@ export function createPageController(ctx: GridContext, deps: {
 
 ## Open Questions
 
-1. **Where does virtualScroll live after decomposition?**
-   - What we know: GridContainer needs it for render; +page.svelte needs it for `ensureVisible` after add-row; currently created in InventoryGrid scope.
-   - What's unclear: Whether to put it in gridContext (simplest sharing) or manage it as a prop/store.
-   - Recommendation: Add `virtualScroll: VirtualScrollManager` to `GridContext` type and create the instance as part of the context literal in +page.svelte. Cleanest solution — avoids prop threading and preserves single instance.
+1. **Where does virtualScroll live, and how does scroll-to-row work?**
+   - **RESOLVED (2026-02-25 discussion):** `+page.svelte` must NOT call `virtualScroll.ensureVisible()` directly — scrolling is a viewport concern.
+   - **Pattern:** Add `scrollToRow: number | null` to `GridContext`. Page sets `ctx.scrollToRow = index` when it needs the viewport to scroll (after add-row, after navigate-to-error). GridContainer has a `$effect` watching this field and calls `virtualScroll.ensureVisible()` internally. GridContainer resets the field to `null` after handling.
+   - **Why:** This also covers the future "navigate to next invalid cell" use case (Phase 5 validation navigation) without any additional architecture. Page just sets `ctx.scrollToRow`; GridContainer handles all scroll mechanics.
+   - **virtualScroll instance:** Created in +page.svelte (single instance), added to gridContext. GridContainer reads it from context — no prop threading needed.
 
 2. **How does Toolbar trigger page-level actions within F2.5 (max 3 props)?**
    - What we know: Toolbar currently has 10 props, many are callbacks. The callbacks (`commitChanges`, `discardChanges`, etc.) are page-level and need `filteredAssets`, `baseAssets`, history, changes, rowGen — all of which live at page level.
