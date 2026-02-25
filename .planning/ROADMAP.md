@@ -20,7 +20,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 **Plans:** 7 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Create gridContext.svelte.ts + InventoryGrid.svelte context provider + slim +page.svelte
+- [x] 01-01-PLAN.md — Create gridContext.svelte.ts + InventoryGrid.svelte context provider + slim +page.svelte
 - [ ] 01-02-PLAN.md — Migrate validationManager, columnManager, rowManager (leaf managers, no deps)
 - [ ] 01-03-PLAN.md — Migrate selectionManager, historyManager (leaf managers, no deps)
 - [ ] 01-04-PLAN.md — Migrate editManager, changeManager, rowGenerationManager (depend on Plans 02-03)
