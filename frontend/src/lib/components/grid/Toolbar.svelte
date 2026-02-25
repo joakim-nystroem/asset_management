@@ -1,11 +1,11 @@
 <script lang="ts">
   import type { SafeUser } from '$lib/types';
-  import type { FilterPanelState } from "$lib/components/grid/filter-panel/filterPanel.svelte.ts";
+  import type { FilterPanelState } from "$lib/grid/components/filter-panel/filterPanel.svelte.ts";
   import type { Filter } from '$lib/data/searchManager.svelte';
-  import FilterPanel from "$lib/components/grid/filter-panel/filterPanel.svelte";
+  import FilterPanel from "$lib/grid/components/filter-panel/filterPanel.svelte";
   import { searchManager } from "$lib/data/searchManager.svelte";
-  import { createChangeController } from "$lib/components/grid/changes/gridChanges.svelte.ts";
-  import { createRowGenerationController } from "$lib/components/grid/rows/rowGeneration.svelte.ts";
+  import { createChangeController } from "$lib/grid/utils/gridChanges.svelte.ts";
+  import { createRowGenerationController } from "$lib/grid/utils/rowGeneration.svelte.ts";
   import { getGridContext } from '$lib/context/gridContext.svelte.ts';
 
   const changes = createChangeController();

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
+  import { createColumnController } from "$lib/grid/utils/gridColumns.svelte.ts";
   import { getGridContext } from '$lib/context/gridContext.svelte.ts';
 
   const columns = createColumnController();

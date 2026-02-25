@@ -1,4 +1,4 @@
-// src/lib/components/grid/clipboard/gridClipboard.svelte.ts
+// src/lib/grid/utils/gridClipboard.svelte.ts
 //
 // Co-located clipboard controller — replaces utils/interaction/clipboardManager.svelte.ts.
 // Reads selection state from gridContext (set by createSelectionController in Plan 03).

@@ -1,4 +1,4 @@
-// src/lib/components/grid/history/gridHistory.svelte.ts
+// src/lib/grid/utils/gridHistory.svelte.ts
 //
 // Co-located history controller — replaces utils/interaction/historyManager.svelte.ts.
 // History is an InventoryGrid-scoped concern (only InventoryGrid and its keyboard handlers

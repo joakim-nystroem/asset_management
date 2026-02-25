@@ -1,9 +1,9 @@
 <script lang="ts">
   import { getGridContext } from '$lib/context/gridContext.svelte.ts';
-  import { createSelectionController } from '$lib/components/grid/selection/gridSelection.svelte.ts';
-  import { createColumnController } from '$lib/components/grid/columns/gridColumns.svelte.ts';
-  import { createChangeController } from '$lib/components/grid/changes/gridChanges.svelte.ts';
-  import { createRowGenerationController } from '$lib/components/grid/rows/rowGeneration.svelte.ts';
+  import { createSelectionController } from '$lib/grid/utils/gridSelection.svelte.ts';
+  import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
+  import { createChangeController } from '$lib/grid/utils/gridChanges.svelte.ts';
+  import { createRowGenerationController } from '$lib/grid/utils/rowGeneration.svelte.ts';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import { gridShortcuts } from '$lib/grid/utils/gridShortcuts.svelte.ts';
 

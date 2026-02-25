@@ -1,4 +1,4 @@
-// src/lib/components/grid/selection/gridSelection.svelte.ts
+// src/lib/grid/utils/gridSelection.svelte.ts
 //
 // Co-located selection controller — replaces utils/interaction/selectionManager.svelte.ts.
 // State lives in gridContext (cross-component: GridRow, GridOverlays, GridHeader, InventoryGrid

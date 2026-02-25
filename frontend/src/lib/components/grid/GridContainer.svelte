@@ -1,11 +1,11 @@
 <script lang="ts">
   import { getGridContext } from '$lib/context/gridContext.svelte.ts';
-  import { createColumnController } from '$lib/components/grid/columns/gridColumns.svelte.ts';
-  import { createRowController } from '$lib/components/grid/rows/gridRows.svelte.ts';
+  import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
+  import { createRowController } from '$lib/grid/utils/gridRows.svelte.ts';
   import GridRow from '$lib/components/grid/GridRow.svelte';
   import GridHeader from '$lib/components/grid/GridHeader.svelte';
   import GridOverlays from '$lib/components/grid/GridOverlays.svelte';
-  import HeaderMenu from '$lib/components/grid/header-menu/headerMenu.svelte';
+  import HeaderMenu from '$lib/grid/components/header-menu/headerMenu.svelte';
   import { searchManager } from '$lib/data/searchManager.svelte';
   // NO import of ContextMenu, editDropdown, autocomplete, FloatingEditor
 

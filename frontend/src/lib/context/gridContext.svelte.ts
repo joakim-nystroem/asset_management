@@ -1,9 +1,9 @@
 import { createContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
-import type { FilterPanelState } from '$lib/components/grid/filter-panel/filterPanel.svelte.ts';
+import type { FilterPanelState } from '$lib/grid/components/filter-panel/filterPanel.svelte.ts';
 import type { SafeUser } from '$lib/types';
-import type { createEditDropdown } from '$lib/components/grid/edit-dropdown/editDropdown.svelte.ts';
-import type { createAutocomplete } from '$lib/components/grid/suggestion-menu/autocomplete.svelte.ts';
+import type { createEditDropdown } from '$lib/grid/components/edit-dropdown/editDropdown.svelte.ts';
+import type { createAutocomplete } from '$lib/grid/components/suggestion-menu/autocomplete.svelte.ts';
 
 export type GridCell = { row: number; col: number };
 
