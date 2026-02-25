@@ -4,7 +4,7 @@
   import { beforeNavigate } from '$app/navigation';
   import { enhance } from '$app/forms';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
-  import ToastContainer from '$lib/utils/ui/toast/ToastContainer.svelte';
+  import ToastContainer from '$lib/components/toast/ToastContainer.svelte';
   
   let { children, data } = $props();
   // svelte-ignore state_referenced_locally

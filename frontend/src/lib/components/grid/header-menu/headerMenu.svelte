@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { HeaderMenuState } from './headerMenu.svelte.ts';
-  import type { SearchManager } from '$lib/utils/data/searchManager.svelte';
+  import type { SearchManager } from '$lib/data/searchManager.svelte';
 
   type SortDirection = 'asc' | 'desc';
 

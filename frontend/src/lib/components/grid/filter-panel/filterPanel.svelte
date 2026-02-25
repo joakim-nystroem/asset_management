@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { FilterPanelState } from './filterPanel.svelte.ts';
-  import type { SearchManager } from '$lib/utils/data/searchManager.svelte';
+  import type { SearchManager } from '$lib/data/searchManager.svelte';
   
   type Props = {
     state: FilterPanelState;

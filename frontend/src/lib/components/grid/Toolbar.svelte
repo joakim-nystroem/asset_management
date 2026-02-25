@@ -1,9 +1,9 @@
 <script lang="ts">
   import type { SafeUser } from '$lib/types';
-  import type { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.ts";
-  import type { Filter } from '$lib/utils/data/searchManager.svelte';
-  import FilterPanel from "$lib/utils/ui/filterPanel/filterPanel.svelte";
-  import { searchManager } from "$lib/utils/data/searchManager.svelte";
+  import type { FilterPanelState } from "$lib/components/grid/filter-panel/filterPanel.svelte.ts";
+  import type { Filter } from '$lib/data/searchManager.svelte';
+  import FilterPanel from "$lib/components/grid/filter-panel/filterPanel.svelte";
+  import { searchManager } from "$lib/data/searchManager.svelte";
   import { createChangeController } from "$lib/components/grid/changes/gridChanges.svelte.ts";
   import { createRowGenerationController } from "$lib/components/grid/rows/rowGeneration.svelte.ts";
   import { getGridContext } from '$lib/context/gridContext.svelte.ts';

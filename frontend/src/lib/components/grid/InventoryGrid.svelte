@@ -6,7 +6,7 @@
   import { SvelteURL, SvelteMap } from 'svelte/reactivity';
 
   // --- TYPES ---
-  import type { Filter } from '$lib/utils/data/searchManager.svelte';
+  import type { Filter } from '$lib/data/searchManager.svelte';
   import type { SafeUser } from '$lib/types';
 
   // --- CONTEXT ---
@@ -14,8 +14,8 @@
   import type { GridContext } from '$lib/context/gridContext.svelte.ts';
 
   // --- COMPONENTS ---
-  import ContextMenu from "$lib/utils/ui/contextMenu/contextMenu.svelte";
-  import HeaderMenu from "$lib/utils/ui/headerMenu/headerMenu.svelte";
+  import ContextMenu from "$lib/components/grid/context-menu/contextMenu.svelte";
+  import HeaderMenu from "$lib/components/grid/header-menu/headerMenu.svelte";
   import Toolbar from "$lib/components/grid/Toolbar.svelte";
   import GridHeader from "$lib/components/grid/GridHeader.svelte";
   import GridOverlays from "$lib/components/grid/GridOverlays.svelte";
@@ -25,23 +25,23 @@
   import { createInteractionHandler } from "$lib/utils/interaction/interactionHandler";
 
   // --- STATE CLASSES ---
-  import { ContextMenuState } from "$lib/utils/ui/contextMenu/contextMenu.svelte.ts";
+  import { ContextMenuState } from "$lib/components/grid/context-menu/contextMenu.svelte.ts";
   import { createHistoryController } from "$lib/components/grid/history/gridHistory.svelte.ts";
-  import { createHeaderMenu } from "$lib/utils/ui/headerMenu/headerMenu.svelte.ts";
+  import { createHeaderMenu } from "$lib/components/grid/header-menu/headerMenu.svelte.ts";
   import { createSelectionController } from "$lib/components/grid/selection/gridSelection.svelte.ts";
   import { createClipboardController } from "$lib/components/grid/clipboard/gridClipboard.svelte.ts";
-  import { createEditDropdown } from "$lib/utils/ui/editDropdown/editDropdown.svelte.ts";
-  import { createAutocomplete } from "$lib/utils/ui/suggestionMenu/autocomplete.svelte.ts";
-  import { searchManager } from "$lib/utils/data/searchManager.svelte";
-  import { createVirtualScroll } from "$lib/utils/core/virtualScrollManager.svelte";
+  import { createEditDropdown } from "$lib/components/grid/edit-dropdown/editDropdown.svelte.ts";
+  import { createAutocomplete } from "$lib/components/grid/suggestion-menu/autocomplete.svelte.ts";
+  import { searchManager } from "$lib/data/searchManager.svelte";
+  import { createVirtualScroll } from "$lib/components/grid/virtualScrollManager.svelte";
   import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
   import { createRowController } from "$lib/components/grid/rows/gridRows.svelte.ts";
   import { createValidationController } from "$lib/components/grid/validation/gridValidation.svelte.ts";
   import { createEditController } from "$lib/components/grid/edit/gridEdit.svelte.ts";
-  import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.ts";
+  import { FilterPanelState } from "$lib/components/grid/filter-panel/filterPanel.svelte.ts";
   import { createChangeController } from "$lib/components/grid/changes/gridChanges.svelte.ts";
   import { realtime } from "$lib/utils/interaction/realtimeManager.svelte";
-  import { toastState } from "$lib/utils/ui/toast/toastState.svelte";
+  import { toastState } from "$lib/components/toast/toastState.svelte";
   import { createRowGenerationController } from "$lib/components/grid/rows/rowGeneration.svelte.ts";
 
   // --- PROPS ---

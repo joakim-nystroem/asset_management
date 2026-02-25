@@ -1,15 +1,15 @@
 <script lang="ts">
   import type { SafeUser } from '$lib/types';
-  import type { EditDropdown } from "$lib/utils/ui/editDropdown/editDropdown.svelte.ts";
-  import type { Autocomplete } from "$lib/utils/ui/suggestionMenu/autocomplete.svelte.ts";
+  import type { EditDropdown } from "$lib/components/grid/edit-dropdown/editDropdown.svelte.ts";
+  import type { Autocomplete } from "$lib/components/grid/suggestion-menu/autocomplete.svelte.ts";
   import { getGridContext } from "$lib/context/gridContext.svelte.ts";
   import { createEditController } from "$lib/components/grid/edit/gridEdit.svelte.ts";
   import { createSelectionController } from "$lib/components/grid/selection/gridSelection.svelte.ts";
   import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
   import { createRowController } from "$lib/components/grid/rows/gridRows.svelte.ts";
-  import { toastState } from "$lib/utils/ui/toast/toastState.svelte";
-  import EditDropdownComponent from "$lib/utils/ui/editDropdown/editDropdown.svelte";
-  import AutocompleteComponent from "$lib/utils/ui/suggestionMenu/autocomplete.svelte";
+  import { toastState } from "$lib/components/toast/toastState.svelte";
+  import EditDropdownComponent from "$lib/components/grid/edit-dropdown/editDropdown.svelte";
+  import AutocompleteComponent from "$lib/components/grid/suggestion-menu/autocomplete.svelte";
 
   const ctx = getGridContext();
   const edit = createEditController();
