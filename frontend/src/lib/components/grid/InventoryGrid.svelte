@@ -26,17 +26,18 @@
 
   // --- STATE CLASSES ---
   import { ContextMenuState } from "$lib/utils/ui/contextMenu/contextMenu.svelte.ts";
-  import { historyManager } from "$lib/utils/interaction/historyManager.svelte";
+  import { createHistoryController } from "$lib/components/grid/history/gridHistory.svelte.ts";
   import { createHeaderMenu } from "$lib/utils/ui/headerMenu/headerMenu.svelte.ts";
-  import { selection } from "$lib/utils/interaction/selectionManager.svelte";
+  import { createSelectionController } from "$lib/components/grid/selection/gridSelection.svelte.ts";
   import { createClipboard } from "$lib/utils/interaction/clipboardManager.svelte";
   import { createEditDropdown } from "$lib/utils/ui/editDropdown/editDropdown.svelte.ts";
   import { createAutocomplete } from "$lib/utils/ui/suggestionMenu/autocomplete.svelte.ts";
   import { searchManager } from "$lib/utils/data/searchManager.svelte";
   import { sortManager } from "$lib/utils/data/sortManager.svelte";
   import { createVirtualScroll } from "$lib/utils/core/virtualScrollManager.svelte";
-  import { columnManager } from "$lib/utils/core/columnManager.svelte";
-  import { rowManager } from "$lib/utils/core/rowManager.svelte";
+  import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
+  import { createRowController } from "$lib/components/grid/rows/gridRows.svelte.ts";
+  import { createValidationController } from "$lib/components/grid/validation/gridValidation.svelte.ts";
   import { viewManager } from "$lib/utils/core/viewManager.svelte";
   import { editManager } from "$lib/utils/interaction/editManager.svelte";
   import { FilterPanelState } from "$lib/utils/ui/filterPanel/filterPanel.svelte.ts";
@@ -44,7 +45,6 @@
   import { realtime } from "$lib/utils/interaction/realtimeManager.svelte";
   import { toastState } from "$lib/utils/ui/toast/toastState.svelte";
   import { rowGenerationManager } from "$lib/utils/interaction/rowGenerationManager.svelte";
-  import { validationManager } from "$lib/utils/data/validationManager.svelte";
 
   // --- PROPS ---
   type Props = {
@@ -103,6 +103,13 @@
 
   setGridContext(ctx);
 
+  // Initialize co-located controllers (must be after setGridContext)
+  const columns = createColumnController();
+  const rows = createRowController();
+  const validation = createValidationController();
+  const selection = createSelectionController();
+  const history = createHistoryController();
+
   // Initialize State Classes
   const contextMenu = new ContextMenuState();
   const headerMenu = createHeaderMenu();
@@ -116,7 +123,7 @@
   // (singletons persist across client-side navigation, causing stale data on refresh)
   rowGenerationManager.clearNewRows();
   changeManager.clear();
-  historyManager.clear();
+  history.clear();
 
   // Always sync view from server data (prevents singleton stale state on navigation)
   // svelte-ignore state_referenced_locally
@@ -265,7 +272,7 @@
       };
 
       changeManager.setConstraints(constraints);
-      validationManager.setConstraints(constraints);
+      validation.setConstraints(constraints);
 
       // Note: Validation for new rows now happens only on commit
     });
@@ -275,7 +282,7 @@
     selection.computeDirtyCellOverlays(
       virtualScroll.visibleRange,
       keys,
-      columnManager,
+      (key) => columns.getWidth(key),
       virtualScroll.rowHeight,
       // Add this callback:
       (row, col) => {
@@ -371,8 +378,8 @@
         1,
         scrollContainer,
         keys,
-        columnManager,
-        rowManager
+        columns,
+        rows
       );
 
       // Select the first cell of the new row
@@ -391,7 +398,7 @@
       selection.end,
       virtualScroll.visibleRange,
       keys,
-      columnManager,
+      (key) => columns.getWidth(key),
       virtualScroll.rowHeight,
     ),
   );
@@ -402,20 +409,20 @@
           selection.copyEnd,
           virtualScroll.visibleRange,
           keys,
-          columnManager,
+          (key) => columns.getWidth(key),
           virtualScroll.rowHeight,
         )
       : null,
   );
   const mountInteraction = createInteractionHandler(
-    { selection, columnManager, contextMenu, headerMenu },
+    { selection, columns, contextMenu, headerMenu },
     {
       onCopy: async () => {
         await handleCopy();
       },
       onPaste: handlePaste,
       onUndo: () => {
-        const undoneBatch = historyManager.undo(assets);
+        const undoneBatch = history.undo(assets);
         if (undoneBatch) {
           for (const action of undoneBatch) {
             changeManager.update({
@@ -428,7 +435,7 @@
         }
       },
       onRedo: () => {
-        const redoneBatch = historyManager.redo(assets);
+        const redoneBatch = history.redo(assets);
         if (redoneBatch) {
           for (const action of redoneBatch) {
             changeManager.update(action);
@@ -438,7 +445,7 @@
       onEscape: () => {
         if (editManager.isEditing) {
           releaseEditLock();
-          editManager.cancel(columnManager, rowManager);
+          editManager.cancel(columns, rows);
           return;
         }
 
@@ -457,8 +464,8 @@
           col,
           scrollContainer,
           keys,
-          columnManager,
-          rowManager,
+          columns,
+          rows,
         );
       },
       getGridSize: () => ({ rows: assets.length, cols: keys.length }),
@@ -624,7 +631,7 @@
 
     const target = invalidCells[errorNavigationIndex];
     selection.selectCell(target.row, target.col);
-    virtualScroll.ensureVisible(target.row, target.col, scrollContainer, keys, columnManager);
+    virtualScroll.ensureVisible(target.row, target.col, scrollContainer, keys, columns);
   }
 
   async function handlePaste() {
@@ -682,7 +689,7 @@
 
       // Record ALL paste changes as a single undo batch
       if (existingRowChanges.length > 0) {
-        historyManager.recordBatch(existingRowChanges);
+        history.recordBatch(existingRowChanges);
       }
     }
 
@@ -764,8 +771,8 @@
     const currentValue = String(asset[key] ?? "");
 
     // Show dropdown for columns with value restrictions
-    if (validationManager.hasConstraints(key)) {
-      const validValues = validationManager.getValidValues(key);
+    if (validation.hasConstraints(key)) {
+      const validValues = validation.getValidValues(key);
       editDropdown.show(validValues, currentValue);
     } else {
       editDropdown.hide();
@@ -776,8 +783,8 @@
       col,
       key,
       currentValue,
-      columnManager,
-      rowManager,
+      columns,
+      rows,
     );
 
     // Notify other users that we're editing this cell
@@ -788,7 +795,7 @@
 
     await tick();
     if (textareaRef) {
-      editManager.updateRowHeight(textareaRef, rowManager, columnManager);
+      editManager.updateRowHeight(textareaRef, rows, columns);
       textareaRef.focus();
       textareaRef.select();
     }
@@ -820,14 +827,14 @@
       rowGenerationManager.updateNewRowField(newRowIndex, key, newValue);
 
       // Reset the edit manager
-      editManager.cancel(columnManager, rowManager);
+      editManager.cancel(columns, rows);
     } else {
       // Existing row - validate first
       const key = keys[pos.col];
       const newValue = editManager.inputValue.trim();
 
       // Validate the value before saving
-      if (!validationManager.isValidValue(key, newValue)) {
+      if (!validation.isValidValue(key, newValue)) {
         toastState.addToast(
           `Invalid value for ${key}. Please check constraints.`,
           "warning"
@@ -837,7 +844,7 @@
       }
 
       // Existing row - use normal flow
-      const change = await editManager.save(filteredAssets, columnManager, rowManager);
+      const change = await editManager.save(filteredAssets, columns, rows);
 
       if (change) {
         // Also update baseAssets to keep them in sync
@@ -853,7 +860,7 @@
           oldValue: change.oldValue,
           newValue: change.newValue,
         };
-        historyManager.recordBatch([action]);
+        history.recordBatch([action]);
         changeManager.update(action);
       }
     }
@@ -866,7 +873,7 @@
     editDropdown.hide();
     autocomplete.clear();
     releaseEditLock();
-    editManager.cancel(columnManager, rowManager);
+    editManager.cancel(columns, rows);
     if (pos) selection.selectCell(pos.row, pos.col);
   }
 
@@ -1047,7 +1054,7 @@
     }
 
     // Remove the discarded changes from history
-    historyManager.clearCommitted(changesToRevert);
+    history.clearCommitted(changesToRevert);
 
     // Clear all changes and new rows
     changeManager.clear();
@@ -1073,7 +1080,7 @@
 
       // Only clear managers on actual component unmount
       changeManager.clear();
-      historyManager.clear();
+      history.clear();
       rowGenerationManager.clearNewRows();
     };
   });
@@ -1150,7 +1157,7 @@
                 sortManager.invalidateCache();
                 sortManager.reset();
                 changeManager.clear();
-                historyManager.clear();
+                history.clear();
                 rowGenerationManager.clearNewRows();
                 return;
               }
@@ -1195,7 +1202,7 @@
               }
             }
             changeManager.clear();
-            historyManager.clear();
+            history.clear();
           }
           if (rowGenerationManager.hasNewRows) {
             rowGenerationManager.clearNewRows();
@@ -1290,7 +1297,7 @@
 
     <div
       class="w-max min-w-full bg-white dark:bg-slate-800 text-left relative"
-      style="height: {virtualScroll.getTotalHeight(assets.length, rowManager) +
+      style="height: {virtualScroll.getTotalHeight(assets.length, rows) +
         32 + 16}px;"
     >
       <GridHeader
@@ -1303,7 +1310,7 @@
 
       <div
         class="absolute top-8 w-full"
-        style="transform: translateY({virtualScroll.getOffsetY(rowManager)}px);"
+        style="transform: translateY({virtualScroll.getOffsetY(rows)}px);"
       >
         <GridOverlays
           {keys}
@@ -1320,7 +1327,7 @@
 
         {#each visibleData.items as asset, i (asset.id || visibleData.startIndex + i)}
           {@const actualIndex = visibleData.startIndex + i}
-          {@const rowHeight = rowManager.getHeight(actualIndex)}
+          {@const rowHeight = rows.getHeight(actualIndex)}
           {@const isNewRow = actualIndex >= filteredAssets.length}
 
           <div

@@ -3,12 +3,16 @@
   import type { EditDropdown } from "$lib/utils/ui/editDropdown/editDropdown.svelte.ts";
   import type { Autocomplete } from "$lib/utils/ui/suggestionMenu/autocomplete.svelte.ts";
   import { editManager } from "$lib/utils/interaction/editManager.svelte";
-  import { selection } from "$lib/utils/interaction/selectionManager.svelte";
-  import { columnManager } from "$lib/utils/core/columnManager.svelte";
-  import { rowManager } from "$lib/utils/core/rowManager.svelte";
+  import { createSelectionController } from "$lib/components/grid/selection/gridSelection.svelte.ts";
+  import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
+  import { createRowController } from "$lib/components/grid/rows/gridRows.svelte.ts";
   import { toastState } from "$lib/utils/ui/toast/toastState.svelte";
   import EditDropdownComponent from "$lib/utils/ui/editDropdown/editDropdown.svelte";
   import AutocompleteComponent from "$lib/utils/ui/suggestionMenu/autocomplete.svelte";
+
+  const selection = createSelectionController();
+  const columns = createColumnController();
+  const rows = createRowController();
 
   type Props = {
     asset: Record<string, any>;
@@ -93,9 +97,9 @@
       ? ''
       : 'px-2 cursor-cell hover:bg-blue-100 dark:hover:bg-slate-600'}
     "
-    style="width: {columnManager.getWidth(
+    style="width: {columns.getWidth(
       key,
-    )}px; min-width: {columnManager.getWidth(key)}px;"
+    )}px; min-width: {columns.getWidth(key)}px;"
   >
     {#if isEditingThisCell}
       <div class="relative w-full h-full">
@@ -103,7 +107,7 @@
           bind:this={textareaRef}
           bind:value={editManager.inputValue}
           oninput={() => {
-            editManager.updateRowHeight(textareaRef, rowManager, columnManager);
+            editManager.updateRowHeight(textareaRef, rows, columns);
             // Update suggestions for free-text columns (not constrained dropdown columns)
             if (!editDropdown.isVisible) {
               autocomplete.updateSuggestions(assets, key, editManager.inputValue);

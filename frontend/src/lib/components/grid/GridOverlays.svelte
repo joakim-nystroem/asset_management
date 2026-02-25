@@ -1,8 +1,11 @@
 <script lang="ts">
-  import { selection } from "$lib/utils/interaction/selectionManager.svelte";
-  import { columnManager } from "$lib/utils/core/columnManager.svelte";
+  import { createSelectionController } from "$lib/components/grid/selection/gridSelection.svelte.ts";
+  import { createColumnController } from "$lib/components/grid/columns/gridColumns.svelte.ts";
   import { changeManager } from "$lib/utils/interaction/changeManager.svelte";
   import { rowGenerationManager } from "$lib/utils/interaction/rowGenerationManager.svelte";
+
+  const selection = createSelectionController();
+  const columns = createColumnController();
 
   type Props = {
     keys: string[];
@@ -30,7 +33,7 @@
     position,
     virtualScroll.visibleRange,
     keys,
-    columnManager,
+    (key) => columns.getWidth(key),
     virtualScroll.rowHeight,
   )}
   {#if otherUserOverlay}
@@ -134,7 +137,7 @@
   {@const overlayColIndex = (() => {
     let accWidth = 0;
     for (let c = 0; c < keys.length; c++) {
-      const colWidth = columnManager.getWidth(keys[c]);
+      const colWidth = columns.getWidth(keys[c]);
       if (overlay.left < accWidth + colWidth) return c;
       accWidth += colWidth;
     }

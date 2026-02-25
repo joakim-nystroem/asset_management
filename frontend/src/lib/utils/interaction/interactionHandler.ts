@@ -37,7 +37,7 @@ export type InteractionCallbacks = {
 export function createInteractionHandler(
   state: {
     selection: SelectionManager;
-    columnManager: ColumnManager;
+    columns: ColumnManager;
     contextMenu: ContextMenuState;
     headerMenu: HeaderMenuState;
   },
@@ -170,15 +170,15 @@ export function createInteractionHandler(
   }
 
   function handleWindowMouseMove(e: MouseEvent) {
-    if (state.columnManager.resizingColumn) {
+    if (state.columns.resizingColumn) {
       e.preventDefault();
-      state.columnManager.updateResize(e.clientX);
+      state.columns.updateResize(e.clientX);
     }
   }
 
   function handleWindowMouseUp() {
-    if (state.columnManager.resizingColumn) {
-      state.columnManager.endResize();
+    if (state.columns.resizingColumn) {
+      state.columns.endResize();
       document.body.style.cursor = ''; 
     }
     state.selection.endSelection();
