@@ -3,12 +3,12 @@
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 03
-- **Current Plan:** Not started
-- **Last Action:** Executed 02-03-PLAN.md — moved 10 controllers to lib/grid/utils/, 5 component pairs to lib/grid/components/, updated all import paths, svelte-check 0 errors
-- **Last Session:** 2026-02-25T13:19:00Z
+- **Current Plan:** 03-02 complete (2/3)
+- **Last Action:** Executed 03-02-PLAN.md — created FloatingEditor.svelte + floatingEditor.svelte.ts, chunk-relative positioned overlay with full keyboard/dropdown/autocomplete handling
+- **Last Session:** 2026-02-26T00:00:00Z
 
 ## Active Work
-Phase 2 complete. All plans (02-01, 02-02, 02-03) executed. Next: Phase 3 (FloatingEditor & ContextMenu) — not yet planned.
+Phase 3 in progress. 03-02 complete. Next: 03-03 (mount FloatingEditor in GridOverlays, strip inline editor from GridRow).
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -57,6 +57,11 @@ Phase 2 complete. All plans (02-01, 02-02, 02-03) executed. Next: Phase 3 (Float
 - [Phase 02 Plan 03]: Pure controller files (no .svelte sibling) live under lib/grid/utils/ — directory communicates intent
 - [Phase 02 Plan 03]: Component pairs (.svelte + .svelte.ts) live under lib/grid/components/ — collocated by convention
 - [Phase 02 Plan 03]: Top-level grid components (GridRow, GridHeader, GridOverlays, Toolbar, GridContainer) stay at lib/components/grid/ root — only subdir files moved per user decision
+- [Phase 03 Plan 02]: ctx.keys is already in GridContext — no extra prop needed on FloatingEditor
+- [Phase 03 Plan 02]: ctx.virtualScroll typed as any in context — used directly without importing VirtualScrollManager factory; avoids circular import
+- [Phase 03 Plan 02]: FloatingEditor reads editDropdown/autocomplete entirely from ctx — zero prop drilling
+- [Phase 03 Plan 02]: onblur uses setTimeout to avoid blur/mousedown race with dropdown selection
+- [Phase 03 Plan 02]: $effect watches ctx.isEditing (not textareaRef binding alone) to trigger focus on every edit start
 
 ## Key Context
 - Working dir: `/home/joakim/asset_management`
@@ -78,7 +83,7 @@ Phase 2 complete. All plans (02-01, 02-02, 02-03) executed. Next: Phase 3 (Float
 |-------|--------|------|
 | 1 | complete | 01-01 ✓, 01-02 ✓, 01-03 ✓, 01-04 ✓, 01-05 ✓, 01-06 ✓, 01-07 ✓ |
 | 2 | complete | 02-01 ✓, 02-02 ✓, 02-03 ✓ |
-| 3 | pending | not planned |
+| 3 | in-progress | 03-01 ✓, 03-02 ✓, 03-03 pending |
 | 4 | pending | not planned |
 | 5 | pending | not planned |
 | 6 | pending | not planned |
@@ -97,6 +102,7 @@ Phase 2 complete. All plans (02-01, 02-02, 02-03) executed. Next: Phase 3 (Float
 | 02 | 01 | ~5 min | 2/2 | 3 |
 | 02 | 02 | ~14 min | 3/3 | 7 |
 | 02 | 03 | ~8 min | 2/2 | 30 |
+| 03 | 02 | ~10 min | 2/2 | 2 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
@@ -109,3 +115,4 @@ Phase 2 complete. All plans (02-01, 02-02, 02-03) executed. Next: Phase 3 (Float
 - Requirements satisfied by 02-01: F2.1, F2.2, F2.4
 - Requirements satisfied by 02-02: F2.3, F2.5
 - Requirements satisfied by 02-03: F2.4 (directory structure enforces utility vs component convention)
+- Requirements satisfied by 03-02: F3.1, F3.2, F3.3, F3.4, F3.5 (FloatingEditor component pair created)
