@@ -1,130 +1,166 @@
 # Roadmap: Architecture Rehaul — Milestone 1
 
 ## Milestone Goal
-Transform the asset management grid from a tightly-coupled monolith into a strictly modular, context-driven, component-autonomous architecture as defined in the To-Be Architecture specification.
+Transform the asset management grid from a tightly-coupled monolith into a strictly modular, context-driven, component-autonomous architecture using Svelte 5's `createContext` pattern with multiple focused contexts, thin route wrappers, and self-sufficient components.
+
+## Architecture Principles
+- **Multiple small contexts** — one `createContext<T>()` per domain (~10 contexts), not one monolithic GridContext
+- **Thin `+page.svelte`** — calls `set*Context($state({...}))` for each domain, renders children, done
+- **Component independence** — delete any component, app still works minus that feature
+- **Controllers inside components** — each component owns its domain logic via `get*Context()`
+- **No callback props** — components read/write context directly, no `pageActions` pattern
 
 ---
 
-## Phase 1 — Context Foundation
-**Goal:** Replace all module-level singletons in the grid path with Svelte 5 `createContext`-based providers. Establish the architectural backbone that all subsequent phases build on.
+## Phase 1 — Singleton Removal ✓
+**Status:** Complete (2026-02-25)
+**Goal:** Replace all module-level singletons with `createContext`-based providers.
+
+**What was done:**
+- Created `gridContext.svelte.ts` with a single monolithic `GridContext` type + `[getGridContext, setGridContext]`
+- Migrated 9 managers from singletons to controller factories that read/write context
+- Created `InventoryGrid.svelte` as context provider (later deleted in Phase 2)
+- Deleted old `utils/core/`, `utils/data/`, `utils/ui/` directories
+- `svelte-check` passes
+
+**Note:** Used a single monolithic GridContext — superseded by Phase 4's multi-context split.
+
+**Plans:** 7/7 complete
+- [x] 01-01 — gridContext.svelte.ts + InventoryGrid.svelte + slim +page.svelte
+- [x] 01-02 — Migrate validationManager, columnManager, rowManager
+- [x] 01-03 — Migrate selectionManager, historyManager
+- [x] 01-04 — Migrate editManager, changeManager, rowGenerationManager
+- [x] 01-05 — Migrate clipboardManager, sortManager, viewManager
+- [x] 01-06 — Audit all grid component consumers
+- [x] 01-07 — Move toastState, delete utils/ tree, svelte-check gate
+
+---
+
+## Phase 2 — Component Decomposition ✓
+**Status:** Complete (2026-02-25)
+**Goal:** Extract the page monolith into scoped components with event delegation.
+
+**What was done:**
+- Deleted `InventoryGrid.svelte` — `+page.svelte` became context owner
+- Created `GridContainer.svelte` with virtual scroll, event delegation via `closest('[data-row][data-col]')`
+- Moved `GridOverlays` inside `GridContainer` (two-layer cake model)
+- Created `gridShortcuts.svelte.ts` with `{@attach}` directive for keyboard handling
+- Restructured directories: controllers → `lib/grid/utils/`, component pairs → `lib/grid/components/`
+
+**Note:** `+page.svelte` became a 1,199-line god controller instead of a thin wrapper. Business logic, effects, and callback threading all remained in the page. Superseded by Phase 4.
+
+**Plans:** 3/3 complete
+- [x] 02-01 — +page.svelte as context owner, delete InventoryGrid.svelte
+- [x] 02-02 — GridContainer.svelte, GridOverlays/Toolbar read context directly
+- [x] 02-03 — Directory restructure
+
+---
+
+## Phase 3 — FloatingEditor & ContextMenu ✓
+**Status:** Complete (2026-02-26)
+**Goal:** Extract inline cell editor into autonomous FloatingEditor. Make ContextMenu self-contained.
+
+**What was done:**
+- Created `FloatingEditor.svelte` + `floatingEditor.svelte.ts` — reads from monolithic GridContext
+- Refactored `ContextMenu` to zero props, self-contained via `getGridContext()`
+- Stripped `GridRow` to pure display (3 props: asset, keys, actualIndex)
+- Placed FloatingEditor in GridOverlays (Layer 2)
+
+**Note:** Components still read from monolithic GridContext and rely on `ctx.pageActions` callbacks. Phase 4 will split contexts and eliminate the callback pattern.
+
+**Known bugs (diagnosed, not fixed):**
+1. Context menu broken in new-row mode — `e.preventDefault()` only called inside `contextMenu.open()`
+2. Drag selection broken — `onmouseenter` doesn't bubble (needs `onmouseover`)
+3. FloatingEditor font mismatch — textarea missing `text-xs` class
+
+**Plans:** 3/3 complete
+- [x] 03-01 — ContextMenu zero-prop refactor
+- [x] 03-02 — FloatingEditor component pair
+- [x] 03-03 — Wire FloatingEditor into GridOverlays, strip GridRow, event delegation
+
+---
+
+## Phase 4 — Context Split & Component Autonomy
+**Status:** Not started
+**Goal:** Split the monolithic GridContext into ~10 separate domain contexts. Make `+page.svelte` a thin wrapper. Move controller logic into owning components. Fix diagnosed bugs.
 
 **Scope:**
-- Create `gridContext.svelte.ts` exporting typed [getter, setter] pairs for: columnManager, rowManager, editManager, selectionManager, changeManager, historyManager, clipboardManager, validationManager, realtimeManager
-- Wrap `<InventoryGrid>` (to be created) as the context provider
-- Keep all existing manager logic intact — only change how they are accessed
-- Update `GridRow` and `GridOverlays` to consume context instead of importing singletons directly
+- Split `gridContext.svelte.ts` monolithic type into ~10 separate `createContext<T>()` calls:
+  - `editingContext` — isEditing, editKey, editRow, editCol, inputValue, editOriginalValue
+  - `selectionContext` — selectionStart, selectionEnd, isSelecting
+  - `clipboardContext` — copyStart, copyEnd, isCopyVisible, isHiddenAfterCopy
+  - `columnContext` — keys, columnWidths, resizingColumn
+  - `rowContext` — rowHeights
+  - `sortContext` — sortKey, sortDirection
+  - `validationContext` — validationConstraints, hasInvalidChanges
+  - `changeContext` — hasUnsavedChanges, dirtyCells
+  - `dataContext` — assets, baseAssets, filteredAssetsCount
+  - `viewContext` — activeView, virtualScroll, scrollToRow
+  - Additional UI contexts as needed (contextMenu, headerMenu, filterPanel, editDropdown, autocomplete)
+- Rewrite `+page.svelte` as thin wrapper: `set*Context($state({...}))` calls + render children (target: < 60 lines)
+- Create renderless `DataController.svelte` — owns URL-driven search, commit, discard, addRows
+- Move controller logic into owning components (delete centralized creation)
+- Eliminate `ctx.pageActions` callback pattern — components write to context directly
+- Fix 3 diagnosed bugs: contextmenu preventDefault, onmouseenter→onmouseover, text-xs class
 - `svelte-check` must pass
 
-**Success:** No direct singleton imports in grid components; all state accessed via context getters.
-
-**Plans:** 7/7 plans complete
-
-Plans:
-- [x] 01-01-PLAN.md — Create gridContext.svelte.ts + InventoryGrid.svelte context provider + slim +page.svelte
-- [x] 01-02-PLAN.md — Migrate validationManager, columnManager, rowManager (leaf managers, no deps)
-- [x] 01-03-PLAN.md — Migrate selectionManager, historyManager (leaf managers, no deps)
-- [x] 01-04-PLAN.md — Migrate editManager, changeManager, rowGenerationManager (depend on Plans 02-03)
-- [x] 01-05-PLAN.md — Migrate clipboardManager, sortManager, viewManager (depend on Plans 02-03)
-- [x] 01-06-PLAN.md — Audit + fix all grid component consumers; verify edit/selection/overlay chain
-- [ ] 01-07-PLAN.md — Move toastState, keep realtimeManager as singleton, delete utils/ tree, svelte-check gate
+**Success:** `+page.svelte` < 60 lines; monolithic GridContext replaced by ~10 domain contexts; each component independently deletable without breaking the app; all 3 bugs fixed.
 
 ---
 
-## Phase 2 — Component Decomposition
-**Goal:** Extract the `+page.svelte` monolith into properly scoped components. The page becomes a thin shell; `<InventoryGrid>` owns all grid state.
-
-**Scope:**
-- Create `InventoryGrid.svelte` + `inventoryGrid.svelte.ts` (ViewModel)
-- Create `GridContainer.svelte` — renders visible rows only, zero knowledge of editors/menus
-- Move all grid state ($state variables, data fetching, event handlers) from `+page.svelte` into `InventoryGrid`
-- `+page.svelte` becomes < 100 lines: imports InventoryGrid, passes route data (user, initial assets, metadata)
-- `GridContainer` takes only: `assets`, `keys`, `virtualScroll` props — all else via context
-
-**Success:** `+page.svelte` < 100 lines; `GridContainer` has no editor/menu imports.
-
-**Plans:** 3 plans
-
-Plans:
-- [ ] 02-01-PLAN.md — Establish +page.svelte as context owner, create +page.svelte.ts controller, delete InventoryGrid.svelte
-- [ ] 02-02-PLAN.md — Create GridContainer.svelte, redesign GridOverlays and Toolbar to read context directly
-- [ ] 02-03-PLAN.md — Directory restructure: move controllers to lib/grid/utils/, component pairs to lib/grid/components/
-
----
-
-## Phase 3 — FloatingEditor & ContextMenu
-**Goal:** Extract the inline cell editor into an autonomous `<FloatingEditor>` component outside the grid DOM. Make `<ContextMenu>` fully self-contained.
-
-**Scope:**
-- Create `FloatingEditor.svelte` + `floatingEditor.svelte.ts`
-  - Reads active cell coords from gridContext, positions absolutely over the cell
-  - Handles textarea, EditDropdown, Autocomplete
-  - Unmounts when no cell is in edit mode
-  - Dispatches save/cancel via context callbacks
-- Remove inline textarea from `GridRow.svelte`
-- Refactor `<ContextMenu>` to read context directly (zero props)
-- Place FloatingEditor in GridOverlays (Layer 2, inside translateY-shifted virtual-chunk)
-
-**Success:** `GridRow` renders only cell display spans; FloatingEditor positions itself autonomously; ContextMenu has zero props.
-
-**Plans:** 3 plans
-
-Plans:
-- [x] 03-01-PLAN.md — Refactor ContextMenu to zero props, self-contained via getGridContext
-- [ ] 03-02-PLAN.md — Create FloatingEditor.svelte + floatingEditor.svelte.ts (new component pair)
-- [ ] 03-03-PLAN.md — Wire FloatingEditor into GridOverlays, strip GridRow to pure display, add event delegation to GridContainer
-
----
-
-## Phase 4 — DB-Side Filtering
+## Phase 5 — DB-Side Filtering
+**Status:** Not started
 **Goal:** Replace all client-side array filtering with server-side Kysely queries.
 
 **Scope:**
 - Add multi-column filter support to `/api/assets` or create `/api/assets/filter` endpoint
-- Update `searchManager` to dispatch filter queries to the API instead of filtering `baseAssets` client-side
-- Maintain `baseAssets` (initial load) / `filteredAssets` (query result) duality
+- Update `searchManager` to dispatch filter queries to the API instead of filtering client-side
+- `DataController.svelte` manages the fetch/filter lifecycle via `dataContext`
+- Maintain `baseAssets` (initial load) / `filteredAssets` (query result) in `dataContext`
 - Clearing filters re-points to `baseAssets` (no refetch)
-- Remove `getFilterItems()` client-side filtering logic from `searchManager.svelte.ts`
 - Update header filter dropdowns to fetch available values from API
 
 **Success:** No client-side `.filter()` on the assets array for search/filter operations.
 
 ---
 
-## Phase 5 — Undo/Redo Session Engine
-**Goal:** Ensure the session-scoped undo/redo history stack is fully functional as described in the to-be spec.
+## Phase 6 — Undo/Redo Session Engine
+**Status:** Not started
+**Goal:** Ensure the session-scoped undo/redo history stack is fully functional.
 
 **Scope:**
-- Audit `historyManager.svelte.ts` against to-be spec requirements
-- Ensure history entries are treated as uncommitted drafts (integrated with changeManager)
+- Audit history controller against to-be spec requirements
+- Ensure history entries are treated as uncommitted drafts (integrated with `changeContext`)
 - Verify Ctrl+Z / Ctrl+Y traverse the stack correctly and update visual overlays
-- Ensure `historyManager.clearCommitted()` is called after successful DB commit
-- Wire undo/redo into the context so FloatingEditor and keyboard handlers can trigger it
+- Ensure history is cleared after successful DB commit
+- History controller lives inside the component that owns undo/redo behavior
 
 **Success:** Undo/redo works end-to-end; committed changes are cleared from history after sync.
 
 ---
 
-## Phase 6 — Spatial Clipboard Hardening
+## Phase 7 — Spatial Clipboard Hardening
+**Status:** Not started
 **Goal:** Verify and harden the spatial clipboard with proper marching ants overlay and structural paste.
 
 **Scope:**
-- Audit `clipboardManager.svelte.ts` against to-be spec (0,0-indexed mini-grid, structural paste)
+- Audit clipboard controller against to-be spec (0,0-indexed mini-grid, structural paste)
 - Ensure marching ants (dashed copy overlay) renders correctly in all scroll positions
 - Verify cross-column paste maps structurally (not just first column)
-- Ensure clipboard state is context-scoped (not singleton)
+- Clipboard state lives in `clipboardContext` — read by GridOverlays for overlay rendering
 - Fix any edge cases with virtual scroll + clipboard overlay positioning
 
 **Success:** Copy-paste works across arbitrary grid regions with correct visual feedback.
 
 ---
 
-## Phase 7 — WebSocket Delta Sync
-**Goal:** On successful commit, broadcast only the changed cells to all connected clients. Clients patch their local state without a full refetch.
+## Phase 8 — WebSocket Delta Sync
+**Status:** Not started
+**Goal:** On successful commit, broadcast only the changed cells to all connected clients.
 
 **Scope:**
-- Update Go WebSocket server (`api/main.go`) to broadcast `asset_update` messages with `{ id, key, value }` payload on each committed change
-- Update `realtimeManager.svelte.ts` `onAssetUpdate` handler to patch the local assets array
-- Ensure `InventoryGrid` wires the `setAssetUpdateHandler` to its local `$state` assets array
+- Update Go WebSocket server (`api/main.go`) to broadcast `asset_update` messages with `{ id, key, value }` payload
+- Update `realtimeManager` handler to patch the local assets array via `dataContext`
 - "Last write wins" — if local pending change exists for same cell, skip the remote update
 - Test with two simultaneous browser sessions
 
@@ -134,12 +170,13 @@ Plans:
 
 ## Summary
 
-| Phase | Name | Key Output | Complexity |
-|-------|------|-----------|------------|
-| 1 | 7/7 | Complete   | 2026-02-25 |
-| 2 | Component Decomposition | `InventoryGrid`, `GridContainer`, thin page | High |
-| 3 | FloatingEditor & ContextMenu | `FloatingEditor.svelte`, clean GridRow | Medium |
-| 4 | DB-Side Filtering | API filter endpoint, no client-side filtering | Medium |
-| 5 | Undo/Redo Engine | Verified history stack, draft integration | Medium |
-| 6 | Spatial Clipboard Hardening | Verified clipboard, marching ants | Low |
-| 7 | WebSocket Delta Sync | Go delta broadcast, client patch | Medium |
+| Phase | Name | Status | Key Output |
+|-------|------|--------|------------|
+| 1 | Singleton Removal | ✓ Complete | Singletons → context getters |
+| 2 | Component Decomposition | ✓ Complete | GridContainer, event delegation, directory structure |
+| 3 | FloatingEditor & ContextMenu | ✓ Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
+| 4 | Context Split & Component Autonomy | Pending | ~10 domain contexts, thin +page.svelte, bug fixes |
+| 5 | DB-Side Filtering | Pending | API filter endpoint, server-side queries |
+| 6 | Undo/Redo Engine | Pending | Verified history stack, draft integration |
+| 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
+| 8 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |

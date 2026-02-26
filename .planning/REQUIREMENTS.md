@@ -3,35 +3,37 @@
 ## Functional Requirements
 
 ### F1 — Context-Based State Management
-- **F1.1** All grid-scoped managers must be provided via Svelte 5 `createContext` (returns [getter, setter] tuple)
+- **F1.1** Grid state must be split into ~10 separate domain contexts, each using Svelte 5 `createContext<T>()` returning `[getter, setter]` tuples
 - **F1.2** No module-level singleton may be imported directly inside grid components (GridRow, GridOverlays, GridContainer, FloatingEditor, ContextMenu)
-- **F1.3** A `gridContext.svelte.ts` file must export typed getter/setter pairs for all shared grid state
-- **F1.4** Global app-wide metadata (isEditing, hasUnsavedChanges, activeCellCoords) may use a lightweight global context
-- **F1.5** Heavy data (assets array, dirtyCells Map, undo/redo stack) must be colocated in `<InventoryGrid>` as local `$state`
+- **F1.3** `gridContext.svelte.ts` must export typed `[get*Context, set*Context]` pairs for each domain (editing, selection, clipboard, columns, rows, sort, validation, changes, data, view, etc.)
+- **F1.4** Contexts are pure type + `createContext()` — no logic, no defaults, no factories in the context file
+- **F1.5** `+page.svelte` calls `set*Context($state({...}))` for each domain with initial values — this is the only place contexts are initialized
 
-### F2 — Component Decomposition
-- **F2.1** `+page.svelte` must become a thin route shell (< 100 lines) that renders `<InventoryGrid>` ✓ (02-01: +page.svelte is context owner)
-- **F2.2** `<InventoryGrid>` owns all grid state and provides context to children ✓ (02-01: +page.svelte owns GridContext)
-- **F2.3** `<GridContainer>` renders only visible rows via virtual scroll — ignorant of editors, menus, clipboard ✓ (02-02: GridContainer has zero forbidden imports)
-- **F2.4** Each component has a corresponding `.svelte.ts` ViewModel/Controller with all logic ✓ (02-02: createPageController inline in +page.svelte)
-- **F2.5** Components must minimize props — pass only what context cannot provide (identity/callbacks specific to the call site); prefer context access for shared state ✓ (02-02: GridContainer=3, GridOverlays=0, Toolbar=1)
+### F2 — Component Architecture
+- **F2.1** `+page.svelte` must be a thin route wrapper (< 60 lines): set contexts, render children, done
+- **F2.2** Each component is independently deletable — removing any component must not break the rest of the app (it only removes that feature)
+- **F2.3** `<GridContainer>` renders only visible rows via virtual scroll — ignorant of editors, menus, clipboard
+- **F2.4** Controller logic lives inside the component that owns that domain — not created centrally in `+page.svelte`
+- **F2.5** No `pageActions` callback pattern — components read/write context directly to communicate
+- **F2.6** A renderless `DataController.svelte` owns URL-driven search, commit, discard, and addRows logic
+- **F2.7** Props are for data a component genuinely needs from its parent; context is for shared state across siblings/descendants
 
 ### F3 — FloatingEditor Component
-- **F3.1** `<FloatingEditor>` must live outside the grid DOM hierarchy
-- **F3.2** It reads active cell coordinates from context and positions itself absolutely
+- **F3.1** `<FloatingEditor>` lives in GridOverlays (Layer 2, inside translateY-shifted virtual-chunk)
+- **F3.2** It reads active cell coordinates from `editingContext` and positions itself absolutely
 - **F3.3** When no cell is active in edit mode, FloatingEditor unmounts/hides itself
 - **F3.4** FloatingEditor handles all keyboard events (Enter/Escape/Tab), dropdown, and autocomplete
-- **F3.5** FloatingEditor dispatches save/cancel events consumed by InventoryGrid
+- **F3.5** FloatingEditor saves/cancels by writing directly to `editingContext` — no callback dispatch to parent
 
 ### F4 — Autonomous ContextMenu
-- **F4.1** `<ContextMenu>` listens to global right-click coordinates from context
+- **F4.1** `<ContextMenu>` reads right-click coordinates from `contextMenuContext`
 - **F4.2** It acts as an independent command dispatcher (Details, Edit, Copy, Filter)
 - **F4.3** No parent orchestration required — ContextMenu reads and acts on context directly
 
 ### F5 — DB-Side Filtering & Search
 - **F5.1** All filter/search queries must be executed server-side via Kysely
 - **F5.2** `searchManager.getFilterItems()` client-side array filtering must be replaced with API calls
-- **F5.3** Frontend maintains `baseAssets` (master list) and `filteredAssets` (query result)
+- **F5.3** `DataController` manages `baseAssets` (master list) and `filteredAssets` (query result) via `dataContext`
 - **F5.4** Clearing a filter re-points to `baseAssets` for zero-latency reset (no refetch)
 - **F5.5** Search API endpoint must support multi-column filter combinations
 
@@ -49,7 +51,7 @@
 - **F8.1** Ctrl+Z / Ctrl+Y traverse local edit history stack
 - **F8.2** History tracks: edit number, coordinates, old value, new value
 - **F8.3** History entries treated as uncommitted drafts until DB sync
-- **F8.4** `historyManager.clearCommitted()` called after successful commit
+- **F8.4** History cleared after successful commit
 
 ### F9 — WebSocket Delta Sync
 - **F9.1** On successful commit, broadcast only the specific changed cells to connected clients
@@ -76,7 +78,7 @@
 
 ### NF4 — Performance
 - Virtual scroll must continue rendering only ~20 visible rows
-- No full-page re-renders from context updates (use targeted context subscriptions)
+- Separate domain contexts minimize re-render blast radius — components subscribe only to contexts they need
 
 ---
 
