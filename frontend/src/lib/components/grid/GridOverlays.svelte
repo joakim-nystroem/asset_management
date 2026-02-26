@@ -6,6 +6,7 @@
   import { createRowGenerationController } from '$lib/grid/utils/rowGeneration.svelte.ts';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import { gridShortcuts } from '$lib/grid/utils/gridShortcuts.svelte.ts';
+  import FloatingEditor from '$lib/grid/components/floating-editor/FloatingEditor.svelte';
 
   const ctx = getGridContext();
   const selection = createSelectionController();
@@ -245,4 +246,8 @@
       "
     ></div>
   {/each}
+
+  {#if ctx.isEditing}
+    <FloatingEditor />
+  {/if}
 </div>

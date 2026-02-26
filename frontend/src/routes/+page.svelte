@@ -133,7 +133,7 @@
   ctx.pageActions = {
     onSaveEdit: (_value: string) => { saveEdit(); },
     onCancelEdit: cancelEdit,
-    onEditAction: (_action: string, _row: number, _col: number) => { handleEditAction(); },
+    onEditAction: (action: string, row: number, col: number) => { handleEditAction(action, row, col); },
     onCopy: handleCopy,
     onPaste: handlePaste,
     onUndo: () => {
@@ -667,14 +667,16 @@
     contextMenu.close();
   }
 
-  async function handleEditAction() {
+  async function handleEditAction(action?: string, actionRow?: number, actionCol?: number) {
     if (!user) {
       toastState.addToast("Log in to edit.", "warning");
       contextMenu.close();
       return;
     }
-    // Falls back to state (ContextMenu > Selection)
-    const target = getActionTarget();
+    // Use explicit row/col when provided (dblclick, context menu); fallback for F2/keyboard
+    const target = (actionRow !== undefined && actionCol !== undefined)
+      ? { row: actionRow, col: actionCol }
+      : getActionTarget();
 
     if (!target) return;
     const { row, col } = target;
@@ -732,7 +734,7 @@
     contextMenu.close();
     selection.reset();
 
-    // GridRow observes ctx.isEditing + ctx.editRow via $effect and handles focus/updateRowHeight locally
+    // FloatingEditor observes ctx.isEditing via $effect and handles focus/updateRowHeight
   }
 
   async function saveEdit() {
