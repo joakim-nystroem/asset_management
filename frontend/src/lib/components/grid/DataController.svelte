@@ -438,6 +438,9 @@
   }
 
   // --- COMMIT CHANGES ---
+  // History is intentionally preserved after commit — users need to undo
+  // mistakenly committed values. History clears only on view change,
+  // search/filter, or page navigation. See 06-CONTEXT.md locked decision.
   async function commitChanges() {
     if (!dataCtx.user) {
       toastState.addToast("Log in to edit.", "warning");

@@ -51,7 +51,7 @@
 - **F8.1** Ctrl+Z / Ctrl+Y traverse local edit history stack
 - **F8.2** History tracks: edit number, coordinates, old value, new value
 - **F8.3** History entries treated as uncommitted drafts until DB sync
-- **F8.4** History cleared after successful commit
+- **F8.4** History persists across DB commits — users can undo mistakenly committed values. Clears on view change, search/filter, or page navigation (in-memory only, no sessionStorage).
 
 ### F9 — WebSocket Delta Sync
 - **F9.1** On successful commit, broadcast only the specific changed cells to connected clients
