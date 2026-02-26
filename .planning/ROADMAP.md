@@ -69,7 +69,7 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Refactor ContextMenu to zero props, self-contained via getGridContext
+- [x] 03-01-PLAN.md — Refactor ContextMenu to zero props, self-contained via getGridContext
 - [ ] 03-02-PLAN.md — Create FloatingEditor.svelte + floatingEditor.svelte.ts (new component pair)
 - [ ] 03-03-PLAN.md — Wire FloatingEditor into GridOverlays, strip GridRow to pure display, add event delegation to GridContainer
 

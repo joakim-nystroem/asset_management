@@ -4,11 +4,11 @@
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 03
 - **Current Plan:** 03-02 complete (2/3)
-- **Last Action:** Executed 03-02-PLAN.md — created FloatingEditor.svelte + floatingEditor.svelte.ts, chunk-relative positioned overlay with full keyboard/dropdown/autocomplete handling
-- **Last Session:** 2026-02-26T00:00:00Z
+- **Last Action:** Executed 03-01-PLAN.md — refactored ContextMenu to zero-prop self-contained component reading gridContext directly; added onDeleteNewRow to pageActions channel
+- **Last Session:** 2026-02-26T00:13:56Z
 
 ## Active Work
-Phase 3 in progress. 03-02 complete. Next: 03-03 (mount FloatingEditor in GridOverlays, strip inline editor from GridRow).
+Phase 3 in progress. 03-01 and 03-02 complete. Next: 03-03 (mount FloatingEditor in GridOverlays, strip inline editor from GridRow).
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -62,6 +62,8 @@ Phase 3 in progress. 03-02 complete. Next: 03-03 (mount FloatingEditor in GridOv
 - [Phase 03 Plan 02]: FloatingEditor reads editDropdown/autocomplete entirely from ctx — zero prop drilling
 - [Phase 03 Plan 02]: onblur uses setTimeout to avoid blur/mousedown race with dropdown selection
 - [Phase 03 Plan 02]: $effect watches ctx.isEditing (not textareaRef binding alone) to trigger focus on every edit start
+- [Phase 03 Plan 01]: handleDeleteNewRow delegates via ctx.pageActions.onDeleteNewRow — rowGen instance not in ctx, page owns it
+- [Phase 03 Plan 01]: onDeleteNewRow added to pageActions type — small channel extension, not architectural change
 
 ## Key Context
 - Working dir: `/home/joakim/asset_management`
@@ -102,6 +104,7 @@ Phase 3 in progress. 03-02 complete. Next: 03-03 (mount FloatingEditor in GridOv
 | 02 | 01 | ~5 min | 2/2 | 3 |
 | 02 | 02 | ~14 min | 3/3 | 7 |
 | 02 | 03 | ~8 min | 2/2 | 30 |
+| 03 | 01 | ~2 min | 2/2 | 4 |
 | 03 | 02 | ~10 min | 2/2 | 2 |
 
 ## Notes
@@ -116,3 +119,4 @@ Phase 3 in progress. 03-02 complete. Next: 03-03 (mount FloatingEditor in GridOv
 - Requirements satisfied by 02-02: F2.3, F2.5
 - Requirements satisfied by 02-03: F2.4 (directory structure enforces utility vs component convention)
 - Requirements satisfied by 03-02: F3.1, F3.2, F3.3, F3.4, F3.5 (FloatingEditor component pair created)
+- Requirements satisfied by 03-01: F3.1, F4.1, F4.2, F4.3 (ContextMenu zero-prop refactor)
