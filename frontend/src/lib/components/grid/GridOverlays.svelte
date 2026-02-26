@@ -1,18 +1,37 @@
 <script lang="ts">
-  import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+  import {
+    getEditingContext,
+    getSelectionContext,
+    getColumnContext,
+    getDataContext,
+    getViewContext,
+    getUiContext,
+  } from '$lib/context/gridContext.svelte.ts';
   import { createSelectionController } from '$lib/grid/utils/gridSelection.svelte.ts';
   import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
   import { createChangeController } from '$lib/grid/utils/gridChanges.svelte.ts';
   import { createRowGenerationController } from '$lib/grid/utils/rowGeneration.svelte.ts';
+  import { createClipboardController } from '$lib/grid/utils/gridClipboard.svelte.ts';
+  import { createHistoryController } from '$lib/grid/utils/gridHistory.svelte.ts';
+  import { createEditController } from '$lib/grid/utils/gridEdit.svelte.ts';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import { gridShortcuts } from '$lib/grid/utils/gridShortcuts.svelte.ts';
   import FloatingEditor from '$lib/grid/components/floating-editor/FloatingEditor.svelte';
 
-  const ctx = getGridContext();
+  const editCtx = getEditingContext();
+  const selCtx = getSelectionContext();
+  const colCtx = getColumnContext();
+  const dataCtx = getDataContext();
+  const viewCtx = getViewContext();
+  const uiCtx = getUiContext();
+
   const selection = createSelectionController();
   const columns = createColumnController();
   const changes = createChangeController();
   const rowGen = createRowGenerationController();
+  const clipboard = createClipboardController();
+  const history = createHistoryController();
+  const edit = createEditController();
 
   // GridOverlays accepts no data props. F2.5: 0 data props.
   // onHoverUser is a local interaction — handled entirely within this component.
@@ -24,27 +43,87 @@
   const shortcutState = {
     get selection() { return selection; },
     get columns() { return columns; },
-    get contextMenu() { return ctx.contextMenu; },
-    get headerMenu() { return ctx.headerMenu; },
+    get contextMenu() { return uiCtx.contextMenu; },
+    get headerMenu() { return uiCtx.headerMenu; },
   };
 
-  // Callbacks come from ctx.pageActions (set by +page.svelte after controller init)
+  // Callbacks use domain contexts and controllers directly — no pageActions needed.
   const callbacks = {
-    get onCopy() { return ctx.pageActions?.onCopy ?? (() => {}); },
-    get onPaste() { return ctx.pageActions?.onPaste ?? (() => {}); },
-    get onUndo() { return ctx.pageActions?.onUndo ?? (() => {}); },
-    get onRedo() { return ctx.pageActions?.onRedo ?? (() => {}); },
-    get onEscape() { return ctx.pageActions?.onEscape ?? (() => {}); },
+    get onCopy() {
+      return () => {
+        clipboard.copy(dataCtx.assets, colCtx.keys);
+        if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
+      };
+    },
+    get onPaste() {
+      return async () => {
+        const target = selection.anchor;
+        if (!target) return;
+        const result = await clipboard.paste(target, dataCtx.assets, colCtx.keys);
+        if (result && result.changes.length > 0) {
+          for (const change of result.changes) {
+            changes.update(change);
+          }
+          history.recordBatch(result.changes);
+        }
+        if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
+      };
+    },
+    get onUndo() {
+      return () => {
+        const batch = history.undo(dataCtx.assets);
+        if (batch) {
+          for (const action of batch) {
+            changes.update({
+              id: action.id,
+              key: action.key,
+              newValue: action.oldValue,
+              oldValue: action.newValue,
+            });
+          }
+        }
+      };
+    },
+    get onRedo() {
+      return () => {
+        const batch = history.redo(dataCtx.assets);
+        if (batch) {
+          for (const action of batch) {
+            changes.update(action);
+          }
+        }
+      };
+    },
+    get onEscape() {
+      return () => {
+        if (editCtx.isEditing) {
+          edit.cancel();
+          return;
+        }
+        if (selection.hasSelection) {
+          selection.resetAll();
+        }
+        clipboard.clear();
+        if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
+        if (uiCtx.headerMenu?.activeKey) uiCtx.headerMenu.close();
+      };
+    },
     get onEdit() {
-      return ctx.pageActions?.onEditAction
-        ? () => ctx.pageActions!.onEditAction('f2', ctx.selectionStart.row, ctx.selectionStart.col)
-        : () => {};
+      return () => {
+        const target = selection.anchor;
+        if (!target) return;
+        const key = colCtx.keys[target.col];
+        const asset = dataCtx.assets[target.row];
+        if (!asset || !key || key === 'id') return;
+        const currentValue = String(asset[key] ?? '');
+        edit.startEdit(target.row, target.col, key, currentValue);
+      };
     },
     get onScrollIntoView() {
-      return (row: number, _col: number) => { ctx.scrollToRow = row; };
+      return (row: number, _col: number) => { viewCtx.scrollToRow = row; };
     },
     get getGridSize() {
-      return () => ({ rows: ctx.assets.length, cols: ctx.keys.length });
+      return () => ({ rows: dataCtx.assets.length, cols: colCtx.keys.length });
     },
   };
 
@@ -54,10 +133,10 @@
     selection.computeVisualOverlay(
       selection.start,
       selection.end,
-      ctx.virtualScroll.visibleRange,
-      ctx.keys,
+      viewCtx.virtualScroll.visibleRange,
+      colCtx.keys,
       (key) => columns.getWidth(key),
-      ctx.virtualScroll.rowHeight,
+      viewCtx.virtualScroll.rowHeight,
     )
   );
 
@@ -66,27 +145,27 @@
       ? selection.computeVisualOverlay(
           selection.copyStart,
           selection.copyEnd,
-          ctx.virtualScroll.visibleRange,
-          ctx.keys,
+          viewCtx.virtualScroll.visibleRange,
+          colCtx.keys,
           (key) => columns.getWidth(key),
-          ctx.virtualScroll.rowHeight,
+          viewCtx.virtualScroll.rowHeight,
         )
       : null
   );
 
   const dirtyCellOverlays = $derived(
     selection.computeDirtyCellOverlays(
-      ctx.virtualScroll.visibleRange,
-      ctx.keys,
+      viewCtx.virtualScroll.visibleRange,
+      colCtx.keys,
       (key) => columns.getWidth(key),
-      ctx.virtualScroll.rowHeight,
+      viewCtx.virtualScroll.rowHeight,
       (row, col) => {
-        const asset = ctx.assets[row];
+        const asset = dataCtx.assets[row];
         if (!asset) return false;
-        const key = ctx.keys[col];
-        const isNewRow = row >= ctx.filteredAssetsCount;
+        const key = colCtx.keys[col];
+        const isNewRow = row >= dataCtx.filteredAssetsCount;
         if (isNewRow) {
-          const newRowIndex = row - ctx.filteredAssetsCount;
+          const newRowIndex = row - dataCtx.filteredAssetsCount;
           return rowGen.isNewRowFieldInvalid(newRowIndex, key);
         }
         return changes.isInvalid(asset.id, key);
@@ -100,7 +179,7 @@
         // Map asset ID to current row index in combined assets array
         let rowIndex = -1;
         if (position.assetId !== undefined) {
-          rowIndex = ctx.assets.findIndex((a: Record<string, any>) => a.id === position.assetId);
+          rowIndex = dataCtx.assets.findIndex((a: Record<string, any>) => a.id === position.assetId);
         } else {
           // Fallback for old clients: use position.row directly
           rowIndex = position.row;
@@ -140,10 +219,10 @@
     {@const otherUserOverlay = selection.computeVisualOverlay(
       position,
       position,
-      ctx.virtualScroll.visibleRange,
-      ctx.keys,
+      viewCtx.virtualScroll.visibleRange,
+      colCtx.keys,
       (key) => columns.getWidth(key),
-      ctx.virtualScroll.rowHeight,
+      viewCtx.virtualScroll.rowHeight,
     )}
     {#if otherUserOverlay}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -200,7 +279,7 @@
     ></div>
   {/if}
 
-  {#if selectionOverlay && ctx.selectionStart.row !== -1 && !ctx.isHiddenAfterCopy}
+  {#if selectionOverlay && selCtx.selectionStart.row !== -1 && !selCtx.isHiddenAfterCopy}
     <div
       class="absolute pointer-events-none z-10 border-blue-600 dark:border-blue-500 bg-blue-900/10"
       style="
@@ -217,21 +296,21 @@
   {/if}
 
   {#each dirtyCellOverlays as overlay}
-    {@const overlayRowIndex = ctx.virtualScroll.visibleRange.startIndex + Math.floor(overlay.top / ctx.virtualScroll.rowHeight)}
+    {@const overlayRowIndex = viewCtx.virtualScroll.visibleRange.startIndex + Math.floor(overlay.top / viewCtx.virtualScroll.rowHeight)}
     {@const overlayColIndex = (() => {
       let accWidth = 0;
-      for (let c = 0; c < ctx.keys.length; c++) {
-        const colWidth = columns.getWidth(ctx.keys[c]);
+      for (let c = 0; c < colCtx.keys.length; c++) {
+        const colWidth = columns.getWidth(colCtx.keys[c]);
         if (overlay.left < accWidth + colWidth) return c;
         accWidth += colWidth;
       }
       return 0;
     })()}
-    {@const overlayKey = ctx.keys[overlayColIndex]}
-    {@const overlayAsset = ctx.assets[overlayRowIndex]}
-    {@const isNewRowOverlay = overlayRowIndex >= ctx.filteredAssetsCount}
+    {@const overlayKey = colCtx.keys[overlayColIndex]}
+    {@const overlayAsset = dataCtx.assets[overlayRowIndex]}
+    {@const isNewRowOverlay = overlayRowIndex >= dataCtx.filteredAssetsCount}
     {@const isInvalid = isNewRowOverlay
-      ? rowGen.isNewRowFieldInvalid(overlayRowIndex - ctx.filteredAssetsCount, overlayKey)
+      ? rowGen.isNewRowFieldInvalid(overlayRowIndex - dataCtx.filteredAssetsCount, overlayKey)
       : changes.isInvalid(overlayAsset?.id, overlayKey)}
     <div
       class="absolute pointer-events-none z-40 border-2
@@ -247,7 +326,7 @@
     ></div>
   {/each}
 
-  {#if ctx.isEditing}
+  {#if editCtx.isEditing}
     <FloatingEditor />
   {/if}
 </div>

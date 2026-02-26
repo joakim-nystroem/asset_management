@@ -1215,10 +1215,6 @@
   {:else}
     <GridContainer
       {assets}
-      onHeaderClick={(e, key, _filterItems, isLast) =>
-        headerMenu.toggle(e, key, searchManager.getFilterItems(key, assets, baseAssets), isLast)}
-      onContextMenu={handleContextMenu}
-      onCloseContextMenu={() => contextMenu.close()}
     />
   {/if}
 
