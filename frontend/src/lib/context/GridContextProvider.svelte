@@ -14,6 +14,8 @@
     setDataContext,
     setViewContext,
     setUiContext,
+    setChangeControllerContext,
+    setHistoryControllerContext,
   } from '$lib/context/gridContext.svelte.ts';
 
   import { ContextMenuState } from '$lib/grid/components/context-menu/contextMenu.svelte.ts';
@@ -22,6 +24,8 @@
   import { createAutocomplete } from '$lib/grid/components/suggestion-menu/autocomplete.svelte.ts';
   import { createVirtualScroll } from '$lib/grid/utils/virtualScrollManager.svelte';
   import { FilterPanelState } from '$lib/grid/components/filter-panel/filterPanel.svelte.ts';
+  import { createChangeController } from '$lib/grid/utils/gridChanges.svelte.ts';
+  import { createHistoryController } from '$lib/grid/utils/gridHistory.svelte.ts';
 
   let { children }: { children: Snippet } = $props();
 
@@ -110,6 +114,15 @@
     applySort: null as ((key: string, dir: 'asc' | 'desc') => void) | null,
   });
   setUiContext(uiCtx);
+
+  // ─── Controller instance contexts ──────────────────────────────────────────
+  // Created here (common ancestor) so both GridOverlays and DataController
+  // share the SAME instances. Must run after validationCtx and changeCtx are set
+  // because createChangeController() reads them via getValidationContext/getChangeContext.
+  const changeController = createChangeController();
+  const historyController = createHistoryController();
+  setChangeControllerContext(changeController);
+  setHistoryControllerContext(historyController);
 </script>
 
 {@render children()}
