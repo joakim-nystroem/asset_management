@@ -96,7 +96,7 @@
         }
         selection.handleMouseDown(row, col, e);
       }}
-      onmouseenter={(e) => {
+      onmouseover={(e) => {
         const target = e.target as HTMLElement;
         const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
         if (!cell) return;
@@ -128,6 +128,7 @@
         ctx.pageActions?.onEditAction('dblclick', row, col);
       }}
       oncontextmenu={(e) => {
+        e.preventDefault();
         const target = e.target as HTMLElement;
         const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
         if (!cell) return;

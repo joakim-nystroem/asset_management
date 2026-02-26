@@ -145,7 +145,7 @@
         onkeydown={handleKeydown}
         onmousedown={(e) => e.stopPropagation()}
         onblur={handleBlur}
-        class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
+        class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
         style="overflow: hidden;"
       ></textarea>
       {#if ctx.editDropdown}
