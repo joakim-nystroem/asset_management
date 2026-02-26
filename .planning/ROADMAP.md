@@ -12,7 +12,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 1 — Singleton Removal ✓
+## Phase 1: Singleton Removal ✓
 **Status:** Complete (2026-02-25)
 **Goal:** Replace all module-level singletons with `createContext`-based providers.
 
@@ -36,7 +36,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 2 — Component Decomposition ✓
+## Phase 2: Component Decomposition ✓
 **Status:** Complete (2026-02-25)
 **Goal:** Extract the page monolith into scoped components with event delegation.
 
@@ -56,7 +56,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 3 — FloatingEditor & ContextMenu ✓
+## Phase 3: FloatingEditor & ContextMenu ✓
 **Status:** Complete (2026-02-26)
 **Goal:** Extract inline cell editor into autonomous FloatingEditor. Make ContextMenu self-contained.
 
@@ -80,8 +80,8 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 4 — Context Split & Component Autonomy
-**Status:** Not started
+## Phase 4: Context Split & Component Autonomy
+**Status:** Planned
 **Goal:** Split the monolithic GridContext into ~10 separate domain contexts. Make `+page.svelte` a thin wrapper. Move controller logic into owning components. Fix diagnosed bugs.
 
 **Scope:**
@@ -104,11 +104,20 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 - Fix 3 diagnosed bugs: contextmenu preventDefault, onmouseenter→onmouseover, text-xs class
 - `svelte-check` must pass
 
+**Requirements:** [F1.1, F1.2, F1.3, F1.4, F1.5, F2.1, F2.2, F2.3, F2.4, F2.5, F2.6, F2.7]
+
 **Success:** `+page.svelte` < 60 lines; monolithic GridContext replaced by ~10 domain contexts; each component independently deletable without breaking the app; all 3 bugs fixed.
+
+**Plans:** 5 plans
+- [ ] 04-01-PLAN.md — Bug fixes + split GridContext into ~10 domain context types
+- [ ] 04-02-PLAN.md — Migrate all controller factories to domain-specific getters
+- [ ] 04-03-PLAN.md — Migrate all grid components to domain contexts, eliminate pageActions
+- [ ] 04-04-PLAN.md — Create DataController.svelte, migrate Toolbar to zero props
+- [ ] 04-05-PLAN.md — Rewrite +page.svelte as thin wrapper, remove monolithic GridContext
 
 ---
 
-## Phase 5 — DB-Side Filtering
+## Phase 5: DB-Side Filtering
 **Status:** Not started
 **Goal:** Replace all client-side array filtering with server-side Kysely queries.
 
@@ -124,7 +133,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 6 — Undo/Redo Session Engine
+## Phase 6: Undo/Redo Session Engine
 **Status:** Not started
 **Goal:** Ensure the session-scoped undo/redo history stack is fully functional.
 
@@ -139,7 +148,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 7 — Spatial Clipboard Hardening
+## Phase 7: Spatial Clipboard Hardening
 **Status:** Not started
 **Goal:** Verify and harden the spatial clipboard with proper marching ants overlay and structural paste.
 
@@ -154,7 +163,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 8 — WebSocket Delta Sync
+## Phase 8: WebSocket Delta Sync
 **Status:** Not started
 **Goal:** On successful commit, broadcast only the changed cells to all connected clients.
 
@@ -175,7 +184,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 1 | Singleton Removal | ✓ Complete | Singletons → context getters |
 | 2 | Component Decomposition | ✓ Complete | GridContainer, event delegation, directory structure |
 | 3 | FloatingEditor & ContextMenu | ✓ Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
-| 4 | Context Split & Component Autonomy | Pending | ~10 domain contexts, thin +page.svelte, bug fixes |
+| 4 | Context Split & Component Autonomy | Planned (5 plans) | ~10 domain contexts, thin +page.svelte, bug fixes |
 | 5 | DB-Side Filtering | Pending | API filter endpoint, server-side queries |
 | 6 | Undo/Redo Engine | Pending | Verified history stack, draft integration |
 | 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
