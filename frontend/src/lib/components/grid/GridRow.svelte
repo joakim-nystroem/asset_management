@@ -1,8 +1,6 @@
 <script lang="ts">
-  import { getGridContext } from '$lib/context/gridContext.svelte.ts';
   import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
 
-  const ctx = getGridContext();
   const columns = createColumnController();
 
   type Props = {
