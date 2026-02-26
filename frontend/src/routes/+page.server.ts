@@ -1,6 +1,5 @@
 // src/routes/+page.server.ts
-import { getAssetsByView } from '$lib/db/select/getAssetsByView';
-import { searchAssets } from '$lib/db/select/searchAssets';
+import { queryAssets } from '$lib/db/select/queryAssets';
 import type { PageServerLoad, Actions } from './$types';
 import { redirect } from '@sveltejs/kit';
 
@@ -41,7 +40,7 @@ export const load: PageServerLoad = async ({ request, url }) => {
 
   try {
     // Load the correct view's assets based on URL
-    assets = await getAssetsByView(resolvedView);
+    assets = await queryAssets(null, {}, resolvedView);
 
     // Load metadata in parallel
     [locations, statuses, conditions, departments] = await Promise.all([
@@ -64,7 +63,7 @@ export const load: PageServerLoad = async ({ request, url }) => {
           filterMap[key].push(value);
         }
       }
-      const searchResults = await searchAssets(qParam || null, filterMap, resolvedView);
+      const searchResults = await queryAssets(qParam || null, filterMap, resolvedView);
       return {
         assets,
         searchResults,

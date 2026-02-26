@@ -1,21 +1,32 @@
 import { json } from '@sveltejs/kit';
-import { getDefaultAssets } from '$lib/db/select/getAssets';
+import { queryAssets } from '$lib/db/select/queryAssets';
 
-export async function GET() {
-    let assets: Record<string, any>[] = [];
-    let dbError: string | null = null;
+const VALID_VIEWS = ['default', 'audit', 'ped', 'galaxy', 'network'];
+
+export async function GET({ url }) {
+    const q = url.searchParams.get('q') || null;
+    const view = url.searchParams.get('view') || 'default';
+    const resolvedView = VALID_VIEWS.includes(view) ? view : 'default';
+
+    const filterParams = url.searchParams.getAll('filter');
+    const filters: Record<string, string[]> = {};
+    for (const filter of filterParams) {
+        const colonIndex = filter.indexOf(':');
+        if (colonIndex === -1) continue;
+        const key = filter.slice(0, colonIndex);
+        const value = filter.slice(colonIndex + 1);
+        if (key && value) {
+            if (!filters[key]) filters[key] = [];
+            filters[key].push(value);
+        }
+    }
 
     try {
-      assets = await getDefaultAssets();
-
+        const assets = await queryAssets(q, filters, resolvedView);
+        return json({ assets, dbError: null });
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        dbError = err.message;
+        const message = err instanceof Error ? err.message : 'Failed to fetch assets';
         console.error('API request failed:', err);
-      } else {
-        dbError = 'An unknown error occurred.';
-      }
-      assets = [];
+        return json({ assets: [], dbError: message }, { status: 500 });
     }
-    return json({ assets, dbError });
 }
