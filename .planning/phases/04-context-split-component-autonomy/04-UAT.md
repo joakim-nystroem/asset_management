@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 04-context-split-component-autonomy
 source: [04-01-SUMMARY.md, 04-02-SUMMARY.md, 04-03-SUMMARY.md, 04-04-SUMMARY.md, 04-05-SUMMARY.md]
 started: 2026-02-26T06:10:00Z
-updated: 2026-02-26T06:15:00Z
+updated: 2026-02-26T06:30:00Z
 ---
 
 ## Current Test
@@ -86,67 +86,101 @@ skipped: 2
   reason: "User reported: Commit and discard buttons are not rendered."
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Toolbar.svelte creates its own orphaned createChangeController() instance (line 8) whose hasChanges is permanently false. The real dirty state lives in DataController's separate instance which writes to changeCtx.hasUnsavedChanges. Toolbar reads changes.hasChanges from its dead local instance instead of changeCtx.hasUnsavedChanges."
+  artifacts:
+    - path: "frontend/src/lib/components/grid/Toolbar.svelte"
+      issue: "Line 8: orphaned createChangeController(), line 113: reads changes.hasChanges instead of changeCtx.hasUnsavedChanges"
+    - path: "frontend/src/lib/context/gridContext.svelte.ts"
+      issue: "ChangeContext has hasUnsavedChanges field — already synced by DataController"
+  missing:
+    - "Replace changes.hasChanges with changeCtx.hasUnsavedChanges in Toolbar"
+    - "Remove orphaned createChangeController() from Toolbar"
+    - "Add hasNewRows and invalidCount bridge fields to ChangeContext for rowGen"
 
 - truth: "Searching then filtering from header menu preserves search results"
   status: failed
   reason: "User reported: Searching and then filtering from the header menu shows an unfiltered list of items as if a search hadn't been performed."
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "updateSearchUrl() in DataController.svelte unconditionally deletes all URL params (q, filter, view) before re-adding. handleViewChange() calls updateSearchUrl({ view: viewName }) without passing q or filters, so they are permanently wiped. Any code path that calls updateSearchUrl without preserving existing params loses them."
+  artifacts:
+    - path: "frontend/src/lib/components/grid/DataController.svelte"
+      issue: "Lines 139-149: updateSearchUrl unconditionally deletes q/filter before re-adding; line 329: handleViewChange passes only {view}"
+  missing:
+    - "Make updateSearchUrl a safe partial-update — only delete params explicitly provided"
+    - "Fix handleViewChange to preserve q and filters via getCurrentUrlState()"
 
 - truth: "After pasting cells, the target paste area should show selection highlights"
   status: failed
   reason: "User reported: After copying and pasting, the target paste area should have selection highlights"
   severity: minor
   test: 5
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "paste() in gridClipboard.svelte.ts never clears selCtx.isHiddenAfterCopy (set to true by copy()) and never updates selectionStart/selectionEnd to cover the pasted range. The overlay guard !selCtx.isHiddenAfterCopy in GridOverlays keeps the selection hidden after paste."
+  artifacts:
+    - path: "frontend/src/lib/grid/utils/gridClipboard.svelte.ts"
+      issue: "paste() never resets isHiddenAfterCopy=false and never updates selectionStart/End to pasted range"
+    - path: "frontend/src/lib/components/grid/GridOverlays.svelte"
+      issue: "Line 282: guard !selCtx.isHiddenAfterCopy blocks highlight after paste"
+  missing:
+    - "In paste(), after computing pasted range: set selCtx.isHiddenAfterCopy = false"
+    - "In paste(), update selCtx.selectionStart/End to cover the pasted area"
 
 - truth: "Context menu 'Filter' action filters grid to matching rows and updates URL"
   status: failed
   reason: "User reported: the filter button does nothing and does not work"
   severity: major
   test: 11
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "handleFilterByValue() in contextMenu.svelte.ts calls getUiContext() at click-handler runtime, not during component initialization. Svelte 5's createContext getters only work during synchronous component setup — calling at runtime returns undefined, so the function silently does nothing."
+  artifacts:
+    - path: "frontend/src/lib/grid/components/context-menu/contextMenu.svelte.ts"
+      issue: "Line 48: getUiContext() called inside handleFilterByValue() at runtime instead of component init"
+    - path: "frontend/src/lib/grid/components/context-menu/contextMenu.svelte"
+      issue: "Line 79: onclick calls handleFilterByValue without passing uiCtx"
+  missing:
+    - "Change handleFilterByValue to accept uiCtx as parameter"
+    - "Pass uiCtx from contextMenu.svelte component where it was captured during init"
 
 - truth: "Data loads instantly without flash of 'no data' message"
   status: failed
   reason: "User reported: data load is slower than before. 'Query Successful, but no data was returned' flashes for a split second before data populates. Before refactor it was instant."
   severity: major
   test: 12
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "GridContextProvider initializes dataCtx.assets as empty array (line 91). DataController populates it via $effect which is deferred until after first render. GridContainer's {#if assets.length > 0} check evaluates against empty array on first paint, showing 'no data' for one frame."
+  artifacts:
+    - path: "frontend/src/lib/context/GridContextProvider.svelte"
+      issue: "Line 91: dataCtx.assets initialized to [] before DataController can populate"
+    - path: "frontend/src/lib/components/grid/DataController.svelte"
+      issue: "Line 64: $effect deferred — assets only written to context after first render"
+    - path: "frontend/src/lib/components/grid/GridContainer.svelte"
+      issue: "Line 88/206: shows 'no data' message when assets.length === 0"
+  missing:
+    - "Synchronously seed dataCtx.assets in DataController's script block (not in $effect)"
 
 - truth: "Undo/redo reverts and reapplies cell edits"
   status: failed
   reason: "User reported: undo redo works on copy and paste but not on edit"
   severity: major
   test: 9
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "FloatingEditor calls edit.save() and discards the return value — no history.record() call. The history controller lives in GridOverlays which has no callback hook into FloatingEditor's save events. history.record() is never called anywhere in the codebase — only recordBatch() from paste."
+  artifacts:
+    - path: "frontend/src/lib/grid/components/floating-editor/FloatingEditor.svelte"
+      issue: "Lines 71,98,111,135,160,170: edit.save() return value discarded, no history recording"
+    - path: "frontend/src/lib/components/grid/GridOverlays.svelte"
+      issue: "Line 33: owns history instance but has no path to record edit saves from FloatingEditor"
+    - path: "frontend/src/lib/grid/utils/gridHistory.svelte.ts"
+      issue: "record() exists but is never called anywhere"
+  missing:
+    - "Add onSave callback prop to FloatingEditor for history recording"
+    - "Wire GridOverlays to pass history.record + changes.update via onSave callback"
 
 - truth: "Clicking edit from right-click context menu closes the context menu"
   status: failed
   reason: "User reported: clicking edit from the right click context menu does NOT close the context menu which it should"
   severity: major
   test: 9
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Edit button's onclick in contextMenu.svelte (line 42) only calls edit.startEdit() — never calls uiCtx.contextMenu?.close(). After migration to domain contexts, the close call was lost. Other actions (Delete Row, Filter) correctly call close()."
+  artifacts:
+    - path: "frontend/src/lib/grid/components/context-menu/contextMenu.svelte"
+      issue: "Line 42: Edit onclick missing uiCtx.contextMenu?.close() before startEdit"
+  missing:
+    - "Add uiCtx.contextMenu?.close() to Edit button onclick, before edit.startEdit()"
