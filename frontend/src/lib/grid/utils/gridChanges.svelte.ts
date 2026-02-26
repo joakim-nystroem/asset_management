@@ -1,4 +1,4 @@
-import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+import { getValidationContext, getChangeContext } from '$lib/context/gridContext.svelte.ts';
 
 export type HistoryAction = {
   id: number | string;
@@ -8,7 +8,8 @@ export type HistoryAction = {
 };
 
 export function createChangeController() {
-  const ctx = getGridContext();
+  const validCtx = getValidationContext();
+  const changeCtx = getChangeContext();
 
   // Local state: dirty changes map (key = "{id},{key}" → net change from original)
   let dirtyChanges = $state(new Map<string, HistoryAction>());
@@ -17,7 +18,7 @@ export function createChangeController() {
 
   function isValidValue(key: string, value: string): boolean {
     const valueStr = String(value ?? '').trim();
-    const list = ctx.validationConstraints[key];
+    const list = validCtx.validationConstraints[key];
     if (!list || list.length === 0) return true;
     if (valueStr === '') return true;
     return list.some((v) => v.toLowerCase() === valueStr.toLowerCase());
@@ -60,8 +61,8 @@ export function createChangeController() {
     invalidChanges = new Set(invalidChanges);
 
     // Sync to context
-    ctx.hasUnsavedChanges = dirtyChanges.size > 0;
-    ctx.hasInvalidChanges = invalidChanges.size > 0;
+    changeCtx.hasUnsavedChanges = dirtyChanges.size > 0;
+    changeCtx.hasInvalidChanges = invalidChanges.size > 0;
   }
 
   /**
@@ -112,8 +113,8 @@ export function createChangeController() {
     if (dirtyChanges.size === 0 && invalidChanges.size === 0) return;
     dirtyChanges = new Map();
     invalidChanges = new Set();
-    ctx.hasUnsavedChanges = false;
-    ctx.hasInvalidChanges = false;
+    changeCtx.hasUnsavedChanges = false;
+    changeCtx.hasInvalidChanges = false;
   }
 
   /**
@@ -128,7 +129,7 @@ export function createChangeController() {
       }
     }
     dirtyChanges = remainingDirty;
-    ctx.hasUnsavedChanges = dirtyChanges.size > 0;
+    changeCtx.hasUnsavedChanges = dirtyChanges.size > 0;
     // invalidChanges remains the same — keeping invalid cells
   }
 

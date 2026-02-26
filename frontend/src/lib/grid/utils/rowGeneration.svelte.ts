@@ -1,10 +1,10 @@
-import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+import { getValidationContext } from '$lib/context/gridContext.svelte.ts';
 
 type NewRow = Record<string, unknown>;
 type NextIdProvider = () => number;
 
 export function createRowGenerationController() {
-  const ctx = getGridContext();
+  const validCtx = getValidationContext();
 
   // Local state: new rows pending commit
   let newRows = $state<NewRow[]>([]);
@@ -15,7 +15,7 @@ export function createRowGenerationController() {
 
   function isValidValue(key: string, value: unknown): boolean {
     const valueStr = String(value ?? '').trim();
-    const list = ctx.validationConstraints[key];
+    const list = validCtx.validationConstraints[key];
     if (!list || list.length === 0) return true;
     if (valueStr === '') return true;
     return list.some((v) => v.toLowerCase() === valueStr.toLowerCase());

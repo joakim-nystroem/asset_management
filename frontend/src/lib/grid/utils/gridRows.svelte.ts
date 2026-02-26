@@ -1,24 +1,24 @@
-import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+import { getRowContext } from '$lib/context/gridContext.svelte.ts';
 
 const DEFAULT_ROW_HEIGHT = 32;
 
 export function createRowController() {
-  const ctx = getGridContext();  // safe: called during component init
+  const rowCtx = getRowContext();  // safe: called during component init
 
   function getHeight(rowIndex: number): number {
-    return ctx.rowHeights.get(rowIndex) ?? DEFAULT_ROW_HEIGHT;
+    return rowCtx.rowHeights.get(rowIndex) ?? DEFAULT_ROW_HEIGHT;
   }
 
   function setHeight(rowIndex: number, height: number) {
-    ctx.rowHeights.set(rowIndex, Math.max(DEFAULT_ROW_HEIGHT, height));
+    rowCtx.rowHeights.set(rowIndex, Math.max(DEFAULT_ROW_HEIGHT, height));
   }
 
   function resetHeight(rowIndex: number) {
-    ctx.rowHeights.delete(rowIndex);
+    rowCtx.rowHeights.delete(rowIndex);
   }
 
   function resetAll() {
-    ctx.rowHeights.clear();
+    rowCtx.rowHeights.clear();
   }
 
   /**
@@ -49,14 +49,14 @@ export function createRowController() {
    * Check if a row has a custom height.
    */
   function hasCustomHeight(rowIndex: number): boolean {
-    return ctx.rowHeights.has(rowIndex);
+    return rowCtx.rowHeights.has(rowIndex);
   }
 
   /**
    * Get all custom heights (for debugging or export).
    */
   function getAllCustomHeights(): Record<number, number> {
-    return Object.fromEntries(ctx.rowHeights.entries());
+    return Object.fromEntries(rowCtx.rowHeights.entries());
   }
 
   /**

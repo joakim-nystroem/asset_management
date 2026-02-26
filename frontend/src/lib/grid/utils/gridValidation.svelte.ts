@@ -1,4 +1,4 @@
-import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+import { getValidationContext } from '$lib/context/gridContext.svelte.ts';
 
 // Required fields based on database schema (Null = NO)
 // These fields cannot be empty when creating new rows
@@ -20,10 +20,10 @@ const REQUIRED_FIELDS = new Set([
 export type ValidationConstraints = Record<string, string[]>;
 
 export function createValidationController() {
-  const ctx = getGridContext();  // safe: called during component init
+  const validCtx = getValidationContext();  // safe: called during component init
 
   function setConstraints(newConstraints: Partial<ValidationConstraints>) {
-    ctx.validationConstraints = { ...ctx.validationConstraints, ...(newConstraints as ValidationConstraints) };
+    validCtx.validationConstraints = { ...validCtx.validationConstraints, ...(newConstraints as ValidationConstraints) };
   }
 
   function isRequired(key: string): boolean {
@@ -38,7 +38,7 @@ export function createValidationController() {
     if (checkRequired && isEmpty && REQUIRED_FIELDS.has(key)) return false;
 
     // If no list constraints for this field, consider it valid
-    const list = ctx.validationConstraints[key];
+    const list = validCtx.validationConstraints[key];
     if (!list || list.length === 0) return true;
 
     // Empty values pass list constraint check (required check is separate above)
@@ -49,16 +49,16 @@ export function createValidationController() {
   }
 
   function getValidValues(key: string): string[] {
-    return ctx.validationConstraints[key] ?? [];
+    return validCtx.validationConstraints[key] ?? [];
   }
 
   function hasConstraints(key: string): boolean {
-    return Boolean(ctx.validationConstraints[key]?.length);
+    return Boolean(validCtx.validationConstraints[key]?.length);
   }
 
   return {
     get constraints() {
-      return ctx.validationConstraints;
+      return validCtx.validationConstraints;
     },
     setConstraints,
     isRequired,
