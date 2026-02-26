@@ -5,21 +5,111 @@ import type { SafeUser } from '$lib/types';
 import type { createEditDropdown } from '$lib/grid/components/edit-dropdown/editDropdown.svelte.ts';
 import type { createAutocomplete } from '$lib/grid/components/suggestion-menu/autocomplete.svelte.ts';
 
+// ─── Shared primitive types ───────────────────────────────────────────────────
+
 export type GridCell = { row: number; col: number };
 
 export type ValidationConstraints = Record<string, string[]>;
 
-export type GridContext = {
-  // Edit state (from editManager)
+// ─── Domain context types ─────────────────────────────────────────────────────
+
+export type EditingContext = {
   isEditing: boolean;
-  editKey: string | null;           // which column key is being edited
-  editRow: number;                  // -1 when not editing
-  editCol: number;                  // -1 when not editing
+  editKey: string | null;
+  editRow: number;
+  editCol: number;
+  editOriginalValue: string;
+  editOriginalColumnWidth: number;
+  inputValue: string;
+  editDropdown: ReturnType<typeof createEditDropdown> | null;
+  autocomplete: ReturnType<typeof createAutocomplete> | null;
+};
+
+export type SelectionContext = {
+  selectionStart: GridCell;
+  selectionEnd: GridCell;
+  isSelecting: boolean;
+  isHiddenAfterCopy: boolean;
+  dirtyCells: Set<string>;
+};
+
+export type ClipboardContext = {
+  copyStart: GridCell;
+  copyEnd: GridCell;
+  isCopyVisible: boolean;
+};
+
+export type ColumnContext = {
+  keys: string[];
+  columnWidths: SvelteMap<string, number>;
+  resizingColumn: string | null;
+};
+
+export type RowContext = {
+  rowHeights: SvelteMap<number, number>;
+};
+
+export type SortContext = {
+  sortKey: string | null;
+  sortDirection: 'asc' | 'desc' | null;
+};
+
+export type ValidationContext = {
+  validationConstraints: ValidationConstraints;
+};
+
+export type ChangeContext = {
+  hasUnsavedChanges: boolean;
+  hasInvalidChanges: boolean;
+};
+
+export type DataContext = {
+  assets: Record<string, any>[];
+  baseAssets: Record<string, any>[];
+  filteredAssetsCount: number;
+  user: SafeUser | null;
+};
+
+export type ViewContext = {
+  activeView: string;
+  virtualScroll: any;
+  scrollToRow: number | null;
+};
+
+export type UiContext = {
+  filterPanel: FilterPanelState | null;
+  headerMenu: any | null;
+  contextMenu: any | null;
+};
+
+// ─── Domain context pairs ─────────────────────────────────────────────────────
+
+export const [getEditingContext, setEditingContext] = createContext<EditingContext>();
+export const [getSelectionContext, setSelectionContext] = createContext<SelectionContext>();
+export const [getClipboardContext, setClipboardContext] = createContext<ClipboardContext>();
+export const [getColumnContext, setColumnContext] = createContext<ColumnContext>();
+export const [getRowContext, setRowContext] = createContext<RowContext>();
+export const [getSortContext, setSortContext] = createContext<SortContext>();
+export const [getValidationContext, setValidationContext] = createContext<ValidationContext>();
+export const [getChangeContext, setChangeContext] = createContext<ChangeContext>();
+export const [getDataContext, setDataContext] = createContext<DataContext>();
+export const [getViewContext, setViewContext] = createContext<ViewContext>();
+export const [getUiContext, setUiContext] = createContext<UiContext>();
+
+// ─── Monolithic context (DEPRECATED — remove after all consumers migrate) ─────
+// Kept for backward compatibility while components migrate to domain contexts.
+
+export type GridContext = {
+  // Edit state
+  isEditing: boolean;
+  editKey: string | null;
+  editRow: number;
+  editCol: number;
   editOriginalValue: string;
   editOriginalColumnWidth: number;
   inputValue: string;
 
-  // Selection state (from selectionManager)
+  // Selection state
   selectionStart: GridCell;
   selectionEnd: GridCell;
   isSelecting: boolean;
@@ -27,35 +117,35 @@ export type GridContext = {
   copyStart: GridCell;
   copyEnd: GridCell;
   isCopyVisible: boolean;
-  dirtyCells: Set<string>;          // "row,col" strings
+  dirtyCells: Set<string>;
 
-  // Change / validation state (from changeManager + validationManager)
+  // Change / validation state
   hasUnsavedChanges: boolean;
   hasInvalidChanges: boolean;
   validationConstraints: ValidationConstraints;
 
-  // Column/row geometry (from columnManager + rowManager)
+  // Column/row geometry
   columnWidths: SvelteMap<string, number>;
-  rowHeights: SvelteMap<number, number>;  // rowIndex -> height
+  rowHeights: SvelteMap<number, number>;
   resizingColumn: string | null;
 
-  // Sort state (from sortManager)
+  // Sort state
   sortKey: string | null;
   sortDirection: 'asc' | 'desc' | null;
 
-  // View state (from viewManager)
+  // View state
   activeView: string;
 
-  // Column keys (from +page.svelte)
+  // Column keys
   keys: string[];
 
-  // Phase 2 additions — page-level shared state
-  filteredAssetsCount: number;    // length of filteredAssets; read by GridOverlays and ContextMenu to distinguish new vs existing rows
-  virtualScroll: any;             // single shared virtualScroll instance; typed as any to avoid circular import — will be tightened in Plan 02-03 directory restructure
-  scrollToRow: number | null;     // page sets to a row index when navigation needed; GridContainer observes via $effect, calls ensureVisible, resets to null
+  // Phase 2 additions
+  filteredAssetsCount: number;
+  virtualScroll: any;
+  scrollToRow: number | null;
 
-  // Context-channel fields (added in 02-02)
-  assets: Record<string, any>[];  // combined filteredAssets + newRows; synced via $effect
+  // Context-channel fields
+  assets: Record<string, any>[];
   filterPanel: FilterPanelState | null;
   pageActions: {
     onSaveEdit: (value: string) => void;
@@ -72,12 +162,12 @@ export type GridContext = {
   editDropdown: ReturnType<typeof createEditDropdown> | null;
   autocomplete: ReturnType<typeof createAutocomplete> | null;
 
-  // Header/sort state for GridContainer (set after controller init)
-  headerMenu: any | null;         // createHeaderMenu() instance
+  // Header/sort state
+  headerMenu: any | null;
   baseAssets: Record<string, any>[];
   applySort: ((key: string, dir: 'asc' | 'desc') => void) | null;
   handleFilterSelect: ((item: string, key: string) => void) | null;
-  contextMenu: any | null;        // ContextMenuState instance
+  contextMenu: any | null;
 };
 
 export const [getGridContext, setGridContext] = createContext<GridContext>();
