@@ -19,11 +19,7 @@
   import { toastState } from '$lib/components/toast/toastState.svelte';
   // NO import of ContextMenu, editDropdown, autocomplete, FloatingEditor
 
-  // F2.5: assets only — callback props eliminated (use domain contexts directly)
-  type Props = {
-    assets: Record<string, any>[];
-  };
-  let { assets }: Props = $props();
+  // Zero props — reads assets from dataCtx directly
 
   const colCtx = getColumnContext();
   const dataCtx = getDataContext();
@@ -37,6 +33,8 @@
   const columns = createColumnController();
   const rows = createRowController();
   const edit = createEditController();
+
+  const assets = $derived(dataCtx.assets);
 
   let scrollContainer: HTMLDivElement | null = $state(null);
   const visibleData = $derived(virtualScroll.getVisibleItems(assets));
