@@ -80,8 +80,8 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 4: Context Split & Component Autonomy ✓
-**Status:** Complete (2026-02-26)
+## Phase 4: Context Split & Component Autonomy
+**Status:** UAT gap closure in progress
 **Goal:** Split the monolithic GridContext into ~10 separate domain contexts. Make `+page.svelte` a thin wrapper. Move controller logic into owning components. Fix diagnosed bugs.
 
 **Scope:**
@@ -108,12 +108,14 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 **Success:** `+page.svelte` < 60 lines; monolithic GridContext replaced by ~10 domain contexts; each component independently deletable without breaking the app; all 3 bugs fixed.
 
-**Plans:** 5/5 plans complete
+**Plans:** 7 plans (5 complete, 2 gap closure)
 - [x] 04-01-PLAN.md — Bug fixes + split GridContext into ~10 domain context types
 - [x] 04-02-PLAN.md — Migrate all controller factories to domain-specific getters
 - [x] 04-03-PLAN.md — Migrate all grid components to domain contexts, eliminate pageActions
 - [x] 04-04-PLAN.md — Create DataController.svelte, migrate Toolbar to zero props
 - [x] 04-05-PLAN.md — Rewrite +page.svelte as thin wrapper, remove monolithic GridContext
+- [ ] 04-06-PLAN.md — Gap closure: Toolbar dirty state, URL param preservation, data flash fix
+- [ ] 04-07-PLAN.md — Gap closure: Context menu fixes, undo/redo for edits, paste selection highlight
 
 ---
 
@@ -184,7 +186,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 1 | Singleton Removal | ✓ Complete | Singletons → context getters |
 | 2 | Component Decomposition | ✓ Complete | GridContainer, event delegation, directory structure |
 | 3 | FloatingEditor & ContextMenu | ✓ Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
-| 4 | Context Split & Component Autonomy | ✓ Complete | Domain contexts, DataController, thin +page.svelte |
+| 4 | Context Split & Component Autonomy | Gap Closure | Domain contexts, DataController, thin +page.svelte |
 | 5 | DB-Side Filtering | Pending | API filter endpoint, server-side queries |
 | 6 | Undo/Redo Engine | Pending | Verified history stack, draft integration |
 | 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
