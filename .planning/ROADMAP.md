@@ -144,17 +144,23 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 ---
 
 ## Phase 6: Undo/Redo Session Engine
-**Status:** Not started
-**Goal:** Ensure the session-scoped undo/redo history stack is fully functional.
+**Status:** Planned
+**Goal:** Ensure the session-scoped undo/redo history stack is fully functional with auto-scroll and selection cursor tracking.
 
 **Scope:**
-- Audit history controller against to-be spec requirements
-- Ensure history entries are treated as uncommitted drafts (integrated with `changeContext`)
-- Verify Ctrl+Z / Ctrl+Y traverse the stack correctly and update visual overlays
-- Ensure history is cleared after successful DB commit
-- History controller lives inside the component that owns undo/redo behavior
+- Audit all 6 history call-sites against CONTEXT.md locked decisions
+- Add auto-scroll to affected cell after undo/redo (`viewCtx.scrollToRow`)
+- Add selection cursor movement after undo/redo (`selection.moveTo()`)
+- Document intentional history preservation across DB commits (CONTEXT.md overrides F8.4)
+- Update F8.4 in REQUIREMENTS.md to match locked user decision
+- History controller lives inside owning component (GridContextProvider creates, GridOverlays + DataController consume)
 
-**Success:** Undo/redo works end-to-end; committed changes are cleared from history after sync.
+**Requirements:** [F8.1, F8.2, F8.3, F8.4]
+
+**Success:** Undo/redo works end-to-end with auto-scroll to affected cell; history persists across commits per user decision; svelte-check passes.
+
+**Plans:** 1 plan
+- [ ] 06-01-PLAN.md — Audit history call-sites, add auto-scroll + selection cursor to onUndo/onRedo
 
 ---
 
@@ -195,7 +201,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 2 | Component Decomposition | ✓ Complete | GridContainer, event delegation, directory structure |
 | 3 | FloatingEditor & ContextMenu | ✓ Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
 | 4 | Context Split & Component Autonomy | Complete | 11 domain contexts, thin +page.svelte, DataController |
-| 5 | 2/2 | Complete   | 2026-02-26 |
-| 6 | Undo/Redo Engine | Pending | Verified history stack, draft integration |
+| 5 | DB-Side Filtering | Awaiting verification | Unified /api/assets endpoint, queryAssets.ts |
+| 6 | Undo/Redo Engine | Planned | Auto-scroll, selection cursor, audit + docs |
 | 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 8 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
