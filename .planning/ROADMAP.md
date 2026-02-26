@@ -137,7 +137,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 **Success:** All asset data fetching goes through one endpoint (`GET /api/assets`) with consistent `{ assets, dbError }` response shape. No client-side `.filter()` on the assets array for search/filter operations.
 
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 - [ ] 05-01-PLAN.md — Create queryAssets.ts, rewrite /api/assets endpoint, update +page.server.ts
 - [ ] 05-02-PLAN.md — Migrate DataController fetch URLs, delete obsolete routes and DB functions
 
@@ -195,7 +195,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 2 | Component Decomposition | ✓ Complete | GridContainer, event delegation, directory structure |
 | 3 | FloatingEditor & ContextMenu | ✓ Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
 | 4 | Context Split & Component Autonomy | Complete | 11 domain contexts, thin +page.svelte, DataController |
-| 5 | DB-Side Filtering | Planned | Unified /api/assets endpoint, queryAssets.ts |
+| 5 | 1/2 | In Progress|  |
 | 6 | Undo/Redo Engine | Pending | Verified history stack, draft integration |
 | 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 8 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |

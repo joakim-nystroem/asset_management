@@ -31,11 +31,11 @@
 - **F4.3** No parent orchestration required — ContextMenu reads and acts on context directly
 
 ### F5 — DB-Side Filtering & Search
-- **F5.1** All filter/search queries must be executed server-side via Kysely
-- **F5.2** `searchManager.getFilterItems()` client-side array filtering must be replaced with API calls
+- [x] **F5.1** All filter/search queries must be executed server-side via Kysely *(05-01)*
+- [x] **F5.2** `searchManager.getFilterItems()` client-side array filtering must be replaced with API calls *(05-01)*
 - **F5.3** `DataController` manages `baseAssets` (master list) and `filteredAssets` (query result) via `dataContext`
 - **F5.4** Clearing a filter re-points to `baseAssets` for zero-latency reset (no refetch)
-- **F5.5** Search API endpoint must support multi-column filter combinations
+- [x] **F5.5** Search API endpoint must support multi-column filter combinations *(05-01)*
 
 ### F6 — Draft Validation & Visual Feedback
 - **F6.1** Edits stored in reactive `$state(new Map())` — Yellow=Invalid, Green=Valid overlay

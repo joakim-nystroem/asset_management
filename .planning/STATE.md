@@ -2,28 +2,28 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 04
-current_plan: Not started
-status: unknown
-last_updated: "2026-02-26T12:32:11.852Z"
+current_phase: 05
+current_plan: 02
+status: in_progress
+last_updated: "2026-02-26T12:54:00Z"
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 22
+  completed_plans: 22
 ---
 
 # Project State
 
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
-- **Current Phase:** 04
-- **Current Plan:** Not started
-- **Last Action:** Completed 04-08: shared ChangeController/HistoryController via Svelte context; removed premature edit.save() from GridContainer mousedown to fix click-away undo/redo
-- **Last Session:** 2026-02-26T12:32:11.848Z
+- **Current Phase:** 05
+- **Current Plan:** 02
+- **Last Action:** Completed 05-01: unified server-side query layer; queryAssets() replaces getAssetsByView + searchAssets; /api/assets endpoint now accepts q/filter/view params; PED view bug fixed
+- **Last Session:** 2026-02-26T12:54:00Z
 
 ## Active Work
-Phases 1-3 complete. Architecture realignment needed: monolithic GridContext → ~10 domain contexts, thin +page.svelte, component independence. Three diagnosed bugs to fix.
+Phases 1-4 complete. Phase 5: DB-side filtering consolidation in progress. Plan 01 done (queryAssets unified query layer). Plan 02 next: client migration — update DataController and search components to use /api/assets with params instead of /api/search.
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -49,8 +49,14 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 - [x] **04-02**: Migrated all 9 controller files from getGridContext to domain-specific context getters (commits: 595bcc3, 3bc94b3)
 - [x] **04-03**: Migrated all grid UI components to domain contexts; eliminated pageActions pattern; removed GridContainer callback props (commits: 24b7223, 65dd5dc)
 - [x] **04-04**: Created DataController.svelte (renderless, owns URL search, commit, discard, addRows, sort, filter, realtime); migrated Toolbar to zero-prop context reads (commits: efb919e, df94871)
+- [x] **05-01**: Created queryAssets.ts (unified Kysely query replacing getAssetsByView + searchAssets); rewired /api/assets to accept q/filter/view params; updated +page.server.ts to use queryAssets for both base and filtered loads; fixed PED view bug (commits: 6086e75, 8cd3504)
 
 ## Decisions
+
+### Phase 05-01 Decisions
+- [Phase 05-01]: queryAssets PED view fix — .where('ai.asset_type', '=', 'PED / EMV') added after .select() matching getAssetsByView behavior; searchAssets omitted this filter causing non-PED assets in PED view searches
+- [Phase 05-01]: /api/assets response shape kept as { assets, dbError } — preserves DataController view-change branch compatibility (result.assets)
+- [Phase 05-01]: searchAssets.ts and getAssets.ts retained (not deleted) — cleanup deferred to Plan 02 after client migration
 
 ### Phase 04-06 Decisions
 - [Phase 04-06]: Toolbar reads changeCtx.hasUnsavedChanges from domain context — no orphaned createChangeController instance needed
@@ -151,7 +157,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 2 | complete | 02-01 ✓, 02-02 ✓, 02-03 ✓ |
 | 3 | complete | 03-01 ✓, 03-02 ✓, 03-03 ✓ |
 | 4 | complete | 04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓, 04-05 ✓, 04-06 ✓ |
-| 5 | pending | not planned |
+| 5 | in_progress | 05-01 ✓ |
 | 6 | pending | not planned |
 | 7 | pending | not planned |
 | 8 | pending | not planned |
@@ -179,6 +185,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 04 | 05 | ~5 min | 2/2 | 6 |
 | 04 | 06 | ~8 min | 2/2 | 2 |
 | Phase 04 P07 | 10 | 2 tasks | 5 files |
+| 05 | 01 | ~2 min | 2/2 | 3 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
