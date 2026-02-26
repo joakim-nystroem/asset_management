@@ -3,9 +3,9 @@
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 04 (Context Split & Component Autonomy)
-- **Current Plan:** 04 complete (next: 05)
-- **Last Action:** Completed 04-04: created DataController.svelte, migrated Toolbar to zero-prop context reads
-- **Last Session:** 2026-02-26T05:53:37Z
+- **Current Plan:** 05 complete — Phase 4 COMPLETE
+- **Last Action:** Completed 04-05: created GridContextProvider.svelte, +page.svelte reduced to 19 lines, monolithic GridContext deleted
+- **Last Session:** 2026-02-26T06:02:00Z
 
 ## Active Work
 Phases 1-3 complete. Architecture realignment needed: monolithic GridContext → ~10 domain contexts, thin +page.svelte, component independence. Three diagnosed bugs to fix.
@@ -36,6 +36,12 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 - [x] **04-04**: Created DataController.svelte (renderless, owns URL search, commit, discard, addRows, sort, filter, realtime); migrated Toolbar to zero-prop context reads (commits: efb919e, df94871)
 
 ## Decisions
+
+### Phase 04-05 Decisions
+- [Phase 04-05]: GridContextProvider.svelte centralizes all 11 set*Context($state({...})) calls — +page.svelte stays at 19 lines with zero context initialization
+- [Phase 04-05]: State class instances (ContextMenuState, FilterPanelState, headerMenu, editDropdown, autocomplete, virtualScroll) initialized inside GridContextProvider
+- [Phase 04-05]: GridContainer drops assets prop — reads dataCtx.assets via $derived, enabling zero-prop usage
+- [Phase 04-05]: $state(...) cannot be passed directly as function argument in Svelte 5 — must assign to let variable first, then pass to set*Context
 
 ### Phase 04-04 Decisions
 - [Phase 04-04]: DataController exposes action callbacks (commit, discard, addRows, addNewRow, navigateError, viewChange) on dataCtx — Toolbar reads these without importing DataController
@@ -118,7 +124,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 1 | complete | 01-01 ✓ through 01-07 ✓ |
 | 2 | complete | 02-01 ✓, 02-02 ✓, 02-03 ✓ |
 | 3 | complete | 03-01 ✓, 03-02 ✓, 03-03 ✓ |
-| 4 | in-progress | 04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓ |
+| 4 | complete | 04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓, 04-05 ✓ |
 | 5 | pending | not planned |
 | 6 | pending | not planned |
 | 7 | pending | not planned |
@@ -144,6 +150,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 04 | 02 | ~5 min | 2/2 | 8 |
 | 04 | 03 | ~13 min | 2/2 | 7 |
 | 04 | 04 | ~6 min | 2/2 | 4 |
+| 04 | 05 | ~5 min | 2/2 | 6 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
