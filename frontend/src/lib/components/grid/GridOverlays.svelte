@@ -81,6 +81,14 @@
               oldValue: action.newValue,
             });
           }
+          // Auto-scroll to first affected cell (Excel behavior)
+          const firstAction = batch[0];
+          const row = dataCtx.assets.findIndex(a => a.id === firstAction.id);
+          const col = colCtx.keys.indexOf(firstAction.key);
+          if (row !== -1) {
+            viewCtx.scrollToRow = row;
+            selection.moveTo(row, col !== -1 ? col : 0);
+          }
         }
       };
     },
@@ -90,6 +98,14 @@
         if (batch) {
           for (const action of batch) {
             changes.update(action);
+          }
+          // Auto-scroll to first affected cell (Excel behavior)
+          const firstAction = batch[0];
+          const row = dataCtx.assets.findIndex(a => a.id === firstAction.id);
+          const col = colCtx.keys.indexOf(firstAction.key);
+          if (row !== -1) {
+            viewCtx.scrollToRow = row;
+            selection.moveTo(row, col !== -1 ? col : 0);
           }
         }
       };
