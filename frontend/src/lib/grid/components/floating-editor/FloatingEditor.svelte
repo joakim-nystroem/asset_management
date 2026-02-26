@@ -15,6 +15,11 @@
   const rows = createRowController();
   const columns = createColumnController();
 
+  type Props = {
+    onSave?: (change: { id: any; key: string; oldValue: any; newValue: any }) => void;
+  };
+  let { onSave }: Props = $props();
+
   let textareaRef: HTMLTextAreaElement | null = $state(null);
 
   // Compute absolute position within the translated virtual-chunk
@@ -68,7 +73,7 @@
         const v = autocomplete.getSelectedValue();
         if (v !== null) editCtx.inputValue = v;
         autocomplete.clear();
-        edit.save(dataCtx.assets);
+        edit.save(dataCtx.assets).then(change => { if (change) onSave?.(change); });
         return;
       } else if (e.key === 'Escape') {
         e.preventDefault();
@@ -95,7 +100,7 @@
           editCtx.inputValue = selectedValue;
         }
         editDropdown.hide();
-        edit.save(dataCtx.assets);
+        edit.save(dataCtx.assets).then(change => { if (change) onSave?.(change); });
         return;
       } else if (e.key === 'Escape') {
         e.preventDefault();
@@ -108,7 +113,7 @@
     // Normal keyboard handling when neither dropdown is visible
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      edit.save(dataCtx.assets);
+      edit.save(dataCtx.assets).then(change => { if (change) onSave?.(change); });
     } else if (e.key === 'Escape') {
       e.preventDefault();
       edit.cancel();
@@ -132,7 +137,7 @@
     // Always save on blur (clicking outside) — setTimeout prevents race with dropdown mousedown
     setTimeout(() => {
       if (editCtx.isEditing) {
-        edit.save(dataCtx.assets);
+        edit.save(dataCtx.assets).then(change => { if (change) onSave?.(change); });
       }
     }, 0);
   }
@@ -157,7 +162,7 @@
           onSelect={(value) => {
             editCtx.inputValue = value;
             editCtx.editDropdown?.hide();
-            edit.save(dataCtx.assets);
+            edit.save(dataCtx.assets).then(change => { if (change) onSave?.(change); });
           }}
         />
       {/if}
@@ -167,7 +172,7 @@
           onSelect={(value) => {
             editCtx.inputValue = value;
             editCtx.autocomplete?.clear();
-            edit.save(dataCtx.assets);
+            edit.save(dataCtx.assets).then(change => { if (change) onSave?.(change); });
           }}
         />
       {/if}

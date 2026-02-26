@@ -327,6 +327,9 @@
   {/each}
 
   {#if editCtx.isEditing}
-    <FloatingEditor />
+    <FloatingEditor onSave={(change) => {
+      history.record(change.id, change.key, change.oldValue, change.newValue);
+      changes.update(change);
+    }} />
   {/if}
 </div>
