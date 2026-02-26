@@ -4,6 +4,7 @@ import type { FilterPanelState } from '$lib/grid/components/filter-panel/filterP
 import type { SafeUser } from '$lib/types';
 import type { createEditDropdown } from '$lib/grid/components/edit-dropdown/editDropdown.svelte.ts';
 import type { createAutocomplete } from '$lib/grid/components/suggestion-menu/autocomplete.svelte.ts';
+import type { Filter } from '$lib/data/searchManager.svelte';
 
 // ─── Shared primitive types ───────────────────────────────────────────────────
 
@@ -68,6 +69,13 @@ export type DataContext = {
   baseAssets: Record<string, any>[];
   filteredAssetsCount: number;
   user: SafeUser | null;
+  // Action callbacks (set by DataController)
+  commit?: () => Promise<void>;
+  discard?: () => void;
+  addRows?: () => Promise<void>;
+  addNewRow?: () => Promise<void>;
+  navigateError?: (direction: 'next' | 'prev') => void;
+  viewChange?: (viewName: string) => void;
 };
 
 export type ViewContext = {
@@ -82,6 +90,9 @@ export type UiContext = {
   contextMenu: any | null;
   handleFilterSelect: ((item: string, key: string) => void) | null;
   applySort: ((key: string, dir: 'asc' | 'desc') => void) | null;
+  // URL helpers (set by DataController)
+  getCurrentUrlState?: () => { q: string; filters: Filter[]; view: string };
+  updateSearchUrl?: (params: { q?: string; filters?: Filter[]; view?: string }) => void;
 };
 
 // ─── Domain context pairs ─────────────────────────────────────────────────────
@@ -149,18 +160,7 @@ export type GridContext = {
   // Context-channel fields
   assets: Record<string, any>[];
   filterPanel: FilterPanelState | null;
-  pageActions: {
-    onSaveEdit: (value: string) => void;
-    onCancelEdit: () => void;
-    onEditAction: (action: string, row: number, col: number) => void;
-    onCopy: () => void | Promise<void>;
-    onPaste: () => void | Promise<void>;
-    onUndo: () => void;
-    onRedo: () => void;
-    onEscape: () => void;
-    onDeleteNewRow: () => void;
-    user: SafeUser | null;
-  } | null;
+  pageActions: null; // DEPRECATED — kept for backward compat during migration, always null
   editDropdown: ReturnType<typeof createEditDropdown> | null;
   autocomplete: ReturnType<typeof createAutocomplete> | null;
 
