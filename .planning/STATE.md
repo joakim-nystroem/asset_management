@@ -3,9 +3,9 @@
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 04 (Context Split & Component Autonomy)
-- **Current Plan:** 02 complete (next: 03)
-- **Last Action:** Completed 04-02: migrated all 9 controller files from getGridContext to domain-specific context getters
-- **Last Session:** 2026-02-26T05:15:00Z
+- **Current Plan:** 03 complete (next: 04)
+- **Last Action:** Completed 04-03: migrated all grid components to domain contexts, eliminated pageActions pattern
+- **Last Session:** 2026-02-26T05:44:00Z
 
 ## Active Work
 Phases 1-3 complete. Architecture realignment needed: monolithic GridContext → ~10 domain contexts, thin +page.svelte, component independence. Three diagnosed bugs to fix.
@@ -31,8 +31,18 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 - [x] Architecture realignment discussion — CONTEXT.md written with multi-context decisions
 - [x] ROADMAP.md and REQUIREMENTS.md rewritten for multi-context architecture
 - [x] **04-01**: Split GridContext into 11 domain context types; 3 bug fixes applied (commits: ef608db, 47830ec)
+- [x] **04-02**: Migrated all 9 controller files from getGridContext to domain-specific context getters (commits: 595bcc3, 3bc94b3)
+- [x] **04-03**: Migrated all grid UI components to domain contexts; eliminated pageActions pattern; removed GridContainer callback props (commits: 24b7223, 65dd5dc)
 
 ## Decisions
+
+### Phase 04-03 Decisions
+- [Phase 04-03]: FloatingEditor calls edit.save(dataCtx.assets) directly — no pageActions?.onSaveEdit callback needed
+- [Phase 04-03]: GridOverlays creates its own history/clipboard/edit/changes controllers — all read from domain contexts, no pageActions
+- [Phase 04-03]: GridContainer removes onHeaderClick/onContextMenu/onCloseContextMenu props — handles inline using domain contexts
+- [Phase 04-03]: UiContext extended with handleFilterSelect + applySort fields (moved out of GridContext-only scope)
+- [Phase 04-03]: All domain set*Context() called in +page.svelte with ctx cast as any — same reactive object serves all domains
+- [Phase 04-03]: handleDeleteNewRow moved into contextMenu.svelte script (createRowGenerationController must be called at component init, not inside event handlers)
 
 ### Phase 04-02 Decisions
 - [Phase 04-02]: gridEdit needs three domain getters (getEditingContext + getColumnContext + getRowContext) — edit controller adjusts column widths and row heights
@@ -102,7 +112,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 1 | complete | 01-01 ✓ through 01-07 ✓ |
 | 2 | complete | 02-01 ✓, 02-02 ✓, 02-03 ✓ |
 | 3 | complete | 03-01 ✓, 03-02 ✓, 03-03 ✓ |
-| 4 | in-progress | 04-01 ✓, 04-02 ✓ |
+| 4 | in-progress | 04-01 ✓, 04-02 ✓, 04-03 ✓ |
 | 5 | pending | not planned |
 | 6 | pending | not planned |
 | 7 | pending | not planned |
@@ -126,6 +136,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 03 | 03 | ~3 min | 2/2 | 4 |
 | 04 | 01 | ~2 min | 2/2 | 3 |
 | 04 | 02 | ~5 min | 2/2 | 8 |
+| 04 | 03 | ~13 min | 2/2 | 7 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
