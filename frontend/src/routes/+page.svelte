@@ -1192,13 +1192,5 @@
     />
   {/if}
 
-  <ContextMenu
-    state={contextMenu}
-    onEdit={handleEditAction}
-    onCopy={handleCopy}
-    onPaste={handlePaste}
-    onFilterByValue={handleFilterByValue}
-    onDelete={handleDeleteNewRow}
-    showDelete={contextMenu.row >= filteredAssets.length}
-  />
+  <ContextMenu />
 </div>
