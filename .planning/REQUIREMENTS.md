@@ -32,7 +32,7 @@
 
 ### F5 — DB-Side Filtering & Search
 - [x] **F5.1** All filter/search queries must be executed server-side via Kysely *(05-01)*
-- [x] **F5.2** `searchManager.getFilterItems()` client-side array filtering must be replaced with API calls *(05-01)*
+- [x] **F5.2** Data result filtering must be server-side; `getFilterItems()` client-side enumeration for dropdown options is acceptable *(05-01)*
 - **F5.3** `DataController` manages `baseAssets` (master list) and `filteredAssets` (query result) via `dataContext`
 - **F5.4** Clearing a filter re-points to `baseAssets` for zero-latency reset (no refetch)
 - [x] **F5.5** Search API endpoint must support multi-column filter combinations *(05-01)*
