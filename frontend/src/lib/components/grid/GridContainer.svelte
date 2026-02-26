@@ -2,11 +2,13 @@
   import { getGridContext } from '$lib/context/gridContext.svelte.ts';
   import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
   import { createRowController } from '$lib/grid/utils/gridRows.svelte.ts';
+  import { createSelectionController } from '$lib/grid/utils/gridSelection.svelte.ts';
   import GridRow from '$lib/components/grid/GridRow.svelte';
   import GridHeader from '$lib/components/grid/GridHeader.svelte';
   import GridOverlays from '$lib/components/grid/GridOverlays.svelte';
   import HeaderMenu from '$lib/grid/components/header-menu/headerMenu.svelte';
   import { searchManager } from '$lib/data/searchManager.svelte';
+  import { toastState } from '$lib/components/toast/toastState.svelte';
   // NO import of ContextMenu, editDropdown, autocomplete, FloatingEditor
 
   // F2.5: 3 data props (assets, onHeaderClick, onContextMenu) + event callbacks exempt from the rule
@@ -17,6 +19,8 @@
     onCloseContextMenu: () => void;
   };
   let { assets, onHeaderClick, onContextMenu, onCloseContextMenu }: Props = $props();
+
+  const selection = createSelectionController();
 
   const ctx = getGridContext();
   const virtualScroll = ctx.virtualScroll;  // shared instance from context
@@ -78,18 +82,57 @@
     <div
       class="w-max min-w-full bg-white dark:bg-slate-800 text-left relative"
       style="height: {virtualScroll.getTotalHeight(assets.length, rows) + 32 + 16}px;"
-      onclick={(e) => {
+      onmousedown={(e) => {
         const target = e.target as HTMLElement;
-        const row = Number(target.dataset.row);
-        const col = Number(target.dataset.col);
-        if (!isNaN(row) && !isNaN(col)) {
-          // selection handled by selectionController reading ctx
+        const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+        if (!cell) return;
+        const row = Number(cell.dataset.row);
+        const col = Number(cell.dataset.col);
+        if (isNaN(row) || isNaN(col)) return;
+        if (ctx.isEditing) {
+          ctx.pageActions?.onSaveEdit('');
+          selection.selectCell(row, col);
+          return;
         }
+        selection.handleMouseDown(row, col, e);
+      }}
+      onmouseenter={(e) => {
+        const target = e.target as HTMLElement;
+        const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+        if (!cell) return;
+        const row = Number(cell.dataset.row);
+        const col = Number(cell.dataset.col);
+        if (isNaN(row) || isNaN(col)) return;
+        if (!ctx.isEditing) {
+          selection.extendSelection(row, col);
+        }
+      }}
+      ondblclick={(e) => {
+        const target = e.target as HTMLElement;
+        const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+        if (!cell) return;
+        const row = Number(cell.dataset.row);
+        const col = Number(cell.dataset.col);
+        if (isNaN(row) || isNaN(col)) return;
+        if (!ctx.pageActions?.user) {
+          toastState.addToast('Log in to edit.', 'warning');
+          return;
+        }
+        const key = ctx.keys[col];
+        if (key === 'id') {
+          toastState.addToast('ID column cannot be edited.', 'warning');
+          return;
+        }
+        e.preventDefault();
+        selection.selectCell(row, col);
+        ctx.pageActions?.onEditAction('dblclick', row, col);
       }}
       oncontextmenu={(e) => {
         const target = e.target as HTMLElement;
-        const visibleIndex = Number(target.dataset.row);
-        const col = Number(target.dataset.col);
+        const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+        if (!cell) return;
+        const visibleIndex = Number(cell.dataset.row);
+        const col = Number(cell.dataset.col);
         if (!isNaN(visibleIndex) && !isNaN(col)) {
           onContextMenu(e, visibleIndex, col);
         }
@@ -121,15 +164,6 @@
               {asset}
               keys={ctx.keys}
               {actualIndex}
-              user={ctx.pageActions?.user ?? null}
-              editDropdown={ctx.editDropdown!}
-              autocomplete={ctx.autocomplete!}
-              {assets}
-              onSaveEdit={() => ctx.pageActions?.onSaveEdit('')}
-              onCancelEdit={() => ctx.pageActions?.onCancelEdit()}
-              onEditAction={() => ctx.pageActions?.onEditAction('', actualIndex, 0)}
-              onContextMenu={(e, visibleIdx, col) => onContextMenu(e, visibleIdx, col)}
-              visibleIndex={i}
             />
           </div>
         {/each}
