@@ -3,12 +3,12 @@
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 03
-- **Current Plan:** 03-02 complete (2/3)
-- **Last Action:** Executed 03-01-PLAN.md — refactored ContextMenu to zero-prop self-contained component reading gridContext directly; added onDeleteNewRow to pageActions channel
-- **Last Session:** 2026-02-26T00:13:56Z
+- **Current Plan:** 03-03 complete (3/3)
+- **Last Action:** Executed 03-03-PLAN.md — stripped GridRow to pure display (3 props), added event delegation to GridContainer, mounted FloatingEditor in GridOverlays; Phase 3 complete
+- **Last Session:** 2026-02-26T00:19:47Z
 
 ## Active Work
-Phase 3 in progress. 03-01 and 03-02 complete. Next: 03-03 (mount FloatingEditor in GridOverlays, strip inline editor from GridRow).
+Phase 3 complete. All plans (03-01, 03-02, 03-03) executed. Next: Phase 4 (pending planning).
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -64,6 +64,9 @@ Phase 3 in progress. 03-01 and 03-02 complete. Next: 03-03 (mount FloatingEditor
 - [Phase 03 Plan 02]: $effect watches ctx.isEditing (not textareaRef binding alone) to trigger focus on every edit start
 - [Phase 03 Plan 01]: handleDeleteNewRow delegates via ctx.pageActions.onDeleteNewRow — rowGen instance not in ctx, page owns it
 - [Phase 03 Plan 01]: onDeleteNewRow added to pageActions type — small channel extension, not architectural change
+- [Phase 03 Plan 03]: event delegation uses closest('[data-row][data-col]') — more robust than target.dataset.row alone (handles clicks on span children)
+- [Phase 03 Plan 03]: handleEditAction params renamed actionRow/actionCol to avoid duplicate identifier with const { row, col } = target destructuring inside function body
+- [Phase 03 Plan 03]: FloatingEditor placed after dirty-cell overlays in GridOverlays — z-[100] ensures it renders above all other overlays
 
 ## Key Context
 - Working dir: `/home/joakim/asset_management`
@@ -85,7 +88,7 @@ Phase 3 in progress. 03-01 and 03-02 complete. Next: 03-03 (mount FloatingEditor
 |-------|--------|------|
 | 1 | complete | 01-01 ✓, 01-02 ✓, 01-03 ✓, 01-04 ✓, 01-05 ✓, 01-06 ✓, 01-07 ✓ |
 | 2 | complete | 02-01 ✓, 02-02 ✓, 02-03 ✓ |
-| 3 | in-progress | 03-01 ✓, 03-02 ✓, 03-03 pending |
+| 3 | complete | 03-01 ✓, 03-02 ✓, 03-03 ✓ |
 | 4 | pending | not planned |
 | 5 | pending | not planned |
 | 6 | pending | not planned |
@@ -106,6 +109,7 @@ Phase 3 in progress. 03-01 and 03-02 complete. Next: 03-03 (mount FloatingEditor
 | 02 | 03 | ~8 min | 2/2 | 30 |
 | 03 | 01 | ~2 min | 2/2 | 4 |
 | 03 | 02 | ~10 min | 2/2 | 2 |
+| 03 | 03 | ~3 min | 2/2 | 4 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
@@ -120,3 +124,4 @@ Phase 3 in progress. 03-01 and 03-02 complete. Next: 03-03 (mount FloatingEditor
 - Requirements satisfied by 02-03: F2.4 (directory structure enforces utility vs component convention)
 - Requirements satisfied by 03-02: F3.1, F3.2, F3.3, F3.4, F3.5 (FloatingEditor component pair created)
 - Requirements satisfied by 03-01: F3.1, F4.1, F4.2, F4.3 (ContextMenu zero-prop refactor)
+- Requirements satisfied by 03-03: F3.1, F3.2, F3.3, F3.4, F3.5 (FloatingEditor wired into GridOverlays; GridRow pure display; event delegation in GridContainer)
