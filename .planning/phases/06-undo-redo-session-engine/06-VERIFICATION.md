@@ -1,9 +1,23 @@
 ---
 phase: 06-undo-redo-session-engine
 verified: 2026-02-26T14:30:00Z
-status: passed
+status: human_needed
 score: 7/7 must-haves verified
 re_verification: false
+gaps: []
+human_verification:
+  - test: "Edit a cell in a large dataset that is off-screen, then Ctrl+Z"
+    expected: "Grid scrolls to bring the reverted cell into view; selection cursor lands on the reverted cell"
+    why_human: "viewCtx.scrollToRow triggers virtualScroll.ensureVisible() — cannot verify runtime scroll behavior programmatically"
+  - test: "Copy a 3x3 block of cells, paste it, then press Ctrl+Z once"
+    expected: "All 9 cells revert simultaneously in one Ctrl+Z; grid scrolls to the first pasted cell"
+    why_human: "Batch grouping verified in code, but runtime paste + undo UX needs visual confirmation"
+  - test: "Edit a cell, commit (save), then press Ctrl+Z"
+    expected: "The committed value reverts to its pre-edit value; cell shows dirty overlay again"
+    why_human: "Cannot verify that undo correctly re-dirtifies the cell after a post-commit undo"
+  - test: "Edit the same cell three times, then press Ctrl+Z three times in quick succession"
+    expected: "Selection cursor stays on the same cell each time, values revert correctly"
+    why_human: "moveTo() vs selectCell() distinction must be verified for repeated-undo case"
 ---
 
 # Phase 6: Undo/Redo Session Engine Verification Report
