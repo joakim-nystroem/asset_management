@@ -5,9 +5,9 @@ milestone_name: milestone
 current_phase: 06
 current_plan: Not started
 status: unknown
-last_updated: "2026-02-26T13:50:22.127Z"
+last_updated: "2026-02-26T14:43:53.296Z"
 progress:
-  total_phases: 6
+  total_phases: 7
   completed_phases: 6
   total_plans: 24
   completed_plans: 24
@@ -29,7 +29,7 @@ See: `.planning/phases/05-db-side-filtering/05-VERIFICATION.md`
 - **Current Phase:** 06
 - **Current Plan:** Not started
 - **Last Action:** Completed 06-01: added auto-scroll + selection cursor to onUndo/onRedo; updated F8.4 requirement to match locked decision; documented commit history preservation
-- **Last Session:** 2026-02-26T13:46:03Z
+- **Last Session:** 2026-02-26T14:43:53.293Z
 
 ## Active Work
 Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete — undo/redo engine fully wired with auto-scroll and selection cursor.
@@ -153,6 +153,11 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 - Top-level grid components stay at lib/components/grid/ root
 - FloatingEditor placed after dirty-cell overlays in GridOverlays — z-[100]
 - Event delegation uses closest('[data-row][data-col]')
+
+## Accumulated Context
+
+### Roadmap Evolution
+- Phase 06.1 inserted after Phase 06: Serial Event Queue Pipeline (URGENT) — all network events post-initial-load must flow through a single serial FIFO queue. Deferred since Phase 2 ("syncQueue"), never built. Now a showstopper before clipboard/WebSocket phases.
 
 ## Key Context
 - Working dir: `/home/joakim/asset_management`
