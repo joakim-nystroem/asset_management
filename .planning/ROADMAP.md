@@ -121,18 +121,25 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 ---
 
 ## Phase 5: DB-Side Filtering
-**Status:** Not started
-**Goal:** Replace all client-side array filtering with server-side Kysely queries.
+**Status:** Planning complete
+**Goal:** Consolidate `/api/assets`, `/api/search`, and `/api/assets/view` into a single `/api/assets` endpoint backed by a unified `queryAssets()` Kysely query builder.
 
 **Scope:**
-- Add multi-column filter support to `/api/assets` or create `/api/assets/filter` endpoint
-- Update `searchManager` to dispatch filter queries to the API instead of filtering client-side
-- `DataController.svelte` manages the fetch/filter lifecycle via `dataContext`
+- Rename `searchAssets()` to `queryAssets()` with PED view filter fix
+- Rewrite `/api/assets/+server.ts` to accept `q`, `filter`, `view` params
+- Update `+page.server.ts` to use `queryAssets()` for both base and filtered loads
+- Update `DataController.svelte` to fetch from unified `/api/assets` endpoint
+- Delete `/api/search/+server.ts`, `/api/assets/view/+server.ts`, `searchAssets.ts`, `getAssetsByView.ts`
 - Maintain `baseAssets` (initial load) / `filteredAssets` (query result) in `dataContext`
 - Clearing filters re-points to `baseAssets` (no refetch)
-- Update header filter dropdowns to fetch available values from API
 
-**Success:** No client-side `.filter()` on the assets array for search/filter operations.
+**Requirements:** [F5.1, F5.2, F5.3, F5.4, F5.5]
+
+**Success:** All asset data fetching goes through one endpoint (`GET /api/assets`) with consistent `{ assets, dbError }` response shape. No client-side `.filter()` on the assets array for search/filter operations.
+
+**Plans:** 2 plans
+- [ ] 05-01-PLAN.md — Create queryAssets.ts, rewrite /api/assets endpoint, update +page.server.ts
+- [ ] 05-02-PLAN.md — Migrate DataController fetch URLs, delete obsolete routes and DB functions
 
 ---
 
@@ -187,8 +194,8 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 1 | Singleton Removal | ✓ Complete | Singletons → context getters |
 | 2 | Component Decomposition | ✓ Complete | GridContainer, event delegation, directory structure |
 | 3 | FloatingEditor & ContextMenu | ✓ Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
-| 4 | 8/8 | Complete   | 2026-02-26 |
-| 5 | DB-Side Filtering | Pending | API filter endpoint, server-side queries |
+| 4 | Context Split & Component Autonomy | Complete | 11 domain contexts, thin +page.svelte, DataController |
+| 5 | DB-Side Filtering | Planned | Unified /api/assets endpoint, queryAssets.ts |
 | 6 | Undo/Redo Engine | Pending | Verified history stack, draft integration |
 | 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 8 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
