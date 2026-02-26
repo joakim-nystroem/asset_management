@@ -121,7 +121,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 ---
 
 ## Phase 5: DB-Side Filtering
-**Status:** Planning complete
+**Status:** Awaiting human verification
 **Goal:** Consolidate `/api/assets`, `/api/search`, and `/api/assets/view` into a single `/api/assets` endpoint backed by a unified `queryAssets()` Kysely query builder.
 
 **Scope:**
@@ -137,9 +137,9 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 **Success:** All asset data fetching goes through one endpoint (`GET /api/assets`) with consistent `{ assets, dbError }` response shape. No client-side `.filter()` on the assets array for search/filter operations.
 
-**Plans:** 2/2 plans complete
-- [ ] 05-01-PLAN.md — Create queryAssets.ts, rewrite /api/assets endpoint, update +page.server.ts
-- [ ] 05-02-PLAN.md — Migrate DataController fetch URLs, delete obsolete routes and DB functions
+**Plans:** 2/2 plans executed (awaiting human verification)
+- [x] 05-01-PLAN.md — Create queryAssets.ts, rewrite /api/assets endpoint, update +page.server.ts
+- [x] 05-02-PLAN.md — Migrate DataController fetch URLs, delete obsolete routes and DB functions
 
 ---
 

@@ -4,16 +4,25 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 05
 current_plan: Not started
-status: unknown
+status: awaiting_human_verification
 last_updated: "2026-02-26T13:10:24.176Z"
 progress:
   total_phases: 5
-  completed_phases: 5
+  completed_phases: 4
   total_plans: 23
   completed_plans: 23
 ---
 
 # Project State
+
+## Pending Verification (prompt before launching new phases)
+Phase 5 (DB-Side Filtering) has all plans executed but 3 manual tests are unverified:
+1. Filter dropdown triggers server fetch to `/api/assets?filter=...` (check network tab)
+2. PED view search excludes non-PED assets (requires live DB)
+3. Clear filter shows baseAssets instantly with no refetch
+
+**Action:** When user is near a DB, prompt them to verify before starting new phases. Not a hard blocker — proceed if user confirms.
+See: `.planning/phases/05-db-side-filtering/05-VERIFICATION.md`
 
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
@@ -23,7 +32,7 @@ progress:
 - **Last Session:** 2026-02-26T12:59:00Z
 
 ## Active Work
-Phases 1-4 complete. Phase 5: DB-side filtering consolidation in progress. Plans 01-02 done (queryAssets unified query layer + DataController migration). Plan 03 next (if any): final cleanup or phase complete.
+Phases 1-4 complete. Phase 5: all plans executed, awaiting human verification (filter fetch, PED view search, clear filter zero-latency). See 05-VERIFICATION.md for test details.
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -162,7 +171,7 @@ Phases 1-4 complete. Phase 5: DB-side filtering consolidation in progress. Plans
 | 2 | complete | 02-01 ✓, 02-02 ✓, 02-03 ✓ |
 | 3 | complete | 03-01 ✓, 03-02 ✓, 03-03 ✓ |
 | 4 | complete | 04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓, 04-05 ✓, 04-06 ✓ |
-| 5 | in_progress | 05-01 ✓, 05-02 ✓ |
+| 5 | awaiting_verification | 05-01 ✓, 05-02 ✓ |
 | 6 | pending | not planned |
 | 7 | pending | not planned |
 | 8 | pending | not planned |
