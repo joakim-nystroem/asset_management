@@ -3,9 +3,9 @@
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 04 (Context Split & Component Autonomy)
-- **Current Plan:** Not started
-- **Last Action:** Rewrote ROADMAP.md and REQUIREMENTS.md to align with multi-context architecture
-- **Last Session:** 2026-02-26T10:00:00Z
+- **Current Plan:** 01 complete (next: 02)
+- **Last Action:** Completed 04-01: domain context split + 3 bug fixes
+- **Last Session:** 2026-02-26T05:08:00Z
 
 ## Active Work
 Phases 1-3 complete. Architecture realignment needed: monolithic GridContext → ~10 domain contexts, thin +page.svelte, component independence. Three diagnosed bugs to fix.
@@ -30,8 +30,15 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 - [x] **03-03**: FloatingEditor wired into GridOverlays; GridRow stripped to pure display; event delegation in GridContainer
 - [x] Architecture realignment discussion — CONTEXT.md written with multi-context decisions
 - [x] ROADMAP.md and REQUIREMENTS.md rewritten for multi-context architecture
+- [x] **04-01**: Split GridContext into 11 domain context types; 3 bug fixes applied (commits: ef608db, 47830ec)
 
 ## Decisions
+
+### Phase 04-01 Decisions
+- [Phase 04-01]: editDropdown and autocomplete placed in EditingContext (edit-phase UI, consumed only by FloatingEditor)
+- [Phase 04-01]: DataContext includes user field (permission checks needed by grid components)
+- [Phase 04-01]: Monolithic GridContext kept as-is (not intersection type) for simpler backward compat during migration
+- [Phase 04-01]: UiContext holds filterPanel, headerMenu, contextMenu (UI overlay state)
 
 ### Architecture Realignment (Phase 4 — supersedes Phase 1-3 context pattern)
 - [Phase 04]: Split monolithic GridContext into ~10 separate `createContext<T>()` pairs — one per domain
@@ -88,7 +95,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 1 | complete | 01-01 ✓ through 01-07 ✓ |
 | 2 | complete | 02-01 ✓, 02-02 ✓, 02-03 ✓ |
 | 3 | complete | 03-01 ✓, 03-02 ✓, 03-03 ✓ |
-| 4 | pending | not planned |
+| 4 | in-progress | 04-01 ✓ |
 | 5 | pending | not planned |
 | 6 | pending | not planned |
 | 7 | pending | not planned |
@@ -110,6 +117,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 03 | 01 | ~2 min | 2/2 | 4 |
 | 03 | 02 | ~10 min | 2/2 | 2 |
 | 03 | 03 | ~3 min | 2/2 | 4 |
+| 04 | 01 | ~2 min | 2/2 | 3 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
