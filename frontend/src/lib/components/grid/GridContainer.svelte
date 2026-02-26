@@ -115,7 +115,10 @@
         const col = Number(cell.dataset.col);
         if (isNaN(row) || isNaN(col)) return;
         if (editCtx.isEditing) {
-          edit.save(dataCtx.assets);
+          // Do NOT call edit.save() here — let FloatingEditor's handleBlur own the save.
+          // Mousedown on another cell blurs the textarea, triggering handleBlur which calls
+          // edit.save().then(onSave) to record history. Calling save() here preempts that
+          // by setting isEditing=false before the setTimeout(0) in handleBlur fires.
           selection.selectCell(row, col);
           return;
         }
