@@ -1,9 +1,9 @@
 // src/lib/grid/utils/gridClipboard.svelte.ts
 //
 // Co-located clipboard controller — replaces utils/interaction/clipboardManager.svelte.ts.
-// Reads selection state from gridContext (set by createSelectionController in Plan 03).
+// Reads selection state from domain contexts (set by createSelectionController in Plan 03).
 
-import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+import { getSelectionContext, getClipboardContext } from '$lib/context/gridContext.svelte.ts';
 
 export type HistoryAction = {
   id: number | string;
@@ -36,7 +36,8 @@ async function readFromClipboard(): Promise<string | null> {
 }
 
 export function createClipboardController() {
-  const ctx = getGridContext();
+  const selCtx = getSelectionContext();
+  const clipCtx = getClipboardContext();
 
   // Clipboard buffer is local — not needed by other components
   let internal = $state<CopiedItem[]>([]);
@@ -44,22 +45,22 @@ export function createClipboardController() {
 
   // Derived selection bounds from context
   function getSelectionBounds() {
-    if (ctx.selectionStart.row === -1 || ctx.selectionEnd.row === -1) return null;
+    if (selCtx.selectionStart.row === -1 || selCtx.selectionEnd.row === -1) return null;
     return {
-      minRow: Math.min(ctx.selectionStart.row, ctx.selectionEnd.row),
-      maxRow: Math.max(ctx.selectionStart.row, ctx.selectionEnd.row),
-      minCol: Math.min(ctx.selectionStart.col, ctx.selectionEnd.col),
-      maxCol: Math.max(ctx.selectionStart.col, ctx.selectionEnd.col),
+      minRow: Math.min(selCtx.selectionStart.row, selCtx.selectionEnd.row),
+      maxRow: Math.max(selCtx.selectionStart.row, selCtx.selectionEnd.row),
+      minCol: Math.min(selCtx.selectionStart.col, selCtx.selectionEnd.col),
+      maxCol: Math.max(selCtx.selectionStart.col, selCtx.selectionEnd.col),
     };
   }
 
   async function copy(assets: any[], keys: string[]) {
     // 1. Snapshot visual overlay (equivalent to selectionManager.snapshotAsCopied())
-    if (ctx.selectionStart.row !== -1) {
-      ctx.copyStart = { ...ctx.selectionStart };
-      ctx.copyEnd = { ...ctx.selectionEnd };
-      ctx.isCopyVisible = true;
-      ctx.isHiddenAfterCopy = true;
+    if (selCtx.selectionStart.row !== -1) {
+      clipCtx.copyStart = { ...selCtx.selectionStart };
+      clipCtx.copyEnd = { ...selCtx.selectionEnd };
+      clipCtx.isCopyVisible = true;
+      selCtx.isHiddenAfterCopy = true;
     }
 
     // 2. Get selection bounds

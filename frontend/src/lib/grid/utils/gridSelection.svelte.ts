@@ -1,10 +1,10 @@
 // src/lib/grid/utils/gridSelection.svelte.ts
 //
 // Co-located selection controller — replaces utils/interaction/selectionManager.svelte.ts.
-// State lives in gridContext (cross-component: GridRow, GridOverlays, GridHeader, InventoryGrid
+// State lives in domain contexts (cross-component: GridRow, GridOverlays, GridHeader, InventoryGrid
 // all need selection state). The controller provides the methods; the state fields are in context.
 
-import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+import { getSelectionContext, getClipboardContext } from '$lib/context/gridContext.svelte.ts';
 
 export type GridCell = {
   row: number;
@@ -24,7 +24,8 @@ export type VisualSelection = {
 };
 
 export function createSelectionController() {
-  const ctx = getGridContext();
+  const selCtx = getSelectionContext();
+  const clipCtx = getClipboardContext();
 
   // --- Actions ---
 
@@ -33,94 +34,94 @@ export function createSelectionController() {
     for (const cell of cells) {
       newSet.add(`${cell.row},${cell.col}`);
     }
-    ctx.dirtyCells = newSet;
+    selCtx.dirtyCells = newSet;
   }
 
   function clearDirtyCells() {
-    ctx.dirtyCells = new Set<string>();
+    selCtx.dirtyCells = new Set<string>();
   }
 
   function handleMouseDown(row: number, col: number, e: MouseEvent) {
     if (e.button !== 0) return;
 
-    ctx.isHiddenAfterCopy = false;
-    ctx.isSelecting = true;
+    selCtx.isHiddenAfterCopy = false;
+    selCtx.isSelecting = true;
 
-    if (e.shiftKey && ctx.selectionStart.row !== -1) {
-      ctx.selectionEnd = { row, col };
+    if (e.shiftKey && selCtx.selectionStart.row !== -1) {
+      selCtx.selectionEnd = { row, col };
     } else {
       const isSingleCellSelected =
-        ctx.selectionStart.row === ctx.selectionEnd.row &&
-        ctx.selectionStart.col === ctx.selectionEnd.col &&
-        ctx.selectionStart.row !== -1;
+        selCtx.selectionStart.row === selCtx.selectionEnd.row &&
+        selCtx.selectionStart.col === selCtx.selectionEnd.col &&
+        selCtx.selectionStart.row !== -1;
 
       const clickingSameCell =
-        ctx.selectionStart.row === row && ctx.selectionStart.col === col;
+        selCtx.selectionStart.row === row && selCtx.selectionStart.col === col;
 
       if (isSingleCellSelected && clickingSameCell) {
         reset();
       } else {
-        ctx.selectionStart = { row, col };
-        ctx.selectionEnd = { row, col };
+        selCtx.selectionStart = { row, col };
+        selCtx.selectionEnd = { row, col };
       }
     }
   }
 
   function extendSelection(row: number, col: number) {
-    if (ctx.isSelecting) {
-      ctx.isHiddenAfterCopy = false;
-      ctx.selectionEnd = { row, col };
+    if (selCtx.isSelecting) {
+      selCtx.isHiddenAfterCopy = false;
+      selCtx.selectionEnd = { row, col };
     }
   }
 
   function endSelection() {
-    ctx.isSelecting = false;
+    selCtx.isSelecting = false;
   }
 
   function moveTo(row: number, col: number) {
-    ctx.isHiddenAfterCopy = false;
-    ctx.selectionStart = { row, col };
-    ctx.selectionEnd = { row, col };
+    selCtx.isHiddenAfterCopy = false;
+    selCtx.selectionStart = { row, col };
+    selCtx.selectionEnd = { row, col };
   }
 
   function selectCell(row: number, col: number) {
     if (isCellSelected(row, col)) return;
-    ctx.isHiddenAfterCopy = false;
-    ctx.selectionStart = { row, col };
-    ctx.selectionEnd = { row, col };
+    selCtx.isHiddenAfterCopy = false;
+    selCtx.selectionStart = { row, col };
+    selCtx.selectionEnd = { row, col };
   }
 
   function snapshotAsCopied() {
-    if (ctx.selectionStart.row !== -1) {
-      ctx.copyStart = { ...ctx.selectionStart };
-      ctx.copyEnd = { ...ctx.selectionEnd };
-      ctx.isCopyVisible = true;
-      ctx.isHiddenAfterCopy = true;
+    if (selCtx.selectionStart.row !== -1) {
+      clipCtx.copyStart = { ...selCtx.selectionStart };
+      clipCtx.copyEnd = { ...selCtx.selectionEnd };
+      clipCtx.isCopyVisible = true;
+      selCtx.isHiddenAfterCopy = true;
     }
   }
 
   function clearCopyOverlay() {
-    ctx.isCopyVisible = false;
+    clipCtx.isCopyVisible = false;
   }
 
   function reset() {
-    ctx.selectionStart = { row: -1, col: -1 };
-    ctx.selectionEnd = { row: -1, col: -1 };
+    selCtx.selectionStart = { row: -1, col: -1 };
+    selCtx.selectionEnd = { row: -1, col: -1 };
   }
 
   function resetAll() {
     reset();
-    ctx.isCopyVisible = false;
-    ctx.isHiddenAfterCopy = false;
+    clipCtx.isCopyVisible = false;
+    selCtx.isHiddenAfterCopy = false;
   }
 
   function isCellSelected(row: number, col: number): boolean {
-    if (ctx.selectionStart.row === -1) return false;
+    if (selCtx.selectionStart.row === -1) return false;
 
-    const minR = Math.min(ctx.selectionStart.row, ctx.selectionEnd.row);
-    const maxR = Math.max(ctx.selectionStart.row, ctx.selectionEnd.row);
-    const minC = Math.min(ctx.selectionStart.col, ctx.selectionEnd.col);
-    const maxC = Math.max(ctx.selectionStart.col, ctx.selectionEnd.col);
+    const minR = Math.min(selCtx.selectionStart.row, selCtx.selectionEnd.row);
+    const maxR = Math.max(selCtx.selectionStart.row, selCtx.selectionEnd.row);
+    const minC = Math.min(selCtx.selectionStart.col, selCtx.selectionEnd.col);
+    const maxC = Math.max(selCtx.selectionStart.col, selCtx.selectionEnd.col);
 
     return row >= minR && row <= maxR && col >= minC && col <= maxC;
   }
@@ -192,14 +193,14 @@ export function createSelectionController() {
     isCellInvalid?: (row: number, col: number) => boolean
   ): VisualSelection[] {
     const overlays: VisualSelection[] = [];
-    if (ctx.dirtyCells.size === 0) return overlays;
+    if (selCtx.dirtyCells.size === 0) return overlays;
 
-    const dirtyCoords = Array.from(ctx.dirtyCells).map((s) => {
+    const dirtyCoords = Array.from(selCtx.dirtyCells).map((s) => {
       const [row, col] = s.split(',').map(Number);
       return { row, col };
     });
 
-    const dirtySet = new Set(ctx.dirtyCells);
+    const dirtySet = new Set(selCtx.dirtyCells);
     dirtyCoords.sort((a, b) => a.row - b.row || a.col - b.col);
     const groups: {
       minRow: number;
@@ -276,56 +277,56 @@ export function createSelectionController() {
   return {
     // State accessors (read from context)
     get start() {
-      return ctx.selectionStart;
+      return selCtx.selectionStart;
     },
     set start(val: GridCell) {
-      ctx.selectionStart = val;
+      selCtx.selectionStart = val;
     },
     get end() {
-      return ctx.selectionEnd;
+      return selCtx.selectionEnd;
     },
     set end(val: GridCell) {
-      ctx.selectionEnd = val;
+      selCtx.selectionEnd = val;
     },
     get isSelecting() {
-      return ctx.isSelecting;
+      return selCtx.isSelecting;
     },
     get isSelectionVisible() {
-      return ctx.selectionStart.row !== -1 && !ctx.isHiddenAfterCopy;
+      return selCtx.selectionStart.row !== -1 && !selCtx.isHiddenAfterCopy;
     },
     get copyStart() {
-      return ctx.copyStart;
+      return clipCtx.copyStart;
     },
     get copyEnd() {
-      return ctx.copyEnd;
+      return clipCtx.copyEnd;
     },
     get isCopyVisible() {
-      return ctx.isCopyVisible;
+      return clipCtx.isCopyVisible;
     },
     get dirtyCells() {
-      return ctx.dirtyCells;
+      return selCtx.dirtyCells;
     },
 
     // Derived values
     get bounds() {
-      if (ctx.selectionStart.row === -1 || ctx.selectionEnd.row === -1)
+      if (selCtx.selectionStart.row === -1 || selCtx.selectionEnd.row === -1)
         return null;
       return {
-        minRow: Math.min(ctx.selectionStart.row, ctx.selectionEnd.row),
-        maxRow: Math.max(ctx.selectionStart.row, ctx.selectionEnd.row),
-        minCol: Math.min(ctx.selectionStart.col, ctx.selectionEnd.col),
-        maxCol: Math.max(ctx.selectionStart.col, ctx.selectionEnd.col),
+        minRow: Math.min(selCtx.selectionStart.row, selCtx.selectionEnd.row),
+        maxRow: Math.max(selCtx.selectionStart.row, selCtx.selectionEnd.row),
+        minCol: Math.min(selCtx.selectionStart.col, selCtx.selectionEnd.col),
+        maxCol: Math.max(selCtx.selectionStart.col, selCtx.selectionEnd.col),
       };
     },
     get hasSelection() {
-      return ctx.selectionStart.row !== -1;
+      return selCtx.selectionStart.row !== -1;
     },
     get primaryRange() {
-      if (ctx.selectionStart.row === -1) return null;
-      return { start: ctx.selectionStart, end: ctx.selectionEnd };
+      if (selCtx.selectionStart.row === -1) return null;
+      return { start: selCtx.selectionStart, end: selCtx.selectionEnd };
     },
     get anchor() {
-      return ctx.selectionStart.row !== -1 ? ctx.selectionStart : null;
+      return selCtx.selectionStart.row !== -1 ? selCtx.selectionStart : null;
     },
 
     // Actions
