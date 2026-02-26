@@ -80,8 +80,8 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 4: Context Split & Component Autonomy
-**Status:** Planned
+## Phase 4: Context Split & Component Autonomy ✓
+**Status:** Complete (2026-02-26)
 **Goal:** Split the monolithic GridContext into ~10 separate domain contexts. Make `+page.svelte` a thin wrapper. Move controller logic into owning components. Fix diagnosed bugs.
 
 **Scope:**
@@ -109,11 +109,11 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 **Success:** `+page.svelte` < 60 lines; monolithic GridContext replaced by ~10 domain contexts; each component independently deletable without breaking the app; all 3 bugs fixed.
 
 **Plans:** 5/5 plans complete
-- [ ] 04-01-PLAN.md — Bug fixes + split GridContext into ~10 domain context types
-- [ ] 04-02-PLAN.md — Migrate all controller factories to domain-specific getters
-- [ ] 04-03-PLAN.md — Migrate all grid components to domain contexts, eliminate pageActions
-- [ ] 04-04-PLAN.md — Create DataController.svelte, migrate Toolbar to zero props
-- [ ] 04-05-PLAN.md — Rewrite +page.svelte as thin wrapper, remove monolithic GridContext
+- [x] 04-01-PLAN.md — Bug fixes + split GridContext into ~10 domain context types
+- [x] 04-02-PLAN.md — Migrate all controller factories to domain-specific getters
+- [x] 04-03-PLAN.md — Migrate all grid components to domain contexts, eliminate pageActions
+- [x] 04-04-PLAN.md — Create DataController.svelte, migrate Toolbar to zero props
+- [x] 04-05-PLAN.md — Rewrite +page.svelte as thin wrapper, remove monolithic GridContext
 
 ---
 
@@ -184,7 +184,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 1 | Singleton Removal | ✓ Complete | Singletons → context getters |
 | 2 | Component Decomposition | ✓ Complete | GridContainer, event delegation, directory structure |
 | 3 | FloatingEditor & ContextMenu | ✓ Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
-| 4 | 5/5 | Complete   | 2026-02-26 |
+| 4 | Context Split & Component Autonomy | ✓ Complete | Domain contexts, DataController, thin +page.svelte |
 | 5 | DB-Side Filtering | Pending | API filter endpoint, server-side queries |
 | 6 | Undo/Redo Engine | Pending | Verified history stack, draft integration |
 | 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
