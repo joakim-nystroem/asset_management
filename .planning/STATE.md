@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 04
-current_plan: Not started
+current_plan: 08 complete (phase 04 gap closure complete)
 status: unknown
-last_updated: "2026-02-26T08:32:44.532Z"
+last_updated: "2026-02-26T09:42:58.600Z"
 progress:
   total_phases: 4
   completed_phases: 4
-  total_plans: 20
-  completed_plans: 20
+  total_plans: 21
+  completed_plans: 21
 ---
 
 # Project State
@@ -18,9 +18,9 @@ progress:
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 04
-- **Current Plan:** Not started
-- **Last Action:** Completed 04-06: fixed Toolbar dirty state, URL param preservation on view change, no-data flash eliminated via synchronous context seed
-- **Last Session:** 2026-02-26T08:29:26.735Z
+- **Current Plan:** 08 complete (phase 04 gap closure complete)
+- **Last Action:** Completed 04-08: shared ChangeController/HistoryController via Svelte context; removed premature edit.save() from GridContainer mousedown to fix click-away undo/redo
+- **Last Session:** 2026-02-26T09:42:32.153Z
 
 ## Active Work
 Phases 1-3 complete. Architecture realignment needed: monolithic GridContext → ~10 domain contexts, thin +page.svelte, component independence. Three diagnosed bugs to fix.
@@ -60,6 +60,8 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 - [Phase 04-07]: handleFilterByValue accepts uiCtx as parameter — Svelte 5 createContext getters only work during synchronous component initialization, not in event handlers
 - [Phase 04-07]: FloatingEditor uses .then() pattern for onSave — handleKeydown is synchronous so async/await would change event propagation semantics
 - [Phase 04-07]: onSave fires history.record() AND changes.update() — edits get both undo-redo support and dirty-cell overlays
+- [Phase 04]: ChangeController and HistoryController instances created once in GridOverlays and published via setChangeControllerContext/setHistoryControllerContext — DataController reads them via getters instead of calling factory functions
+- [Phase 04]: GridContainer onmousedown no longer calls edit.save() — FloatingEditor handleBlur with setTimeout(0) is the sole click-away save path to avoid the isEditing race condition
 
 ### Phase 04-05 Decisions
 - [Phase 04-05]: GridContextProvider.svelte centralizes all 11 set*Context($state({...})) calls — +page.svelte stays at 19 lines with zero context initialization
