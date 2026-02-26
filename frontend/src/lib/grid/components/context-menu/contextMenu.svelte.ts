@@ -1,4 +1,4 @@
-import { getUiContext, getDataContext } from '$lib/context/gridContext.svelte.ts';
+import type { UiContext } from '$lib/context/gridContext.svelte.ts';
 
 export class ContextMenuState {
   visible = $state(false);
@@ -44,8 +44,7 @@ export class ContextMenuState {
   }
 }
 
-export function handleFilterByValue() {
-  const uiCtx = getUiContext();
+export function handleFilterByValue(uiCtx: UiContext) {
   if (!uiCtx.contextMenu?.visible) return;
   const { key, value: filterValue } = uiCtx.contextMenu;
   // Delegate to the handleFilterSelect stored in UiContext

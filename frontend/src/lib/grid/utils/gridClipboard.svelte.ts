@@ -223,6 +223,24 @@ export function createClipboardController() {
       }
     }
 
+    // Show selection highlight on pasted range
+    selCtx.isHiddenAfterCopy = false;
+
+    // Compute the pasted target range
+    let pasteStartRow: number, pasteStartCol: number;
+    if (hasMultiCellSelection) {
+      pasteStartRow = selectionBounds!.minRow;
+      pasteStartCol = selectionBounds!.minCol;
+    } else {
+      pasteStartRow = target.row;
+      pasteStartCol = target.col;
+    }
+    selCtx.selectionStart = { row: pasteStartRow, col: pasteStartCol };
+    selCtx.selectionEnd = {
+      row: pasteStartRow + effectivePasteRows - 1,
+      col: pasteStartCol + effectivePasteCols - 1,
+    };
+
     return { rows: effectivePasteRows, cols: effectivePasteCols, changes: batchChanges };
   }
 

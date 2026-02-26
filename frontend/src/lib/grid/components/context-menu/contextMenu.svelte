@@ -39,7 +39,13 @@
     <!-- Edit -->
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
-      onclick={() => edit.startEdit(uiCtx.contextMenu!.row, uiCtx.contextMenu!.col, colCtx.keys[uiCtx.contextMenu!.col], String(dataCtx.assets[uiCtx.contextMenu!.row]?.[colCtx.keys[uiCtx.contextMenu!.col]] ?? ''))}
+      onclick={() => {
+        const { row, col } = uiCtx.contextMenu!;
+        const key = colCtx.keys[col];
+        const value = String(dataCtx.assets[row]?.[key] ?? '');
+        uiCtx.contextMenu?.close();
+        edit.startEdit(row, col, key, value);
+      }}
     >
       <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
@@ -76,7 +82,7 @@
     <!-- Filter by this value -->
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
-      onclick={handleFilterByValue}
+      onclick={() => handleFilterByValue(uiCtx)}
     >
       <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
