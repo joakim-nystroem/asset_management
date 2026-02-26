@@ -159,7 +159,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 **Success:** Undo/redo works end-to-end with auto-scroll to affected cell; history persists across commits per user decision; svelte-check passes.
 
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 - [ ] 06-01-PLAN.md — Audit history call-sites, add auto-scroll + selection cursor to onUndo/onRedo
 
 ---
@@ -202,6 +202,6 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 3 | FloatingEditor & ContextMenu | ✓ Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
 | 4 | Context Split & Component Autonomy | Complete | 11 domain contexts, thin +page.svelte, DataController |
 | 5 | DB-Side Filtering | Awaiting verification | Unified /api/assets endpoint, queryAssets.ts |
-| 6 | Undo/Redo Engine | Planned | Auto-scroll, selection cursor, audit + docs |
+| 6 | 1/1 | Complete   | 2026-02-26 |
 | 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 8 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
