@@ -122,5 +122,14 @@ No gaps. F5.2 scope clarified by user: client-side `getFilterItems()` for dropdo
 
 ---
 
+### Pending Human Verification
+
+**Status:** Deferred — user away from DB, cannot test live. Three manual tests remain:
+1. Filter dropdown triggers server fetch (network tab)
+2. PED view search excludes non-PED assets (live DB)
+3. Clear filter zero-latency reset (no refetch)
+
+These should be verified before deploying to production.
+
 _Verified: 2026-02-26T13:30:00Z_
 _Verifier: Claude (gsd-verifier)_
