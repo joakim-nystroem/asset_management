@@ -3,9 +3,9 @@
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 04 (Context Split & Component Autonomy)
-- **Current Plan:** 01 complete (next: 02)
-- **Last Action:** Completed 04-01: domain context split + 3 bug fixes
-- **Last Session:** 2026-02-26T05:08:00Z
+- **Current Plan:** 02 complete (next: 03)
+- **Last Action:** Completed 04-02: migrated all 9 controller files from getGridContext to domain-specific context getters
+- **Last Session:** 2026-02-26T05:15:00Z
 
 ## Active Work
 Phases 1-3 complete. Architecture realignment needed: monolithic GridContext → ~10 domain contexts, thin +page.svelte, component independence. Three diagnosed bugs to fix.
@@ -33,6 +33,13 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 - [x] **04-01**: Split GridContext into 11 domain context types; 3 bug fixes applied (commits: ef608db, 47830ec)
 
 ## Decisions
+
+### Phase 04-02 Decisions
+- [Phase 04-02]: gridEdit needs three domain getters (getEditingContext + getColumnContext + getRowContext) — edit controller adjusts column widths and row heights
+- [Phase 04-02]: gridSelection needs getSelectionContext + getClipboardContext — snapshotAsCopied() writes to clipboard domain
+- [Phase 04-02]: gridClipboard needs getSelectionContext + getClipboardContext — copy() reads selection, writes clipboard fields
+- [Phase 04-02]: gridChanges needs getValidationContext + getChangeContext — reads validationConstraints, writes hasUnsavedChanges/hasInvalidChanges
+- [Phase 04-02]: gridHistory needs no context import — pure local $state with no ctx field access
 
 ### Phase 04-01 Decisions
 - [Phase 04-01]: editDropdown and autocomplete placed in EditingContext (edit-phase UI, consumed only by FloatingEditor)
@@ -95,7 +102,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 1 | complete | 01-01 ✓ through 01-07 ✓ |
 | 2 | complete | 02-01 ✓, 02-02 ✓, 02-03 ✓ |
 | 3 | complete | 03-01 ✓, 03-02 ✓, 03-03 ✓ |
-| 4 | in-progress | 04-01 ✓ |
+| 4 | in-progress | 04-01 ✓, 04-02 ✓ |
 | 5 | pending | not planned |
 | 6 | pending | not planned |
 | 7 | pending | not planned |
@@ -118,6 +125,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 03 | 02 | ~10 min | 2/2 | 2 |
 | 03 | 03 | ~3 min | 2/2 | 4 |
 | 04 | 01 | ~2 min | 2/2 | 3 |
+| 04 | 02 | ~5 min | 2/2 | 8 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
