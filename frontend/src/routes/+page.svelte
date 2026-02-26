@@ -170,6 +170,7 @@
       if (contextMenu.visible) contextMenu.close();
       headerMenu.close();
     },
+    onDeleteNewRow: handleDeleteNewRow,
     user: user,
   };
   ctx.applySort = applySort;

@@ -66,6 +66,7 @@ export type GridContext = {
     onUndo: () => void;
     onRedo: () => void;
     onEscape: () => void;
+    onDeleteNewRow: () => void;
     user: SafeUser | null;
   } | null;
   editDropdown: ReturnType<typeof createEditDropdown> | null;
