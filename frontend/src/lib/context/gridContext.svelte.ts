@@ -5,6 +5,8 @@ import type { SafeUser } from '$lib/types';
 import type { createEditDropdown } from '$lib/grid/components/edit-dropdown/editDropdown.svelte.ts';
 import type { createAutocomplete } from '$lib/grid/components/suggestion-menu/autocomplete.svelte.ts';
 import type { Filter } from '$lib/data/searchManager.svelte';
+import type { ChangeController } from '$lib/grid/utils/gridChanges.svelte.ts';
+import type { HistoryController } from '$lib/grid/utils/gridHistory.svelte.ts';
 
 // ─── Shared primitive types ───────────────────────────────────────────────────
 
@@ -108,4 +110,12 @@ export const [getChangeContext, setChangeContext] = createContext<ChangeContext>
 export const [getDataContext, setDataContext] = createContext<DataContext>();
 export const [getViewContext, setViewContext] = createContext<ViewContext>();
 export const [getUiContext, setUiContext] = createContext<UiContext>();
+
+// ─── Controller instance contexts ─────────────────────────────────────────────
+// These hold the actual controller instances (with their local $state),
+// allowing sibling components to share the same instance rather than each
+// creating independent instances via the factory functions.
+
+export const [getChangeControllerContext, setChangeControllerContext] = createContext<ChangeController>();
+export const [getHistoryControllerContext, setHistoryControllerContext] = createContext<HistoryController>();
 

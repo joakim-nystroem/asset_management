@@ -6,6 +6,8 @@
     getDataContext,
     getViewContext,
     getUiContext,
+    setChangeControllerContext,
+    setHistoryControllerContext,
   } from '$lib/context/gridContext.svelte.ts';
   import { createSelectionController } from '$lib/grid/utils/gridSelection.svelte.ts';
   import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
@@ -32,6 +34,11 @@
   const clipboard = createClipboardController();
   const history = createHistoryController();
   const edit = createEditController();
+
+  // Publish controller instances into context so DataController (sibling component)
+  // reads the SAME instances that receive edits — fixes commit/discard silently doing nothing.
+  setChangeControllerContext(changes);
+  setHistoryControllerContext(history);
 
   // GridOverlays accepts no data props. F2.5: 0 data props.
   // onHoverUser is a local interaction — handled entirely within this component.

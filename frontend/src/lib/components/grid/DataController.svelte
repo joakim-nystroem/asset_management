@@ -17,13 +17,13 @@
     getSelectionContext,
     getEditingContext,
     getUiContext,
+    getChangeControllerContext,
+    getHistoryControllerContext,
   } from '$lib/context/gridContext.svelte.ts';
 
   import { searchManager } from '$lib/data/searchManager.svelte';
-  import { createChangeController } from '$lib/grid/utils/gridChanges.svelte.ts';
   import { createSelectionController } from '$lib/grid/utils/gridSelection.svelte.ts';
   import { createRowGenerationController } from '$lib/grid/utils/rowGeneration.svelte.ts';
-  import { createHistoryController } from '$lib/grid/utils/gridHistory.svelte.ts';
   import { createValidationController } from '$lib/grid/utils/gridValidation.svelte.ts';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import { toastState } from '$lib/components/toast/toastState.svelte';
@@ -44,10 +44,14 @@
   const uiCtx = getUiContext();
 
   // --- CONTROLLERS ---
-  const changes = createChangeController();
+  // changes and history are read from context — GridOverlays creates the instances
+  // and publishes them via setChangeControllerContext/setHistoryControllerContext.
+  // This ensures DataController's commit/discard operate on the SAME instances
+  // that receive edits, not independent empty instances.
+  const changes = getChangeControllerContext();
+  const history = getHistoryControllerContext();
   const selection = createSelectionController();
   const rowGen = createRowGenerationController();
-  const history = createHistoryController();
   const validation = createValidationController();
 
   // --- LOCAL DATA STATE ---
