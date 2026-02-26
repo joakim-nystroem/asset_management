@@ -1,3 +1,18 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+current_phase: 04 (Context Split & Component Autonomy)
+current_plan: 06 complete — Phase 4 gap closures in progress
+status: unknown
+last_updated: "2026-02-26T08:29:26.738Z"
+progress:
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 20
+  completed_plans: 20
+---
+
 # Project State
 
 ## Status
@@ -5,7 +20,7 @@
 - **Current Phase:** 04 (Context Split & Component Autonomy)
 - **Current Plan:** 06 complete — Phase 4 gap closures in progress
 - **Last Action:** Completed 04-06: fixed Toolbar dirty state, URL param preservation on view change, no-data flash eliminated via synchronous context seed
-- **Last Session:** 2026-02-26T17:28:00Z
+- **Last Session:** 2026-02-26T08:29:26.735Z
 
 ## Active Work
 Phases 1-3 complete. Architecture realignment needed: monolithic GridContext → ~10 domain contexts, thin +page.svelte, component independence. Three diagnosed bugs to fix.
@@ -42,6 +57,9 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 - [Phase 04-06]: updateSearchUrl merges getCurrentUrlState() for omitted params — view change no longer wipes q and filter URL params
 - [Phase 04-06]: DataController synchronously seeds dataCtx fields in script block before $effects — eliminates no-data flash on first render frame
 - [Phase 04-06]: Synchronous seed uses data.searchResults ?? data.assets ?? [] to cover search-preloaded and plain page loads
+- [Phase 04-07]: handleFilterByValue accepts uiCtx as parameter — Svelte 5 createContext getters only work during synchronous component initialization, not in event handlers
+- [Phase 04-07]: FloatingEditor uses .then() pattern for onSave — handleKeydown is synchronous so async/await would change event propagation semantics
+- [Phase 04-07]: onSave fires history.record() AND changes.update() — edits get both undo-redo support and dirty-cell overlays
 
 ### Phase 04-05 Decisions
 - [Phase 04-05]: GridContextProvider.svelte centralizes all 11 set*Context($state({...})) calls — +page.svelte stays at 19 lines with zero context initialization
@@ -158,6 +176,7 @@ Phases 1-3 complete. Architecture realignment needed: monolithic GridContext →
 | 04 | 04 | ~6 min | 2/2 | 4 |
 | 04 | 05 | ~5 min | 2/2 | 6 |
 | 04 | 06 | ~8 min | 2/2 | 2 |
+| Phase 04 P07 | 10 | 2 tasks | 5 files |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
