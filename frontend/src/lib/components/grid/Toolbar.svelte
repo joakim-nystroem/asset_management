@@ -1,15 +1,14 @@
 <script lang="ts">
   import FilterPanel from "$lib/grid/components/filter-panel/filterPanel.svelte";
   import { searchManager } from "$lib/data/searchManager.svelte";
-  import { createChangeController } from "$lib/grid/utils/gridChanges.svelte.ts";
   import { createRowGenerationController } from "$lib/grid/utils/rowGeneration.svelte.ts";
-  import { getDataContext, getViewContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
+  import { getDataContext, getViewContext, getUiContext, getChangeContext } from '$lib/context/gridContext.svelte.ts';
 
-  const changes = createChangeController();
   const rowGen = createRowGenerationController();
   const dataCtx = getDataContext();
   const viewCtx = getViewContext();
   const uiCtx = getUiContext();
+  const changeCtx = getChangeContext();
 
   // Static view config (was in viewManager.VIEW_CONFIGS)
   const VIEW_CONFIGS = [
@@ -24,8 +23,8 @@
     VIEW_CONFIGS.find(v => v.name === viewCtx.activeView)?.label ?? 'Default'
   );
 
-  const invalidCount = $derived(
-    changes.getInvalidCellKeys().length + (rowGen.hasNewRows ? rowGen.invalidNewRowCount : 0)
+  const hasInvalid = $derived(
+    changeCtx.hasInvalidChanges || (rowGen.hasNewRows && rowGen.invalidNewRowCount > 0)
   );
 
   let viewDropdownOpen = $state(false);
@@ -110,7 +109,7 @@
             <span>New Row</span>
           </button>
         {/if}
-        {#if changes.hasChanges && dataCtx.user}
+        {#if changeCtx.hasUnsavedChanges && dataCtx.user}
           <div class="flex gap-2 items-center">
             <button
               onclick={() => dataCtx.commit?.()}
@@ -124,10 +123,10 @@
             >
               Discard
             </button>
-            {#if invalidCount > 0}
+            {#if hasInvalid}
               <div class="flex items-center gap-2 text-xs">
                 <span class="text-yellow-600 dark:text-yellow-400 font-medium">
-                  {invalidCount} invalid {invalidCount === 1 ? 'cell' : 'cells'}
+                  Invalid cells found
                 </span>
                 <button
                   onclick={() => dataCtx.navigateError?.('next')}
@@ -153,10 +152,10 @@
             >
               Discard
             </button>
-            {#if invalidCount > 0}
+            {#if hasInvalid}
               <div class="flex items-center gap-2 text-xs">
                 <span class="text-yellow-600 dark:text-yellow-400 font-medium">
-                  {invalidCount} invalid {invalidCount === 1 ? 'cell' : 'cells'}
+                  Invalid cells found
                 </span>
                 <button
                   onclick={() => dataCtx.navigateError?.('next')}

@@ -60,7 +60,15 @@
   const assets = $derived([...filteredAssets, ...rowGen.newRows]);
   const keys = $derived(assets.length > 0 ? Object.keys(assets[0]) : []);
 
-  // Sync assets into dataCtx
+  // Synchronous seed — prevents "no data" flash on first render
+  // These run during script initialization, before the first render frame
+  dataCtx.assets = [...(data.searchResults ?? data.assets ?? []), ...rowGen.newRows];
+  dataCtx.baseAssets = data.assets ?? [];
+  dataCtx.filteredAssetsCount = (data.searchResults ?? data.assets ?? []).length;
+  dataCtx.user = data.user ?? null;
+  columnCtx.keys = data.assets?.[0] ? Object.keys(data.assets[0]) : [];
+
+  // Sync assets into dataCtx (reactive updates after initial seed)
   $effect(() => { dataCtx.assets = assets; });
   $effect(() => { dataCtx.baseAssets = baseAssets; });
   $effect(() => { dataCtx.filteredAssetsCount = filteredAssets.length; });
@@ -137,14 +145,19 @@
 
   // --- URL HELPERS ---
   function updateSearchUrl(params: { q?: string; filters?: Filter[]; view?: string }) {
+    const current = getCurrentUrlState();
+    const q = params.q !== undefined ? params.q : current.q;
+    const filters = params.filters !== undefined ? params.filters : current.filters;
+    const view = params.view !== undefined ? params.view : current.view;
+
     reactiveUrl.searchParams.delete('q');
     reactiveUrl.searchParams.delete('filter');
     reactiveUrl.searchParams.delete('view');
-    if (params.q) reactiveUrl.searchParams.set('q', params.q);
-    if (params.filters && params.filters.length > 0) {
-      params.filters.forEach(f => reactiveUrl.searchParams.append('filter', `${f.key}:${f.value}`));
+    if (q) reactiveUrl.searchParams.set('q', q);
+    if (filters && filters.length > 0) {
+      filters.forEach(f => reactiveUrl.searchParams.append('filter', `${f.key}:${f.value}`));
     }
-    reactiveUrl.searchParams.set('view', params.view || 'default');
+    reactiveUrl.searchParams.set('view', view || 'default');
     replaceState(new URL(reactiveUrl), {});
   }
 
