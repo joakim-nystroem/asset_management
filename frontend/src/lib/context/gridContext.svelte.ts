@@ -80,6 +80,8 @@ export type UiContext = {
   filterPanel: FilterPanelState | null;
   headerMenu: any | null;
   contextMenu: any | null;
+  handleFilterSelect: ((item: string, key: string) => void) | null;
+  applySort: ((key: string, dir: 'asc' | 'desc') => void) | null;
 };
 
 // ─── Domain context pairs ─────────────────────────────────────────────────────

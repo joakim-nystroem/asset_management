@@ -1,4 +1,4 @@
-import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+import { getUiContext, getDataContext } from '$lib/context/gridContext.svelte.ts';
 
 export class ContextMenuState {
   visible = $state(false);
@@ -45,17 +45,10 @@ export class ContextMenuState {
 }
 
 export function handleFilterByValue() {
-  const ctx = getGridContext();
-  if (!ctx.contextMenu?.visible) return;
-  const { key, value: filterValue } = ctx.contextMenu;
-  // Delegate to page-level handleFilterSelect which handles URL toggling
-  ctx.handleFilterSelect?.(filterValue, key);
-  ctx.contextMenu.close();
-}
-
-export function handleDeleteNewRow() {
-  const ctx = getGridContext();
-  if (!ctx.contextMenu?.visible) return;
-  // Delegate to page action — rowGen instance lives in +page.svelte
-  ctx.pageActions?.onDeleteNewRow();
+  const uiCtx = getUiContext();
+  if (!uiCtx.contextMenu?.visible) return;
+  const { key, value: filterValue } = uiCtx.contextMenu;
+  // Delegate to the handleFilterSelect stored in UiContext
+  uiCtx.handleFilterSelect?.(filterValue, key);
+  uiCtx.contextMenu.close();
 }

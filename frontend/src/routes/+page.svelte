@@ -11,7 +11,20 @@
   import type { SafeUser } from '$lib/types';
 
   // --- CONTEXT ---
-  import { setGridContext } from '$lib/context/gridContext.svelte.ts';
+  import {
+    setGridContext,
+    setEditingContext,
+    setSelectionContext,
+    setClipboardContext,
+    setColumnContext,
+    setRowContext,
+    setSortContext,
+    setValidationContext,
+    setChangeContext,
+    setDataContext,
+    setViewContext,
+    setUiContext,
+  } from '$lib/context/gridContext.svelte.ts';
   import type { GridContext } from '$lib/context/gridContext.svelte.ts';
 
   // --- COMPONENTS ---
@@ -101,6 +114,21 @@
   });
 
   setGridContext(ctx);
+
+  // Register domain context slices — same reactive object, typed as each domain
+  // ctx is a superset of every domain type; Svelte context stores the reference.
+  // Components calling get*Context() will read from this same reactive object.
+  setEditingContext(ctx as any);
+  setSelectionContext(ctx as any);
+  setClipboardContext(ctx as any);
+  setColumnContext(ctx as any);
+  setRowContext(ctx as any);
+  setSortContext(ctx as any);
+  setValidationContext(ctx as any);
+  setChangeContext(ctx as any);
+  setDataContext(ctx as any);
+  setViewContext(ctx as any);
+  setUiContext(ctx as any);
 
   // Alias for virtualScroll (created inside ctx literal above)
   const virtualScroll = ctx.virtualScroll;

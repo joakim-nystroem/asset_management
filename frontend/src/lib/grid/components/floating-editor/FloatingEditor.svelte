@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+  import { getEditingContext, getColumnContext, getDataContext, getViewContext } from '$lib/context/gridContext.svelte.ts';
   import { createEditController } from '$lib/grid/utils/gridEdit.svelte.ts';
   import { createRowController } from '$lib/grid/utils/gridRows.svelte.ts';
   import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
@@ -7,7 +7,10 @@
   import AutocompleteComponent from '$lib/grid/components/suggestion-menu/autocomplete.svelte';
   import { computeEditorPosition } from './floatingEditor.svelte.ts';
 
-  const ctx = getGridContext();
+  const editCtx = getEditingContext();
+  const colCtx = getColumnContext();
+  const dataCtx = getDataContext();
+  const viewCtx = getViewContext();
   const edit = createEditController();
   const rows = createRowController();
   const columns = createColumnController();
@@ -16,24 +19,24 @@
 
   // Compute absolute position within the translated virtual-chunk
   const editorStyle = $derived.by(() => {
-    if (!ctx.isEditing || ctx.editKey === null || ctx.editRow < 0 || ctx.editCol < 0) {
+    if (!editCtx.isEditing || editCtx.editKey === null || editCtx.editRow < 0 || editCtx.editCol < 0) {
       return 'display: none;';
     }
     const pos = computeEditorPosition(
-      ctx.editRow,
-      ctx.editCol,
-      ctx.editKey,
-      ctx.keys,
+      editCtx.editRow,
+      editCtx.editCol,
+      editCtx.editKey,
+      colCtx.keys,
       rows,
       columns,
-      ctx.virtualScroll
+      viewCtx.virtualScroll
     );
     return `top: ${pos.top}px; left: ${pos.left}px; width: ${pos.width}px; height: ${pos.height}px;`;
   });
 
   // Focus and select text when textarea mounts and this row is the active edit row
   $effect(() => {
-    if (textareaRef && ctx.isEditing) {
+    if (textareaRef && editCtx.isEditing) {
       edit.updateRowHeight(textareaRef);
       textareaRef.focus();
       textareaRef.select();
@@ -41,8 +44,8 @@
   });
 
   function handleKeydown(e: KeyboardEvent) {
-    const autocomplete = ctx.autocomplete;
-    const editDropdown = ctx.editDropdown;
+    const autocomplete = editCtx.autocomplete;
+    const editDropdown = editCtx.editDropdown;
 
     // Handle autocomplete navigation if visible (takes priority — free-text columns)
     if (autocomplete && autocomplete.isVisible) {
@@ -57,20 +60,20 @@
       } else if (e.key === 'Tab') {
         e.preventDefault();
         const v = autocomplete.getSelectedValue();
-        if (v) ctx.inputValue = v;
+        if (v) editCtx.inputValue = v;
         autocomplete.clear();
         return;
       } else if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         const v = autocomplete.getSelectedValue();
-        if (v !== null) ctx.inputValue = v;
+        if (v !== null) editCtx.inputValue = v;
         autocomplete.clear();
-        ctx.pageActions?.onSaveEdit(ctx.inputValue);
+        edit.save(dataCtx.assets);
         return;
       } else if (e.key === 'Escape') {
         e.preventDefault();
         autocomplete.clear();
-        ctx.pageActions?.onCancelEdit();
+        edit.cancel();
         return;
       }
     }
@@ -89,15 +92,15 @@
         e.preventDefault();
         const selectedValue = editDropdown.getSelectedValue();
         if (selectedValue !== null) {
-          ctx.inputValue = selectedValue;
+          editCtx.inputValue = selectedValue;
         }
         editDropdown.hide();
-        ctx.pageActions?.onSaveEdit(ctx.inputValue);
+        edit.save(dataCtx.assets);
         return;
       } else if (e.key === 'Escape') {
         e.preventDefault();
         editDropdown.hide();
-        ctx.pageActions?.onCancelEdit();
+        edit.cancel();
         return;
       }
     }
@@ -105,42 +108,42 @@
     // Normal keyboard handling when neither dropdown is visible
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      ctx.pageActions?.onSaveEdit(ctx.inputValue);
+      edit.save(dataCtx.assets);
     } else if (e.key === 'Escape') {
       e.preventDefault();
-      ctx.pageActions?.onCancelEdit();
+      edit.cancel();
     }
   }
 
   function handleInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
-    ctx.inputValue = target.value;
+    editCtx.inputValue = target.value;
     edit.updateRowHeight(textareaRef);
     // Update suggestions for free-text columns (not constrained dropdown columns)
-    if (ctx.autocomplete && ctx.editDropdown && !ctx.editDropdown.isVisible) {
-      ctx.autocomplete.updateSuggestions(ctx.assets, ctx.editKey ?? '', ctx.inputValue);
+    if (editCtx.autocomplete && editCtx.editDropdown && !editCtx.editDropdown.isVisible) {
+      editCtx.autocomplete.updateSuggestions(dataCtx.assets, editCtx.editKey ?? '', editCtx.inputValue);
     }
   }
 
   function handleBlur() {
-    if (ctx.autocomplete) {
-      ctx.autocomplete.clear();
+    if (editCtx.autocomplete) {
+      editCtx.autocomplete.clear();
     }
     // Always save on blur (clicking outside) — setTimeout prevents race with dropdown mousedown
     setTimeout(() => {
-      if (ctx.isEditing) {
-        ctx.pageActions?.onSaveEdit(ctx.inputValue);
+      if (editCtx.isEditing) {
+        edit.save(dataCtx.assets);
       }
     }, 0);
   }
 </script>
 
-{#if ctx.isEditing}
+{#if editCtx.isEditing}
   <div class="absolute z-[100]" style={editorStyle}>
     <div class="relative w-full h-full">
       <textarea
         bind:this={textareaRef}
-        bind:value={ctx.inputValue}
+        bind:value={editCtx.inputValue}
         oninput={handleInput}
         onkeydown={handleKeydown}
         onmousedown={(e) => e.stopPropagation()}
@@ -148,23 +151,23 @@
         class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
         style="overflow: hidden;"
       ></textarea>
-      {#if ctx.editDropdown}
+      {#if editCtx.editDropdown}
         <EditDropdownComponent
-          dropdown={ctx.editDropdown}
+          dropdown={editCtx.editDropdown}
           onSelect={(value) => {
-            ctx.inputValue = value;
-            ctx.editDropdown?.hide();
-            ctx.pageActions?.onSaveEdit(value);
+            editCtx.inputValue = value;
+            editCtx.editDropdown?.hide();
+            edit.save(dataCtx.assets);
           }}
         />
       {/if}
-      {#if ctx.autocomplete}
+      {#if editCtx.autocomplete}
         <AutocompleteComponent
-          autocomplete={ctx.autocomplete}
+          autocomplete={editCtx.autocomplete}
           onSelect={(value) => {
-            ctx.inputValue = value;
-            ctx.autocomplete?.clear();
-            ctx.pageActions?.onSaveEdit(value);
+            editCtx.inputValue = value;
+            editCtx.autocomplete?.clear();
+            edit.save(dataCtx.assets);
           }}
         />
       {/if}
