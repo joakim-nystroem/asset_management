@@ -1,16 +1,15 @@
 <script lang="ts">
-  import type { SafeUser } from '$lib/types';
-  import type { FilterPanelState } from "$lib/grid/components/filter-panel/filterPanel.svelte.ts";
-  import type { Filter } from '$lib/data/searchManager.svelte';
   import FilterPanel from "$lib/grid/components/filter-panel/filterPanel.svelte";
   import { searchManager } from "$lib/data/searchManager.svelte";
   import { createChangeController } from "$lib/grid/utils/gridChanges.svelte.ts";
   import { createRowGenerationController } from "$lib/grid/utils/rowGeneration.svelte.ts";
-  import { getGridContext } from '$lib/context/gridContext.svelte.ts';
+  import { getDataContext, getViewContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
 
   const changes = createChangeController();
   const rowGen = createRowGenerationController();
-  const ctx = getGridContext();
+  const dataCtx = getDataContext();
+  const viewCtx = getViewContext();
+  const uiCtx = getUiContext();
 
   // Static view config (was in viewManager.VIEW_CONFIGS)
   const VIEW_CONFIGS = [
@@ -22,35 +21,9 @@
   ];
 
   const currentViewLabel = $derived(
-    VIEW_CONFIGS.find(v => v.name === ctx.activeView)?.label ?? 'Default'
+    VIEW_CONFIGS.find(v => v.name === viewCtx.activeView)?.label ?? 'Default'
   );
 
-  // F2.5: 1 data prop (user); all callbacks are exempt from the 3-prop rule
-  type Props = {
-    user: SafeUser | null;
-    getCurrentUrlState: () => { q: string; filters: Filter[]; view: string };
-    updateSearchUrl: (params: { q?: string; filters?: Filter[]; view?: string }) => void;
-    onAddNewRow: () => void;
-    onCommit: () => void;
-    onAddRows: () => void;
-    onDiscard: () => void;
-    onViewChange: (view: string) => void;
-    onNavigateError: (direction: 'prev' | 'next') => void;
-  };
-
-  let {
-    user,
-    getCurrentUrlState,
-    updateSearchUrl,
-    onAddNewRow,
-    onCommit,
-    onAddRows,
-    onDiscard,
-    onViewChange,
-    onNavigateError,
-  }: Props = $props();
-
-  // Read filterPanel from context (removed from Props per F2.5)
   const invalidCount = $derived(
     changes.getInvalidCellKeys().length + (rowGen.hasNewRows ? rowGen.invalidNewRowCount : 0)
   );
@@ -59,7 +32,7 @@
 
   function handleViewChange(viewName: string) {
     viewDropdownOpen = false;
-    onViewChange(viewName);
+    dataCtx.viewChange?.(viewName);
   }
 </script>
 
@@ -74,8 +47,10 @@
           placeholder="Search..."
           onkeydown={(e) => {
             if (e.key === "Enter") {
-              const { filters, view } = getCurrentUrlState();
-              updateSearchUrl({ q: searchManager.inputValue, filters, view });
+              const state = uiCtx.getCurrentUrlState?.();
+              if (state) {
+                uiCtx.updateSearchUrl?.({ q: searchManager.inputValue, filters: state.filters, view: state.view });
+              }
             }
           }}
         />
@@ -83,8 +58,10 @@
           <button
             onclick={() => {
               searchManager.inputValue = '';
-              const { filters, view } = getCurrentUrlState();
-              updateSearchUrl({ q: '', filters, view });
+              const state = uiCtx.getCurrentUrlState?.();
+              if (state) {
+                uiCtx.updateSearchUrl?.({ q: '', filters: state.filters, view: state.view });
+              }
             }}
             class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
             title="Clear search"
@@ -95,8 +72,10 @@
       </div>
       <button
         onclick={() => {
-          const { filters, view } = getCurrentUrlState();
-          updateSearchUrl({ q: searchManager.inputValue, filters, view });
+          const state = uiCtx.getCurrentUrlState?.();
+          if (state) {
+            uiCtx.updateSearchUrl?.({ q: searchManager.inputValue, filters: state.filters, view: state.view });
+          }
         }}
         class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-neutral-100"
         >Search</button
@@ -106,37 +85,41 @@
     <div class="flex flex-row w-full justify-between items-center">
       <div class="flex flex-row gap-2">
         <FilterPanel
-          state={ctx.filterPanel!}
+          state={uiCtx.filterPanel!}
           {searchManager}
           onRemoveFilter={(filter) => {
-            const { q, filters, view } = getCurrentUrlState();
-            const newFilters = filters.filter(f => !(f.key === filter.key && f.value === filter.value));
-            updateSearchUrl({ q, filters: newFilters, view });
+            const state = uiCtx.getCurrentUrlState?.();
+            if (state) {
+              const newFilters = state.filters.filter(f => !(f.key === filter.key && f.value === filter.value));
+              uiCtx.updateSearchUrl?.({ q: state.q, filters: newFilters, view: state.view });
+            }
           }}
           onClearAllFilters={() => {
-            const { q, view } = getCurrentUrlState();
-            updateSearchUrl({ q, filters: [], view });
+            const state = uiCtx.getCurrentUrlState?.();
+            if (state) {
+              uiCtx.updateSearchUrl?.({ q: state.q, filters: [], view: state.view });
+            }
           }}
         />
-        {#if user}
+        {#if dataCtx.user}
           <button
-            onclick={onAddNewRow}
+            onclick={() => dataCtx.addNewRow?.()}
             class="flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path></svg>
             <span>New Row</span>
           </button>
         {/if}
-        {#if changes.hasChanges && user}
+        {#if changes.hasChanges && dataCtx.user}
           <div class="flex gap-2 items-center">
             <button
-              onclick={onCommit}
+              onclick={() => dataCtx.commit?.()}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
               Commit
             </button>
             <button
-              onclick={onDiscard}
+              onclick={() => dataCtx.discard?.()}
               class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
             >
               Discard
@@ -147,7 +130,7 @@
                   {invalidCount} invalid {invalidCount === 1 ? 'cell' : 'cells'}
                 </span>
                 <button
-                  onclick={() => onNavigateError('next')}
+                  onclick={() => dataCtx.navigateError?.('next')}
                   class="cursor-pointer bg-yellow-600 hover:bg-yellow-500 px-2 py-1 rounded text-neutral-100"
                   title="Next error"
                 >
@@ -156,16 +139,16 @@
               </div>
             {/if}
           </div>
-        {:else if rowGen.hasNewRows && user}
+        {:else if rowGen.hasNewRows && dataCtx.user}
           <div class="flex gap-2 items-center">
             <button
-              onclick={onAddRows}
+              onclick={() => dataCtx.addRows?.()}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
               Commit
             </button>
             <button
-              onclick={onDiscard}
+              onclick={() => dataCtx.discard?.()}
               class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
             >
               Discard
@@ -176,7 +159,7 @@
                   {invalidCount} invalid {invalidCount === 1 ? 'cell' : 'cells'}
                 </span>
                 <button
-                  onclick={() => onNavigateError('next')}
+                  onclick={() => dataCtx.navigateError?.('next')}
                   class="cursor-pointer bg-yellow-600 hover:bg-yellow-500 px-2 py-1 rounded text-neutral-100"
                   title="Next error"
                 >
@@ -208,7 +191,7 @@
             {#each VIEW_CONFIGS as view}
               <button
                 onclick={() => handleViewChange(view.name)}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {ctx.activeView === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {viewCtx.activeView === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
               >
                 {view.label}
               </button>
