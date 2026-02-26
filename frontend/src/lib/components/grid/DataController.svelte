@@ -220,7 +220,7 @@
         if (validViews.includes(urlView)) {
           untrack(() => { viewCtx.activeView = urlView; });
           try {
-            const response = await fetch(`/api/assets/view?view=${urlView}`);
+            const response = await fetch(`/api/assets?view=${urlView}`);
             if (cancelled) return;
             if (response.ok) {
               const result = await response.json();
@@ -257,7 +257,7 @@
         params.set('view', urlView);
 
         try {
-          const response = await fetch(`/api/search?${params.toString()}`);
+          const response = await fetch(`/api/assets?${params.toString()}`);
           if (cancelled) return;
           if (!response.ok) throw new Error(`API Error: ${response.status}`);
           const result = await response.json();
@@ -272,7 +272,7 @@
             history.clear();
           }
           if (rowGen.hasNewRows) rowGen.clearNewRows();
-          filteredAssets = result || [];
+          filteredAssets = result.assets || [];
           selection.reset();
           sortCtx.sortKey = null;
           sortCtx.sortDirection = null;
