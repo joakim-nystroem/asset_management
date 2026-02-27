@@ -34,19 +34,25 @@ export type EventQueueInstance = {
 export function createEventQueue(handler: (event: GridEvent) => Promise<void>): EventQueueInstance {
   let chain: Promise<void> = Promise.resolve();
   let isProcessing = $state(false);
+  const pending: GridEvent[] = []; // Plain array — no reactivity, debug only
 
   function enqueue(event: GridEvent): void {
+    pending.push(event);
+    console.log('[EventQueue] QUEUED:', event.type, '| pending:', pending.map(e => e.type));
+
     chain = chain.then(async () => {
       isProcessing = true;
       try {
-        console.log('[EventQueue] START:', event.type);
+        console.log('[EventQueue] START:', event.type, '| remaining:', pending.map(e => e.type));
         // Artificial delay so serialization is visually confirmable in devtools
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, 2000));
         await handler(event);
         console.log('[EventQueue] DONE:', event.type);
       } catch (err) {
         console.error('[EventQueue] Unhandled error:', err);
       } finally {
+        const idx = pending.indexOf(event);
+        if (idx !== -1) pending.splice(idx, 1);
         isProcessing = false;
       }
     });
