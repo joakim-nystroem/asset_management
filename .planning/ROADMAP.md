@@ -201,11 +201,12 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 **Depends on:** Phase 6.1
 
-**Plans:** 1/4 plans executed
-- [ ] 07-01-PLAN.md — Data ownership move + GridOverlays restructure: inline keyboard handling, eliminate gridShortcuts/interactionHandler (Wave 1)
-- [ ] 07-02-PLAN.md — FloatingEditor group: absorb gridEdit/gridChanges/gridHistory/gridValidation, create editCtx/historyCtx (Wave 2)
-- [ ] 07-03-PLAN.md — GridHeader group: absorb gridColumns + sort extraction, eliminate gridRows imports (Wave 3)
-- [ ] 07-04-PLAN.md — Final cleanup: delete all 11 controller files + interactionHandler, svelte-check gate (Wave 4)
+**Plans:** 1/5 plans executed
+- [x] 07-01-PLAN.md — Data ownership move + GridOverlays restructure: inline keyboard handling, eliminate gridShortcuts/interactionHandler (Wave 1)
+- [ ] 07-02-PLAN.md — Event architecture correction: propless EventListener, DataSeeder, EventQueue context, self-contained events (Wave 2)
+- [ ] 07-03-PLAN.md — FloatingEditor group: absorb gridEdit/gridChanges/gridHistory/gridValidation, create editCtx/historyCtx (Wave 3)
+- [ ] 07-04-PLAN.md — GridHeader group: absorb gridColumns + sort extraction, eliminate gridRows imports (Wave 4)
+- [ ] 07-05-PLAN.md — Final cleanup: delete all 11 controller files + interactionHandler, svelte-check gate (Wave 5)
 
 ---
 
