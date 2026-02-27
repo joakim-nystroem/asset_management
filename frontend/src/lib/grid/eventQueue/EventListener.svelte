@@ -4,7 +4,7 @@
   import { SvelteURL } from 'svelte/reactivity';
   import { page } from '$app/state';
 
-  import type { PageProps } from '../../../routes/$types';
+  import type { SafeUser } from '$lib/types';
   import type { Filter } from '$lib/data/searchManager.svelte';
 
   import {
@@ -30,9 +30,30 @@
   import { createEventQueue } from './EventQueue.svelte.ts';
   import { createEventHandler } from './EventHandler.svelte.ts';
 
-  // --- PROP ---
-  type Props = { data: PageProps['data'] };
-  let { data }: Props = $props();
+  // --- PROPS ---
+  type Props = {
+    user: SafeUser | null;
+    baseAssets: Record<string, any>[];
+    filteredAssets: Record<string, any>[];
+    setBaseAssets: (v: Record<string, any>[]) => void;
+    setFilteredAssets: (v: Record<string, any>[]) => void;
+    locations: any[];
+    statuses: any[];
+    conditions: any[];
+    departments: any[];
+  };
+
+  let {
+    user,
+    baseAssets,
+    filteredAssets,
+    setBaseAssets,
+    setFilteredAssets,
+    locations,
+    statuses,
+    conditions,
+    departments,
+  }: Props = $props();
 
   // --- CONTEXT READS ---
   const dataCtx = getDataContext();
@@ -56,12 +77,6 @@
   const rowGen = getRowGenControllerContext();
   const validation = createValidationController();
 
-  // --- LOCAL DATA STATE ---
-  // svelte-ignore state_referenced_locally
-  let baseAssets: Record<string, any>[] = $state(data.assets ?? []);
-  // svelte-ignore state_referenced_locally
-  let filteredAssets: Record<string, any>[] = $state(data.searchResults ?? data.assets ?? []);
-
   // Keys derived from assets
   const assets = $derived([...filteredAssets, ...rowGen.newRows]);
   const keys = $derived(assets.length > 0 ? Object.keys(assets[0]) : []);
@@ -70,9 +85,9 @@
   // Created at top level (NOT inside $effect) — Pitfall 6: factory must run during sync init
   const handler = createEventHandler({
     getBaseAssets: () => baseAssets,
-    setBaseAssets: (v) => { baseAssets = v; },
+    setBaseAssets,
     getFilteredAssets: () => filteredAssets,
-    setFilteredAssets: (v) => { filteredAssets = v; },
+    setFilteredAssets,
     dataCtx,
     viewCtx,
     sortCtx,
@@ -89,27 +104,27 @@
 
   // Synchronous seed — prevents "no data" flash on first render
   // These run during script initialization, before the first render frame
-  dataCtx.assets = [...(data.searchResults ?? data.assets ?? []), ...rowGen.newRows];
-  dataCtx.baseAssets = data.assets ?? [];
-  dataCtx.filteredAssetsCount = (data.searchResults ?? data.assets ?? []).length;
-  dataCtx.user = data.user ?? null;
-  columnCtx.keys = data.assets?.[0] ? Object.keys(data.assets[0]) : [];
+  dataCtx.assets = [...filteredAssets, ...rowGen.newRows];
+  dataCtx.baseAssets = baseAssets;
+  dataCtx.filteredAssetsCount = filteredAssets.length;
+  dataCtx.user = user;
+  columnCtx.keys = filteredAssets.length > 0 ? Object.keys(filteredAssets[0]) : (baseAssets.length > 0 ? Object.keys(baseAssets[0]) : []);
 
   // Sync assets into dataCtx (reactive updates after initial seed)
   $effect(() => { dataCtx.assets = assets; });
   $effect(() => { dataCtx.baseAssets = baseAssets; });
   $effect(() => { dataCtx.filteredAssetsCount = filteredAssets.length; });
-  $effect(() => { dataCtx.user = data.user ?? null; });
+  $effect(() => { dataCtx.user = user; });
 
   // Sync keys into columnCtx
   $effect(() => { columnCtx.keys = keys; });
 
-  // Set validation constraints from route data
+  // Set validation constraints from props
   $effect(() => {
-    const locNames = (data.locations ?? []).map((l: any) => l.location_name);
-    const statNames = (data.statuses ?? []).map((s: any) => s.status_name);
-    const condNames = (data.conditions ?? []).map((c: any) => c.condition_name);
-    const deptNames = (data.departments ?? []).map((d: any) => d.department_name);
+    const locNames = locations.map((l: any) => l.location_name);
+    const statNames = statuses.map((s: any) => s.status_name);
+    const condNames = conditions.map((c: any) => c.condition_name);
+    const deptNames = departments.map((d: any) => d.department_name);
     untrack(() => {
       const constraints = {
         location: locNames,
@@ -119,15 +134,6 @@
       };
       validationCtx.validationConstraints = constraints;
       validation.setConstraints(constraints);
-    });
-  });
-
-  // Set nextId provider for new rows
-  $effect(() => {
-    rowGen.setNextIdProvider(() => {
-      if (baseAssets.length === 0) return 1;
-      const maxId = Math.max(...baseAssets.map((a: any) => typeof a.id === 'number' ? a.id : 0));
-      return maxId + 1 + rowGen.newRowCount;
     });
   });
 
@@ -278,11 +284,12 @@
     if (sortCtx.sortKey === key && sortCtx.sortDirection === dir) {
       sortCtx.sortKey = null;
       sortCtx.sortDirection = null;
-      filteredAssets = [...baseAssets];
+      setFilteredAssets([...baseAssets]);
     } else {
       sortCtx.sortKey = key;
       sortCtx.sortDirection = dir;
-      filteredAssets = await sortDataAsync(filteredAssets, key, dir);
+      const sorted = await sortDataAsync(filteredAssets, key, dir);
+      setFilteredAssets(sorted);
     }
     uiCtx.headerMenu?.close();
   }
