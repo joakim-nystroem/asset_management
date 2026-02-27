@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06.1
-current_plan: Not started
-status: unknown
-last_updated: "2026-02-27T14:34:33.989Z"
+current_phase: 07
+current_plan: 02
+status: in_progress
+last_updated: "2026-02-27T15:36:30.360Z"
 progress:
   total_phases: 8
   completed_phases: 7
   total_plans: 32
-  completed_plans: 28
+  completed_plans: 29
 ---
 
 # Project State
@@ -26,13 +26,13 @@ See: `.planning/phases/05-db-side-filtering/05-VERIFICATION.md`
 
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
-- **Current Phase:** 06.1
-- **Current Plan:** Not started
-- **Last Action:** Completed 06.1-04: direct enqueue for view changes bypassing URL/$effect coalescing, URL updated as side-effect after handler completion
-- **Last Session:** 2026-02-27T14:34:33.985Z
+- **Current Phase:** 07
+- **Current Plan:** 02
+- **Last Action:** Completed 07-01: lift ALL server data to $state in +page.svelte; GridOverlays restructured as snippet-children parent wrapper with inline keyboard/mouse/copy handling
+- **Last Session:** 2026-02-27T15:36:30.358Z
 
 ## Active Work
-Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete. Phase 6.1: all 4 plans complete (06.1-01, 06.1-02, 06.1-03, 06.1-04) — full DataController migration, shared rowGen context, REQUIRED_FIELDS validation, view switch direct enqueue.
+Phases 1-6.1 complete (Phase 5 awaiting human verification). Phase 7: 07-01 complete — data ownership lift to +page.svelte, GridOverlays as parent wrapper with inline input handling. Working on 07-02 (FloatingEditor edit flow unification).
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -72,6 +72,9 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 - [Phase 06.1-03]: RowGenerationController context pair follows ChangeController/HistoryController pattern — created once in EventListener, published via setRowGenControllerContext, consumed via getRowGenControllerContext
 - [Phase 06.1-03]: New-row edit detection uses editRow >= filteredAssetsCount — same boundary used by dirty-cell overlays
 - [Phase 06.1-03]: REQUIRED_FIELDS duplicated from gridValidation into rowGeneration — keeps rowGeneration self-contained without cross-controller imports
+- [Phase 07-01]: GridContextProvider receives no data props — creates empty context shells only; EventListener seeds them via effects
+- [Phase 07-01]: GridOverlays accepts optional style prop to receive total height from GridContainer for virtual scroll sizing
+- [Phase 07-01]: Copy logic inlined in GridOverlays; paste still uses clipboard controller until Plan 02 absorbs it into FloatingEditor
 
 ### Phase 06.1-04 Decisions
 - [Phase 06.1-04]: handleViewChange enqueues directly instead of through URL/$effect — prevents Svelte 5 effect batching from coalescing rapid view switches
@@ -210,7 +213,7 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 | 5 | awaiting_verification | 05-01 ✓, 05-02 ✓ |
 | 6 | complete | 06-01 ✓ |
 | 6.1 | complete | 06.1-01 ✓, 06.1-02 ✓, 06.1-03 ✓, 06.1-04 ✓ |
-| 7 | pending | not planned |
+| 7 | in_progress | 07-01 ✓ |
 | 8 | pending | not planned |
 
 ## Performance Metrics
@@ -243,6 +246,7 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 | 06.1 | 02 | ~3 min | 2/2 | 5 |
 | 06.1 | 03 | ~2 min | 2/2 | 6 |
 | 06.1 | 04 | ~2 min | 2/2 | 2 |
+| Phase 07 P01 | 7 | 2 tasks | 4 files |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)

@@ -201,7 +201,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 **Depends on:** Phase 6.1
 
-**Plans:** 4 plans in 4 waves
+**Plans:** 1/4 plans executed
 - [ ] 07-01-PLAN.md — Data ownership move + GridOverlays restructure: inline keyboard handling, eliminate gridShortcuts/interactionHandler (Wave 1)
 - [ ] 07-02-PLAN.md — FloatingEditor group: absorb gridEdit/gridChanges/gridHistory/gridValidation, create editCtx/historyCtx (Wave 2)
 - [ ] 07-03-PLAN.md — GridHeader group: absorb gridColumns + sort extraction, eliminate gridRows imports (Wave 3)
@@ -250,6 +250,6 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 6 | Undo/Redo Session Engine | Complete | Auto-scroll + selection cursor on undo/redo |
 | 6.1 | Serial Event Queue Pipeline | UAT gap closure | EventQueue + EventHandler + EventListener |
 | 6.2 | Event Type Definitions | Not started | Full event type audit and handler implementation |
-| 7 | Architectural Correction | Planning complete | Eliminate all 11 controllers, component-owned logic |
+| 7 | 1/4 | In Progress|  |
 | 8 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 9 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
