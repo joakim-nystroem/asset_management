@@ -164,6 +164,35 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
+## Phase 6.1: Serial Event Queue Pipeline
+**Status:** Planning complete
+**Goal:** Eliminate race conditions by serialising all network-touching grid operations through a serial event queue, replacing DataController with a 3-file eventQueue architecture (EventQueue + EventHandler + EventListener).
+
+**Depends on:** Phase 6
+
+**Scope:**
+- Create `EventQueue.svelte.ts` — Promise-chain serial FIFO enforcer with GridEvent discriminated union types
+- Create `EventHandler.svelte.ts` — dispatch switch + all handler implementations extracted from DataController
+- Create `EventListener.svelte` — reactive signal watcher, replaces DataController in component tree
+- Delete `DataController.svelte` entirely
+- Update `+page.svelte` to render EventListener instead of DataController
+- 5 basic event types: COMMIT (subsumes ADD_ROWS), FILTER, DISCARD, VIEW_CHANGE, WS_DELTA
+- Debug instrumentation: console.log + artificial delay for visual confirmation
+- Local-only operations (cell edit, selection, undo/redo, sort) stay outside queue
+
+**Plans:** 2 plans
+- [ ] 06.1-01-PLAN.md — Create EventQueue.svelte.ts (types + queue) and EventHandler.svelte.ts (dispatch + handlers)
+- [ ] 06.1-02-PLAN.md — Create EventListener.svelte, wire into +page.svelte, delete DataController
+
+## Phase 6.2: Event Type Definitions & Handler Implementation
+**Status:** Not started
+**Goal:** Define every concrete event type flowing through the queue and implement their corresponding handler functions — systematic walkthrough of each operation (commit, filter, WS delta, selection broadcast, view change, discard, etc.).
+
+**Depends on:** Phase 6.1
+**Plans:** 0 plans
+
+---
+
 ## Phase 7: Spatial Clipboard Hardening
 **Status:** Not started
 **Goal:** Verify and harden the spatial clipboard with proper marching ants overlay and structural paste.
@@ -202,6 +231,8 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 3 | FloatingEditor & ContextMenu | ✓ Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
 | 4 | Context Split & Component Autonomy | Complete | 11 domain contexts, thin +page.svelte, DataController |
 | 5 | DB-Side Filtering | Awaiting verification | Unified /api/assets endpoint, queryAssets.ts |
-| 6 | 1/1 | Complete   | 2026-02-26 |
+| 6 | Undo/Redo Session Engine | Complete | Auto-scroll + selection cursor on undo/redo |
+| 6.1 | Serial Event Queue Pipeline | Planning complete | EventQueue + EventHandler + EventListener replaces DataController |
+| 6.2 | Event Type Definitions | Not started | Full event type audit and handler implementation |
 | 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 8 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
