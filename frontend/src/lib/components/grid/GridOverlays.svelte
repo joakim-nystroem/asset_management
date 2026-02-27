@@ -1,7 +1,9 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
   import {
     getEditingContext,
     getSelectionContext,
+    getClipboardContext,
     getColumnContext,
     getDataContext,
     getViewContext,
@@ -15,11 +17,14 @@
   import { createClipboardController } from '$lib/grid/utils/gridClipboard.svelte.ts';
   import { createEditController } from '$lib/grid/utils/gridEdit.svelte.ts';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
-  import { gridShortcuts } from '$lib/grid/utils/gridShortcuts.svelte.ts';
+  import { toastState } from '$lib/components/toast/toastState.svelte';
   import FloatingEditor from '$lib/grid/components/floating-editor/FloatingEditor.svelte';
+
+  let { children, style = '' }: { children: Snippet; style?: string } = $props();
 
   const editCtx = getEditingContext();
   const selCtx = getSelectionContext();
+  const clipCtx = getClipboardContext();
   const colCtx = getColumnContext();
   const dataCtx = getDataContext();
   const viewCtx = getViewContext();
@@ -29,48 +34,113 @@
   const columns = createColumnController();
   const changes = getChangeControllerContext();
   const rowGen = getRowGenControllerContext();
-  const clipboard = createClipboardController();
   const history = getHistoryControllerContext();
   const edit = createEditController();
+  // Keep clipboard controller for paste only — copy is inlined below
+  const clipboard = createClipboardController();
 
   // GridOverlays accepts no data props. F2.5: 0 data props.
-  // onHoverUser is a local interaction — handled entirely within this component.
   let hoveredUser: string | null = $state(null);
 
-  // --- Stable shortcutState object (must NOT be an inline literal in template) ---
-  // Properties are reactive objects; the wrapper object reference stays stable.
-  // This prevents the {@attach} from re-running on every render.
-  const shortcutState = {
-    get selection() { return selection; },
-    get columns() { return columns; },
-    get contextMenu() { return uiCtx.contextMenu; },
-    get headerMenu() { return uiCtx.headerMenu; },
-  };
+  // --- Inlined copy logic (moved from gridClipboard.copy) ---
+  type CopiedItem = { relRow: number; relCol: number; value: string };
+  let clipboardInternal = $state<CopiedItem[]>([]);
+  let lastCopiedText = $state('');
 
-  // Callbacks use domain contexts and controllers directly — no pageActions needed.
-  const callbacks = {
-    get onCopy() {
-      return () => {
-        clipboard.copy(dataCtx.assets, colCtx.keys);
-        if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
-      };
-    },
-    get onPaste() {
-      return async () => {
-        const target = selection.anchor;
-        if (!target) return;
-        const result = await clipboard.paste(target, dataCtx.assets, colCtx.keys);
-        if (result && result.changes.length > 0) {
-          for (const change of result.changes) {
-            changes.update(change);
-          }
-          history.recordBatch(result.changes);
-        }
-        if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
-      };
-    },
-    get onUndo() {
-      return () => {
+  function getSelectionBounds() {
+    if (selCtx.selectionStart.row === -1 || selCtx.selectionEnd.row === -1) return null;
+    return {
+      minRow: Math.min(selCtx.selectionStart.row, selCtx.selectionEnd.row),
+      maxRow: Math.max(selCtx.selectionStart.row, selCtx.selectionEnd.row),
+      minCol: Math.min(selCtx.selectionStart.col, selCtx.selectionEnd.col),
+      maxCol: Math.max(selCtx.selectionStart.col, selCtx.selectionEnd.col),
+    };
+  }
+
+  async function copyToSystemClipboard(text: string): Promise<void> {
+    try { await navigator.clipboard.writeText(text); }
+    catch (err) { console.error('Failed to copy to clipboard:', err); }
+  }
+
+  async function handleCopy() {
+    // 1. Snapshot visual overlay
+    if (selCtx.selectionStart.row !== -1) {
+      clipCtx.copyStart = { ...selCtx.selectionStart };
+      clipCtx.copyEnd = { ...selCtx.selectionEnd };
+      clipCtx.isCopyVisible = true;
+      selCtx.isHiddenAfterCopy = true;
+    }
+    // 2. Get selection bounds
+    const bounds = getSelectionBounds();
+    if (!bounds) return;
+    // 3. Capture data into internal buffer + system clipboard
+    const newClipboard: CopiedItem[] = [];
+    const externalRows: string[] = [];
+    for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
+      const rowStrings: string[] = [];
+      for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
+        const key = colCtx.keys[c];
+        const value = String(dataCtx.assets[r]?.[key] ?? '');
+        newClipboard.push({ relRow: r - bounds.minRow, relCol: c - bounds.minCol, value });
+        rowStrings.push(value);
+      }
+      externalRows.push(rowStrings.join('\t'));
+    }
+    clipboardInternal = newClipboard;
+    const textBlock = externalRows.join('\n');
+    lastCopiedText = textBlock;
+    setTimeout(async () => { await copyToSystemClipboard(textBlock); }, 0);
+    if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
+  }
+
+  function clearClipboard() {
+    clipboardInternal = [];
+    lastCopiedText = '';
+  }
+
+  // --- Inline keyboard handler (replaces gridShortcuts / interactionHandler) ---
+  function handleKeyDown(e: KeyboardEvent) {
+    const target = e.target as HTMLElement;
+    const isInput =
+      target.tagName === 'INPUT' ||
+      target.tagName === 'TEXTAREA' ||
+      target.isContentEditable;
+    if (isInput) return;
+
+    // Escape — clear everything
+    if (e.key === 'Escape') {
+      if (editCtx.isEditing) {
+        edit.cancel();
+        return;
+      }
+      if (selection.hasSelection) {
+        selection.resetAll();
+      }
+      clearClipboard();
+      clipboard.clear();
+      if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
+      if (uiCtx.headerMenu?.activeKey) uiCtx.headerMenu.close();
+      return;
+    }
+
+    if (e.key === 'F2') {
+      e.preventDefault();
+      const target2 = selection.anchor;
+      if (!target2) return;
+      const key = colCtx.keys[target2.col];
+      const asset = dataCtx.assets[target2.row];
+      if (!asset || !key || key === 'id') return;
+      const currentValue = String(asset[key] ?? '');
+      edit.startEdit(target2.row, target2.col, key, currentValue);
+      return;
+    }
+
+    // Ctrl/Cmd shortcuts
+    if (e.metaKey || e.ctrlKey) {
+      const k = e.key.toLowerCase();
+
+      if (k === 'z') {
+        e.preventDefault();
         const batch = history.undo(dataCtx.assets);
         if (batch) {
           for (const action of batch) {
@@ -81,7 +151,6 @@
               oldValue: action.newValue,
             });
           }
-          // Auto-scroll to first affected cell (Excel behavior)
           const firstAction = batch[0];
           const row = dataCtx.assets.findIndex(a => a.id === firstAction.id);
           const col = colCtx.keys.indexOf(firstAction.key);
@@ -90,16 +159,16 @@
             selection.moveTo(row, col !== -1 ? col : 0);
           }
         }
-      };
-    },
-    get onRedo() {
-      return () => {
+        return;
+      }
+
+      if (k === 'y') {
+        e.preventDefault();
         const batch = history.redo(dataCtx.assets);
         if (batch) {
           for (const action of batch) {
             changes.update(action);
           }
-          // Auto-scroll to first affected cell (Excel behavior)
           const firstAction = batch[0];
           const row = dataCtx.assets.findIndex(a => a.id === firstAction.id);
           const col = colCtx.keys.indexOf(firstAction.key);
@@ -108,40 +177,188 @@
             selection.moveTo(row, col !== -1 ? col : 0);
           }
         }
-      };
-    },
-    get onEscape() {
-      return () => {
-        if (editCtx.isEditing) {
-          edit.cancel();
-          return;
+        return;
+      }
+
+      if (k === 'c') {
+        e.preventDefault();
+        handleCopy();
+        return;
+      }
+
+      if (k === 'v') {
+        e.preventDefault();
+        (async () => {
+          const anchor = selection.anchor;
+          if (!anchor) return;
+          const result = await clipboard.paste(anchor, dataCtx.assets, colCtx.keys);
+          if (result && result.changes.length > 0) {
+            for (const change of result.changes) {
+              changes.update(change);
+            }
+            history.recordBatch(result.changes);
+          }
+          if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
+        })();
+        return;
+      }
+    }
+
+    // Arrow key navigation
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      const rows = dataCtx.assets.length;
+      const cols = colCtx.keys.length;
+      const primary = selection.primaryRange;
+      if (!primary) return;
+
+      // Ctrl + Arrow (jump/extend to edge)
+      if (e.metaKey || e.ctrlKey) {
+        let targetRow = primary.end.row;
+        let targetCol = primary.end.col;
+        switch (e.key) {
+          case 'ArrowUp':    targetRow = 0; break;
+          case 'ArrowDown':  targetRow = rows - 1; break;
+          case 'ArrowLeft':  targetCol = 0; break;
+          case 'ArrowRight': targetCol = cols - 1; break;
         }
-        if (selection.hasSelection) {
-          selection.resetAll();
+        if (e.shiftKey) {
+          selection.end = { row: targetRow, col: targetCol };
+        } else {
+          selection.moveTo(targetRow, targetCol);
         }
-        clipboard.clear();
-        if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
-        if (uiCtx.headerMenu?.activeKey) uiCtx.headerMenu.close();
-      };
-    },
-    get onEdit() {
-      return () => {
-        const target = selection.anchor;
-        if (!target) return;
-        const key = colCtx.keys[target.col];
-        const asset = dataCtx.assets[target.row];
-        if (!asset || !key || key === 'id') return;
-        const currentValue = String(asset[key] ?? '');
-        edit.startEdit(target.row, target.col, key, currentValue);
-      };
-    },
-    get onScrollIntoView() {
-      return (row: number, _col: number) => { viewCtx.scrollToRow = row; };
-    },
-    get getGridSize() {
-      return () => ({ rows: dataCtx.assets.length, cols: colCtx.keys.length });
-    },
-  };
+        viewCtx.scrollToRow = targetRow;
+        return;
+      }
+
+      // Shift + Arrow: extend selection
+      if (e.shiftKey) {
+        const next = getKeyboardNavigation(e, primary.end, rows, cols);
+        if (next) {
+          selection.end = next;
+          viewCtx.scrollToRow = next.row;
+        }
+      } else {
+        // Arrow only: move selection
+        const next = getKeyboardNavigation(e, primary.start, rows, cols);
+        if (next) {
+          selection.moveTo(next.row, next.col);
+          viewCtx.scrollToRow = next.row;
+        }
+      }
+    }
+  }
+
+  function getKeyboardNavigation(
+    e: KeyboardEvent,
+    current: { row: number; col: number },
+    rowCount: number,
+    colCount: number
+  ): { row: number; col: number } | null {
+    const { row, col } = current;
+    switch (e.key) {
+      case 'ArrowUp':    return row > 0 ? { row: row - 1, col } : null;
+      case 'ArrowDown':  return row < rowCount - 1 ? { row: row + 1, col } : null;
+      case 'ArrowLeft':  return col > 0 ? { row, col: col - 1 } : null;
+      case 'ArrowRight': return col < colCount - 1 ? { row, col: col + 1 } : null;
+      default:           return null;
+    }
+  }
+
+  // --- Mouse handlers (moved from GridContainer) ---
+  function handleMouseDown(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+    if (!cell) return;
+    const row = Number(cell.dataset.row);
+    const col = Number(cell.dataset.col);
+    if (isNaN(row) || isNaN(col)) return;
+    if (editCtx.isEditing) {
+      // Do NOT call edit.save() here — let FloatingEditor's handleBlur own the save.
+      selection.selectCell(row, col);
+      return;
+    }
+    selection.handleMouseDown(row, col, e);
+  }
+
+  function handleMouseOver(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+    if (!cell) return;
+    const row = Number(cell.dataset.row);
+    const col = Number(cell.dataset.col);
+    if (isNaN(row) || isNaN(col)) return;
+    if (!editCtx.isEditing) {
+      selection.extendSelection(row, col);
+    }
+  }
+
+  function handleDblClick(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+    if (!cell) return;
+    const row = Number(cell.dataset.row);
+    const col = Number(cell.dataset.col);
+    if (isNaN(row) || isNaN(col)) return;
+    if (!dataCtx.user) {
+      toastState.addToast('Log in to edit.', 'warning');
+      return;
+    }
+    const key = colCtx.keys[col];
+    if (key === 'id') {
+      toastState.addToast('ID column cannot be edited.', 'warning');
+      return;
+    }
+    e.preventDefault();
+    selection.selectCell(row, col);
+    const currentValue = String(dataCtx.assets[row]?.[key] ?? '');
+    edit.startEdit(row, col, key, currentValue);
+  }
+
+  function handleContextMenu(e: MouseEvent) {
+    const target = e.target as HTMLElement;
+    const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+    if (!cell) return;
+    const visibleIndex = Number(cell.dataset.row);
+    const col = Number(cell.dataset.col);
+    if (isNaN(visibleIndex) || isNaN(col)) return;
+    e.preventDefault();
+    const actualRow = viewCtx.virtualScroll.getActualIndex(visibleIndex);
+    const key = colCtx.keys[col];
+    const value = String(dataCtx.assets[actualRow]?.[key] ?? '');
+    selection.selectCell(actualRow, col);
+    uiCtx.contextMenu?.open(e, actualRow, col, value, key);
+    uiCtx.headerMenu?.close();
+  }
+
+  // Window-level event listeners
+  $effect(() => {
+    function onMouseUp() {
+      if (columns.resizingColumn) {
+        columns.endResize();
+        document.body.style.cursor = '';
+      }
+      selection.endSelection();
+    }
+    function onMouseMove(e: MouseEvent) {
+      if (columns.resizingColumn) {
+        e.preventDefault();
+        columns.updateResize(e.clientX);
+      }
+    }
+    function onWindowClick(e: MouseEvent) {
+      if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
+      uiCtx.headerMenu?.handleOutsideClick(e);
+    }
+    window.addEventListener('mouseup', onMouseUp);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('click', onWindowClick);
+    return () => {
+      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('click', onWindowClick);
+    };
+  });
 
   // --- Overlay derivations ---
 
@@ -192,12 +409,10 @@
   const otherUserSelections = $derived(
     Object.entries(realtime.connectedUsers).reduce(
       (acc, [clientId, position]) => {
-        // Map asset ID to current row index in combined assets array
         let rowIndex = -1;
         if (position.assetId !== undefined) {
           rowIndex = dataCtx.assets.findIndex((a: Record<string, any>) => a.id === position.assetId);
         } else {
-          // Fallback for old clients: use position.row directly
           rowIndex = position.row;
         }
         if (rowIndex === -1) return acc;
@@ -220,17 +435,25 @@
 </script>
 
 <!--
-  Root div: holds focus for keyboard capture (tabindex=-1).
-  {@attach gridShortcuts(...)} mounts window listeners via createInteractionHandler
-  and returns cleanup automatically on unmount.
-  class="contents" — no layout box added; overlays position relative to parent positioned ancestor.
+  GridOverlays: parent wrapper that owns ALL user input (keyboard + mouse) and visual feedback.
+  GridContainer passes GridHeader + GridRows as snippet children.
+  Overlay layers are absolutely positioned; children render below them in the same relative container.
 -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_mouse_events_have_key_events -->
 <div
-  class="contents"
+  class="w-max min-w-full bg-white dark:bg-slate-800 text-left relative"
+  {style}
   tabindex="-1"
-  {@attach gridShortcuts(shortcutState, callbacks)}
+  onkeydown={handleKeyDown}
+  onmousedown={handleMouseDown}
+  onmouseover={handleMouseOver}
+  ondblclick={handleDblClick}
+  oncontextmenu={handleContextMenu}
 >
+  <!-- Overlay layers (absolutely positioned over content) -->
+
   {#each Object.entries(otherUserSelections) as [clientId, position]}
     {@const otherUserOverlay = selection.computeVisualOverlay(
       position,
@@ -357,4 +580,7 @@
       }
     }} />
   {/if}
+
+  <!-- Content layer: GridHeader + GridRows passed as snippet children from GridContainer -->
+  {@render children()}
 </div>
