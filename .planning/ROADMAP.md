@@ -181,7 +181,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 - Local-only operations (cell edit, selection, undo/redo, sort) stay outside queue
 
 **Plans:** 2 plans
-- [ ] 06.1-01-PLAN.md — Create EventQueue.svelte.ts (types + queue) and EventHandler.svelte.ts (dispatch + handlers)
+- [x] 06.1-01-PLAN.md — Create EventQueue.svelte.ts (types + queue) and EventHandler.svelte.ts (dispatch + handlers)
 - [ ] 06.1-02-PLAN.md — Create EventListener.svelte, wire into +page.svelte, delete DataController
 
 ## Phase 6.2: Event Type Definitions & Handler Implementation
@@ -232,7 +232,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 4 | Context Split & Component Autonomy | Complete | 11 domain contexts, thin +page.svelte, DataController |
 | 5 | DB-Side Filtering | Awaiting verification | Unified /api/assets endpoint, queryAssets.ts |
 | 6 | Undo/Redo Session Engine | Complete | Auto-scroll + selection cursor on undo/redo |
-| 6.1 | Serial Event Queue Pipeline | Planning complete | EventQueue + EventHandler + EventListener replaces DataController |
+| 6.1 | Serial Event Queue Pipeline | In progress (1/2 plans) | EventQueue + EventHandler + EventListener replaces DataController |
 | 6.2 | Event Type Definitions | Not started | Full event type audit and handler implementation |
 | 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 8 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 06
-current_plan: Not started
-status: unknown
-last_updated: "2026-02-26T14:43:53.296Z"
+current_phase: 06.1
+current_plan: "01"
+status: in_progress
+last_updated: "2026-02-27T01:12:33Z"
 progress:
   total_phases: 7
   completed_phases: 6
-  total_plans: 24
-  completed_plans: 24
+  total_plans: 25
+  completed_plans: 25
 ---
 
 # Project State
@@ -26,13 +26,13 @@ See: `.planning/phases/05-db-side-filtering/05-VERIFICATION.md`
 
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
-- **Current Phase:** 06
-- **Current Plan:** Not started
-- **Last Action:** Completed 06-01: added auto-scroll + selection cursor to onUndo/onRedo; updated F8.4 requirement to match locked decision; documented commit history preservation
-- **Last Session:** 2026-02-26T14:43:53.293Z
+- **Current Phase:** 06.1
+- **Current Plan:** 01 complete
+- **Last Action:** Completed 06.1-01: created EventQueue module — GridEvent types + serial FIFO enforcer + all handler implementations extracted from DataController
+- **Last Session:** 2026-02-27T01:12:33Z
 
 ## Active Work
-Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete — undo/redo engine fully wired with auto-scroll and selection cursor.
+Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete. Phase 6.1: 06.1-01 complete — eventQueue module created with EventQueue.svelte.ts and EventHandler.svelte.ts.
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -61,8 +61,14 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 - [x] **05-01**: Created queryAssets.ts (unified Kysely query replacing getAssetsByView + searchAssets); rewired /api/assets to accept q/filter/view params; updated +page.server.ts to use queryAssets for both base and filtered loads; fixed PED view bug (commits: 6086e75, 8cd3504)
 - [x] **05-02**: Migrated DataController fetch paths to /api/assets (view-change + search/filter); fixed response unwrapping result→result.assets; deleted 4 obsolete files (api/search, api/assets/view, searchAssets.ts, getAssetsByView.ts) (commits: fd7fc08, e3945aa)
 - [x] **06-01**: Added auto-scroll (viewCtx.scrollToRow) + selection cursor (selection.moveTo) to onUndo/onRedo; verified all 6 history call-sites correct; updated F8.4 to match locked decision (commits: dfe5582, d1a0284)
+- [x] **06.1-01**: Created EventQueue.svelte.ts (GridEvent types + Promise-chain serial FIFO enforcer) and EventHandler.svelte.ts (dispatch + all handlers extracted from DataController); svelte-check 0 errors (commits: 3df18fa, 66f2645)
 
 ## Decisions
+
+### Phase 06.1-01 Decisions
+- [Phase 06.1-01]: getter/setter pairs (getBaseAssets/setBaseAssets) used for mutable state refs in EventHandler — direct object property access across module boundary loses Svelte 5 reactivity
+- [Phase 06.1-01]: COMMIT event carries mode field (update|create) — subsumes ADD_ROWS, one event type two modes per CONTEXT.md locked decision
+- [Phase 06.1-01]: VIEW_CHANGE event carries q and filters — handler falls through to handleFilter internally when URL still has search/filter params after view switch
 
 ### Phase 06-01 Decisions
 - [Phase 06-01]: Use moveTo() not selectCell() for undo/redo cursor — moveTo has no guard, always updates even when cell is already selected (required for consecutive undos on same cell)
@@ -183,7 +189,8 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 | 3 | complete | 03-01 ✓, 03-02 ✓, 03-03 ✓ |
 | 4 | complete | 04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓, 04-05 ✓, 04-06 ✓ |
 | 5 | awaiting_verification | 05-01 ✓, 05-02 ✓ |
-| 6 | in_progress | 06-01 ✓ |
+| 6 | complete | 06-01 ✓ |
+| 6.1 | in_progress | 06.1-01 ✓ |
 | 7 | pending | not planned |
 | 8 | pending | not planned |
 
@@ -213,6 +220,7 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 | 05 | 01 | ~2 min | 2/2 | 3 |
 | 05 | 02 | ~2 min | 2/2 | 5 |
 | 06 | 01 | ~1 min | 2/2 | 3 |
+| 06.1 | 01 | ~2 min | 2/2 | 2 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
