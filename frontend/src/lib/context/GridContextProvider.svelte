@@ -31,7 +31,7 @@
 
   // ─── Domain context initialization ────────────────────────────────────────────
   // Each domain gets its own typed $state object.
-  // DataController enriches these contexts with live data on mount.
+  // EventListener enriches these contexts with live data on mount.
 
   let editingCtx = $state({
     isEditing: false,
@@ -116,7 +116,7 @@
   setUiContext(uiCtx);
 
   // ─── Controller instance contexts ──────────────────────────────────────────
-  // Created here (common ancestor) so both GridOverlays and DataController
+  // Created here (common ancestor) so both GridOverlays and EventListener
   // share the SAME instances. Must run after validationCtx and changeCtx are set
   // because createChangeController() reads them via getValidationContext/getChangeContext.
   const changeController = createChangeController();

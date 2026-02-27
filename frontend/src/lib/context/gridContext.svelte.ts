@@ -71,7 +71,7 @@ export type DataContext = {
   baseAssets: Record<string, any>[];
   filteredAssetsCount: number;
   user: SafeUser | null;
-  // Action callbacks (set by DataController)
+  // Action callbacks (set by EventListener)
   commit?: () => Promise<void>;
   discard?: () => void;
   addRows?: () => Promise<void>;
@@ -92,7 +92,7 @@ export type UiContext = {
   contextMenu: any | null;
   handleFilterSelect: ((item: string, key: string) => void) | null;
   applySort: ((key: string, dir: 'asc' | 'desc') => void) | null;
-  // URL helpers (set by DataController)
+  // URL helpers (set by EventListener)
   getCurrentUrlState?: () => { q: string; filters: Filter[]; view: string };
   updateSearchUrl?: (params: { q?: string; filters?: Filter[]; view?: string }) => void;
 };
