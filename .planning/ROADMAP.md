@@ -165,7 +165,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 ---
 
 ## Phase 6.1: Serial Event Queue Pipeline
-**Status:** Planning complete
+**Status:** UAT gap closure in progress
 **Goal:** Eliminate race conditions by serialising all network-touching grid operations through a serial event queue, replacing DataController with a 3-file eventQueue architecture (EventQueue + EventHandler + EventListener).
 
 **Depends on:** Phase 6
@@ -180,9 +180,11 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 - Debug instrumentation: console.log + artificial delay for visual confirmation
 - Local-only operations (cell edit, selection, undo/redo, sort) stay outside queue
 
-**Plans:** 2/2 plans complete
+**Plans:** 4 plans (2 complete, 2 gap closure)
 - [x] 06.1-01-PLAN.md — Create EventQueue.svelte.ts (types + queue) and EventHandler.svelte.ts (dispatch + handlers)
-- [ ] 06.1-02-PLAN.md — Create EventListener.svelte, wire into +page.svelte, delete DataController
+- [x] 06.1-02-PLAN.md — Create EventListener.svelte, wire into +page.svelte, delete DataController
+- [ ] 06.1-03-PLAN.md — Gap closure: share rowGen via context, fix new-row commit path + validation
+- [ ] 06.1-04-PLAN.md — Gap closure: fix view switch queueing (direct enqueue, remove stale guard)
 
 ## Phase 6.2: Event Type Definitions & Handler Implementation
 **Status:** Not started
@@ -226,13 +228,13 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 | Phase | Name | Status | Key Output |
 |-------|------|--------|------------|
-| 1 | Singleton Removal | ✓ Complete | Singletons → context getters |
-| 2 | Component Decomposition | ✓ Complete | GridContainer, event delegation, directory structure |
-| 3 | FloatingEditor & ContextMenu | ✓ Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
+| 1 | Singleton Removal | Complete | Singletons -> context getters |
+| 2 | Component Decomposition | Complete | GridContainer, event delegation, directory structure |
+| 3 | FloatingEditor & ContextMenu | Complete | FloatingEditor, ContextMenu zero-prop, GridRow pure display |
 | 4 | Context Split & Component Autonomy | Complete | 11 domain contexts, thin +page.svelte, DataController |
 | 5 | DB-Side Filtering | Awaiting verification | Unified /api/assets endpoint, queryAssets.ts |
 | 6 | Undo/Redo Session Engine | Complete | Auto-scroll + selection cursor on undo/redo |
-| 6.1 | 2/2 | Complete   | 2026-02-27 |
+| 6.1 | Serial Event Queue Pipeline | UAT gap closure | EventQueue + EventHandler + EventListener |
 | 6.2 | Event Type Definitions | Not started | Full event type audit and handler implementation |
 | 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 8 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
