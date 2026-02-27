@@ -196,14 +196,14 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 ---
 
 ## Phase 7: Architectural Correction
-**Status:** Planning complete
+**Status:** In progress
 **Goal:** Eliminate ALL 11 legacy controller files by moving their logic into owning components. Complete data ownership move to +page.svelte. Restructure GridOverlays as parent wrapper. Unify edit flow so existing and new rows share the same path. After this phase, every component owns its logic — no external controllers remain.
 
 **Depends on:** Phase 6.1
 
 **Plans:** 1/5 plans executed
 - [x] 07-01-PLAN.md — Data ownership move + GridOverlays restructure: inline keyboard handling, eliminate gridShortcuts/interactionHandler (Wave 1)
-- [ ] 07-02-PLAN.md — Event architecture correction: propless EventListener, DataSeeder, EventQueue context, self-contained events (Wave 2)
+- [ ] 07-02-PLAN.md — Event architecture correction: propless EventListener, self-contained events, pure switch EventHandler, handler modules extracted, URL sync scrapped (Wave 2)
 - [ ] 07-03-PLAN.md — FloatingEditor group: absorb gridEdit/gridChanges/gridHistory/gridValidation, create editCtx/historyCtx (Wave 3)
 - [ ] 07-04-PLAN.md — GridHeader group: absorb gridColumns + sort extraction, eliminate gridRows imports (Wave 4)
 - [ ] 07-05-PLAN.md — Final cleanup: delete all 11 controller files + interactionHandler, svelte-check gate (Wave 5)
@@ -251,6 +251,6 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 6 | Undo/Redo Session Engine | Complete | Auto-scroll + selection cursor on undo/redo |
 | 6.1 | Serial Event Queue Pipeline | UAT gap closure | EventQueue + EventHandler + EventListener |
 | 6.2 | Event Type Definitions | Not started | Full event type audit and handler implementation |
-| 7 | 1/4 | In Progress|  |
+| 7 | Architectural Correction | In Progress | Propless EventListener, handler modules, controller elimination |
 | 8 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 9 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
