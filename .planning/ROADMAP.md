@@ -196,15 +196,15 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 ---
 
 ## Phase 7: Row Generation Redesign
-**Status:** Planned
-**Goal:** Redesign row generation as a self-contained RowGeneration.svelte + .svelte.ts component pair. Inline form rows at bottom of grid with same UX as regular rows (dblclick/F2/right-click to edit). Multiple new rows, batch commit via existing Toolbar button and event queue flow.
+**Status:** Planning complete
+**Goal:** Move data ownership to +page.svelte, replace numeric new-row IDs with "NEW-N" string counter, add per-cell validation, and fix header menu filter item enumeration. New rows are regular grid rows handled by existing GridRow, FloatingEditor, and ContextMenu components.
 
 **Depends on:** Phase 6.1
 
 **Plans:** 3 plans in 2 waves
-- [ ] 07-01-PLAN.md — Create RowGeneration component + integrate into GridContainer (Wave 1)
-- [ ] 07-02-PLAN.md — Remove isNewRow forks from GridOverlays + contextMenu (Wave 2)
-- [ ] 07-03-PLAN.md — Clean up EventListener assets derived + move controller file (Wave 2)
+- [ ] 07-01-PLAN.md — Data ownership move: lift baseAssets/filteredAssets to +page.svelte (Wave 1)
+- [ ] 07-02-PLAN.md — NEW-N ID strategy + per-cell validation in rowGeneration controller (Wave 1)
+- [ ] 07-03-PLAN.md — Fix header menu filter items to exclude new row empty values (Wave 2)
 
 ---
 
@@ -249,6 +249,6 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 6 | Undo/Redo Session Engine | Complete | Auto-scroll + selection cursor on undo/redo |
 | 6.1 | Serial Event Queue Pipeline | UAT gap closure | EventQueue + EventHandler + EventListener |
 | 6.2 | Event Type Definitions | Not started | Full event type audit and handler implementation |
-| 7 | Row Generation Redesign | Not started | Self-contained RowGeneration component pair |
+| 7 | Row Generation Redesign | Planning complete | Data ownership move, NEW-N IDs, per-cell validation |
 | 8 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 9 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
