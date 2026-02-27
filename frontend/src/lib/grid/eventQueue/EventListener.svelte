@@ -85,6 +85,7 @@
     history,
     selection,
     rowGen,
+    updateSearchUrl,
   });
   const queue = createEventQueue(handler.handle);
 

@@ -27,6 +27,8 @@ type EventHandlerDeps = {
   history: HistoryController;
   selection: SelectionController;
   rowGen: RowGenerationController;
+  // URL helper — used by handleViewChange to update browser URL after completion
+  updateSearchUrl: (params: { q?: string; filters?: Filter[]; view?: string }) => void;
 };
 
 // ─── updateAssetInList helper ─────────────────────────────────────────────────
@@ -56,6 +58,7 @@ export function createEventHandler(deps: EventHandlerDeps): { handle: (event: Gr
     history,
     selection,
     rowGen,
+    updateSearchUrl,
   } = deps;
 
   // --- handleCommitUpdate — extracted from DataController.commitChanges (lines 444-481) ---
@@ -244,11 +247,13 @@ export function createEventHandler(deps: EventHandlerDeps): { handle: (event: Gr
         changes.clear();
         history.clear();
         rowGen.clearNewRows();
+        updateSearchUrl({ view, q: '', filters: [] });
         return;
       }
 
       // q or filters exist — fall through to filter logic
       await handleFilter(q, filters, view);
+      updateSearchUrl({ view, q, filters });
     } catch (err) {
       console.error(`Failed to load ${view} view:`, err);
       toastState.addToast(`Failed to load ${view} view.`, "error");

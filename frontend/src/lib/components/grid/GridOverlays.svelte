@@ -344,8 +344,17 @@
 
   {#if editCtx.isEditing}
     <FloatingEditor onSave={(change) => {
-      history.record(change.id, change.key, change.oldValue, change.newValue);
-      changes.update(change);
+      const editRow = editCtx.editRow;
+      const isNewRow = editRow >= dataCtx.filteredAssetsCount;
+      if (isNewRow) {
+        // New row: route to rowGen, not ChangeController
+        const newRowIndex = editRow - dataCtx.filteredAssetsCount;
+        rowGen.updateNewRowField(newRowIndex, change.key, change.newValue);
+      } else {
+        // Existing row: route to ChangeController + History (original behavior)
+        history.record(change.id, change.key, change.oldValue, change.newValue);
+        changes.update(change);
+      }
     }} />
   {/if}
 </div>
