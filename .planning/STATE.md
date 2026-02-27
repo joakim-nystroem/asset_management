@@ -32,7 +32,7 @@ See: `.planning/phases/05-db-side-filtering/05-VERIFICATION.md`
 - **Last Session:** 2026-02-27T02:20:06.296Z
 
 ## Active Work
-Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete. Phase 6.1: 06.1-01, 06.1-02, and 06.1-04 complete — full DataController migration done + view switch direct enqueue fix (UAT Gap 2 closure).
+Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete. Phase 6.1: all 4 plans complete (06.1-01, 06.1-02, 06.1-03, 06.1-04) — full DataController migration, shared rowGen context, REQUIRED_FIELDS validation, view switch direct enqueue.
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -63,9 +63,15 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 - [x] **06-01**: Added auto-scroll (viewCtx.scrollToRow) + selection cursor (selection.moveTo) to onUndo/onRedo; verified all 6 history call-sites correct; updated F8.4 to match locked decision (commits: dfe5582, d1a0284)
 - [x] **06.1-01**: Created EventQueue.svelte.ts (GridEvent types + Promise-chain serial FIFO enforcer) and EventHandler.svelte.ts (dispatch + all handlers extracted from DataController); svelte-check 0 errors (commits: 3df18fa, 66f2645)
 - [x] **06.1-02**: Created EventListener.svelte (renderless reactive signal watcher); wired into +page.svelte replacing DataController; DataController.svelte deleted; all network ops now flow through serial queue; svelte-check 0 errors (commits: 8d815b8, 85be8fa)
+- [x] **06.1-03**: Shared RowGenerationController via context (single instance); new-row edit routing to rowGen; REQUIRED_FIELDS validation; svelte-check 0 errors (commit: 43ae751)
 - [x] **06.1-04**: Direct enqueue for view changes bypassing URL/$effect coalescing; URL updated as side-effect after handler completion; stale guard removed; svelte-check 0 errors (commits: edaaecd, 8d95f88)
 
 ## Decisions
+
+### Phase 06.1-03 Decisions
+- [Phase 06.1-03]: RowGenerationController context pair follows ChangeController/HistoryController pattern — created once in EventListener, published via setRowGenControllerContext, consumed via getRowGenControllerContext
+- [Phase 06.1-03]: New-row edit detection uses editRow >= filteredAssetsCount — same boundary used by dirty-cell overlays
+- [Phase 06.1-03]: REQUIRED_FIELDS duplicated from gridValidation into rowGeneration — keeps rowGeneration self-contained without cross-controller imports
 
 ### Phase 06.1-04 Decisions
 - [Phase 06.1-04]: handleViewChange enqueues directly instead of through URL/$effect — prevents Svelte 5 effect batching from coalescing rapid view switches
@@ -202,7 +208,7 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 | 4 | complete | 04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓, 04-05 ✓, 04-06 ✓ |
 | 5 | awaiting_verification | 05-01 ✓, 05-02 ✓ |
 | 6 | complete | 06-01 ✓ |
-| 6.1 | in_progress | 06.1-01 ✓, 06.1-02 ✓, 06.1-04 ✓ |
+| 6.1 | complete | 06.1-01 ✓, 06.1-02 ✓, 06.1-03 ✓, 06.1-04 ✓ |
 | 7 | pending | not planned |
 | 8 | pending | not planned |
 
@@ -234,6 +240,7 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 | 06 | 01 | ~1 min | 2/2 | 3 |
 | 06.1 | 01 | ~2 min | 2/2 | 2 |
 | 06.1 | 02 | ~3 min | 2/2 | 5 |
+| 06.1 | 03 | ~2 min | 2/2 | 6 |
 | 06.1 | 04 | ~2 min | 2/2 | 2 |
 
 ## Notes
