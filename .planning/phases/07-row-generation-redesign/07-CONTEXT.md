@@ -55,9 +55,9 @@ Three deliverables:
 - Small delta from current behavior — add `isValidValue` check inside `updateNewRowField`
 
 ### Header Menu
-- Header menu currently reads assets from context — needs rethinking since assets move to props
-- Since header menu is an integral part of the grid, it receives the necessary asset data as a prop
-- In scope for this phase (part of the data ownership move)
+- Header menu ALREADY uses props (assets + baseAssets) — no changes needed
+- getFilterItems already computes from baseAssets filtered by other columns' filters
+- NOT in scope for this phase — already correct
 
 ### Claude's Discretion
 - Exact implementation of how EventListener transforms from data owner to event processor

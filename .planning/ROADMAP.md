@@ -197,14 +197,13 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ## Phase 7: Row Generation Redesign
 **Status:** Planning complete
-**Goal:** Move data ownership to +page.svelte, replace numeric new-row IDs with "NEW-N" string counter, add per-cell validation, and fix header menu filter item enumeration. New rows are regular grid rows handled by existing GridRow, FloatingEditor, and ContextMenu components.
+**Goal:** Move data ownership to +page.svelte, replace numeric new-row IDs with "NEW-N" string counter, add per-cell validation. New rows are regular grid rows handled by existing GridRow, FloatingEditor, and ContextMenu components.
 
 **Depends on:** Phase 6.1
 
-**Plans:** 3 plans in 2 waves
+**Plans:** 2 plans in 1 wave
 - [ ] 07-01-PLAN.md — Data ownership move: lift baseAssets/filteredAssets to +page.svelte (Wave 1)
 - [ ] 07-02-PLAN.md — NEW-N ID strategy + per-cell validation in rowGeneration controller (Wave 1)
-- [ ] 07-03-PLAN.md — Fix header menu filter items to exclude new row empty values (Wave 2)
 
 ---
 
