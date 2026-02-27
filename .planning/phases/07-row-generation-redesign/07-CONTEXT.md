@@ -1,17 +1,13 @@
 # Phase 7: Row Generation Redesign - Context
 
 **Gathered:** 2026-02-27
-**Status:** Ready for planning (replaces previous context — old plans invalid)
+**Status:** Ready for planning
+**Source:** PRD Express Path (.omc/plans/phase-7-architecture.md)
 
 <domain>
 ## Phase Boundary
 
-Redesign new row generation so that new rows are regular grid rows — same rendering, same FloatingEditor, same context menu. Also fix data ownership: move all data from EventListener to `+page.svelte` as props. New rows "mathematically attach" at the end of the grid without being a separate system.
-
-Three deliverables:
-1. Data ownership move (`+page.svelte` owns data, passes as props)
-2. New row behavior (event queue flow, "NEW" ID, same grid components)
-3. Header menu adaptation (receives data as props instead of context)
+Decompose EventListener.svelte (435-line god component) by extracting responsibilities to their natural owners. Move data ownership to `+page.svelte`, replace numeric new-row IDs with "NEW-N" string counter, extract sort logic to GridHeader, extract filter selection as reactive state write, and add per-cell validation. After this phase, EventListener contains ONLY event queue wiring, URL logic (temporary), WebSocket handling, dirty cell tracking, and panel-close effects.
 
 </domain>
 
@@ -19,74 +15,101 @@ Three deliverables:
 ## Implementation Decisions
 
 ### Data Ownership
-- `+page.svelte` owns ALL data — assets, user, constraints, everything
-- Data is passed as props on a per-need basis, not through context
-- Contexts are for EPHEMERAL state only — editing state, selection, context menu open/position, etc. NOT for bulk data like the asset list
-- `+page.svelte` is still a thin wrapper — it owns data but doesn't use it directly
-- EventListener should NOT own `baseAssets`, `filteredAssets`, or derive `assets` — this moves up to `+page.svelte`
+- `+page.svelte` owns ALL server load data as individual `$state` declarations: baseAssets, filteredAssets, locations, statuses, conditions, departments, user, dbError, initialView
+- EventListener receives setter lambdas for baseAssets/filteredAssets (same getter/setter pattern as EventHandler)
+- No `data` prop on EventListener — only specific props/setters it needs
+- Context seeding `$effect` chains move to `+page.svelte` or GridContextProvider
+- Validation constraint wiring moves out of EventListener to wherever validation is initialized
 
-### New Row Flow
-- "Add Row" button dispatches through the event queue — same pattern as every other grid action (sort, filter, edit)
-- Event handler picks up the event and tells the grid controller to attach an empty row
-- New rows are grid rows — same `GridRow` component, same `FloatingEditor`, same context menu
-- No separate `RowGeneration.svelte` with its own editors — the grid's existing components handle everything
-- The new row component only needs to know where the last row is to position itself
+### Sort Extraction
+- Sort logic (`sortData`, `sortDataAsync`, `applySort`) moves to GridHeader / co-located `.svelte.ts` file
+- GridHeader owns the sort interaction AND the sort implementation
+- GridHeader receives `filteredAssets` setter lambda (or calls through sortCtx) to mutate data
+- No event queue involvement — sort is a pure in-memory operation
+- Sort flow: user clicks header menu → GridHeader sorts → updates filteredAssets via setter → closes menu
 
-### New Row ID Strategy
-- New rows display "NEW" in the ID column instead of a number
-- This signals "uncommitted" visually AND circumvents concurrent row number collisions entirely
-- On commit → INSERT → database auto-increment assigns the real ID → response returns it
-- No Go backend changes needed — existing `POST /api/create/asset` + DB auto-increment is sufficient
-- No round-trip for ID reservation, no websocket coordination for row numbers
+### Filter Extraction
+- Header menu and context menu write to filter state directly (e.g., `searchManager.selectFilterItem`)
+- EventListener watches filter state via `$effect` and enqueues FILTER event
+- Remove `handleFilterSelect` from EventListener — components write state, EventListener reacts
+- URL updated as side-effect AFTER event processing (not source of truth)
+- Both trigger points (header menu dropdown, context menu right-click) must work
 
-### Editing New Rows
-- Same FloatingEditor handles both regular and new row cells
-- CRITICAL DIFFERENCE: editing a new row does NOT signal the backend (no "user is editing cell" lock) — the row doesn't exist in the DB, other users can't see it
-- On FloatingEditor save: if new row → update local row data only; if existing row → signal backend + update changes/history (current behavior)
-- This is the only routing difference — everything else (open editor, render input, cell navigation) is identical
+### URL Strategy
+- URL is a side-effect for shareability, NOT the source of truth
+- State drives URL, not the other way around: state change → event → URL updated after processing
+- Full URL redesign (popstate, initial load from params, removing reactiveUrl hack) is a FUTURE phase
+- The URL-as-side-effect pattern extends the Phase 06.1-04 view-change precedent to filters
 
-### Visual Distinction
-- Subtle visual distinction for pending rows (e.g., light background + "NEW" in ID column)
-- "NEW" in the ID column is the primary indicator
+### NEW-N ID Strategy
+- Replace `nextIdProvider` numeric IDs with "NEW-N" monotonic string counter in `rowGeneration.svelte.ts`
+- IDs: "NEW-1", "NEW-2", "NEW-3" — counter resets on `clearNewRows()`
+- Svelte `{#each}` keying works (no duplicate key collisions)
+- On commit, EventHandler strips string ID via destructuring (`const { id, ...fields } = row`)
+- DB auto-increment assigns real numeric ID
+- Delete `setNextIdProvider` `$effect` from EventListener entirely
 
-### Validation
-- Per-cell validation on FloatingEditor save (instant feedback — "required field" or "not in allowed list")
-- Full `validateAll()` on commit as safety net
-- Small delta from current behavior — add `isValidValue` check inside `updateNewRowField`
+### Per-Cell Validation
+- Add `isValidValue` check inside `rowGeneration.svelte.ts`'s `updateNewRowField()`
+- On FloatingEditor save: check required field not empty, value in allowed constraint list
+- If invalid, mark field in `invalidFields` immediately — yellow overlay appears instantly
+- `validateAll()` on commit remains as safety net
 
-### Header Menu
-- Header menu ALREADY uses props (assets + baseAssets) — no changes needed
-- getFilterItems already computes from baseAssets filtered by other columns' filters
-- NOT in scope for this phase — already correct
+### +page.svelte Shape
+- Still a thin wrapper: owns data, passes it down as props
+- GridContextProvider receives all data props and handles context seeding
+- EventListener receives only baseAssets, filteredAssets, and their setter lambdas
+- Component tree: `+page.svelte` → `GridContextProvider` → `EventListener` + `Toolbar` + `GridContainer` + `ContextMenu`
 
 ### Claude's Discretion
-- Exact implementation of how EventListener transforms from data owner to event processor
-- How the existing `rowGeneration.svelte.ts` controller adapts (keep logic, change integration)
-- Exact styling for the "NEW" row visual distinction
-- How `isNewRow` routing forks in GridOverlays/contextMenu simplify
-- Keyboard navigation between regular rows and new rows
+- Internal module structure for sort extraction (inline in GridHeader vs co-located `.svelte.ts`)
+- Exact signature of setter lambdas (simple `(v) => { x = v }` vs typed callbacks)
+- How GridContextProvider receives and seeds constraint data
+- Whether `isValidValue` returns boolean or a richer error type
+- Import organization and file-level code structure
 
 </decisions>
 
 <specifics>
 ## Specific Ideas
 
-- New rows are "mathematically attached" to the bottom — positioned based on grid geometry (last row coordinates), not by being a separate rendering system
-- The event queue pattern means "Add Row" is just another event like "Sort" or "Filter" — consistent architecture
-- Go backend does NOT need changes — DB auto-increment handles IDs, existing create endpoint handles INSERTs
-- The grid IS the app — it's fine to pass props to it, unlike plugin components that should work through context
+### Execution Order (from PRD)
+- **Wave 1 (parallel):** Plan A (data ownership move) + Plan B (NEW-N IDs + per-cell validation)
+- **Wave 2:** Plan C (sort extraction to GridHeader) — depends on Wave 1 setter lambdas
+- **Wave 3:** Plan D (filter extraction as reactive state write) — depends on Wave 2
+
+### EventListener Post-Phase 7 Contents
+- Event queue creation (`createEventQueue` + `createEventHandler`)
+- Queue wiring callbacks on `dataCtx` (commit, discard, addRows, addNewRow, viewChange, navigateError)
+- URL logic (temporary — future phase)
+- Realtime WebSocket handler registration
+- Dirty cell tracking `$effect`
+- Filter panel / header menu mutual-close effects
+- Logout handler (URL-related)
+
+### Success Criteria (from PRD)
+1. `+page.svelte` owns ALL server load data as `$state`
+2. EventListener receives only setter lambdas — no `data` prop
+3. Sort logic lives in GridHeader/headerMenu file
+4. Filter selection dispatches through event queue (no filter logic in EventListener)
+5. New rows display "NEW-1", "NEW-2" etc.
+6. Per-cell validation fires on FloatingEditor save for new rows
+7. `setNextIdProvider` `$effect` deleted
+8. `svelte-check` 0 errors
+9. All existing functionality works: sort, filter, view change, commit, discard, add row, edit, undo/redo
 
 </specifics>
 
 <deferred>
 ## Deferred Ideas
 
-- Go backend concurrent row coordination via websockets (not needed now — "NEW" + auto-increment solves it)
-- Multi-user real-time new row visibility (currently new rows are local-only until commit, which is correct)
+- **Full URL redesign** — popstate/back-forward handling, initial page load from URL params, removing `reactiveUrl` SvelteURL hack, `skipInitialFetch` flag
+- **navigateToError refactoring** — currently reads changes, rowGen, filteredAssets, keys; works fine
+- **Dirty cell tracking refactoring** — reads changes, keys, assets; stays in EventListener
 
 </deferred>
 
 ---
 
 *Phase: 07-row-generation-redesign*
-*Context gathered: 2026-02-27 via discussion*
+*Context gathered: 2026-02-27 via PRD Express Path*
