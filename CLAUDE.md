@@ -36,7 +36,7 @@
 
 **`frontend/src/lib/context/GridContextProvider.svelte`** — Context shell factory
 - **IS:** The component that creates empty typed `$state` context objects and publishes them
-- **DOES:** Initialize ephemeral UI state shells (`editingCtx`, `selectionCtx`, `clipboardCtx`, `columnCtx`, `rowCtx`, `sortCtx`, `changeCtx`, `dataCtx`, `viewCtx`, `uiCtx`). Publish them via `setXContext()`. Render `{@render children()}`.
+- **DOES:** Initialize ephemeral UI state shells (`editingCtx`, `editCtx`, `historyCtx`, `newRowCtx`, `selectionCtx`, `clipboardCtx`, `columnCtx`, `rowCtx`, `sortCtx`, `dataCtx`, `viewCtx`, `uiCtx`). Publish them via `setXContext()`. Render `{@render children()}`.
 - **DOES NOT:** Receive data props (beyond `children: Snippet`). Create controllers. Transform data. Wire constraints. Seed contexts with server data.
 
 **`frontend/src/lib/context/gridContext.svelte.ts`** — Context type definitions
@@ -66,13 +66,12 @@
 
 **`frontend/src/lib/components/grid/GridContainer.svelte`** — Virtual scrolling viewport
 - **IS:** The scrollable container that manages which rows are visible
-- **DOES:** Manage virtual scroll state (visible items, offsets, container height). Handle scroll events. Render `GridHeader`, `GridRow`, `GridOverlays`, `HeaderMenu`.
+- **DOES:** Manage virtual scroll state (visible items, offsets, container height). Handle scroll events. Render `GridHeader`, `GridRow`, `GridOverlays`, `HeaderMenu`. Iterate `newRowCtx` and render `NewRow` components for uncommitted new rows.
 - **DOES NOT:** Handle mouse interaction for cell selection/editing (that's GridOverlays). Own data. Contain sort/filter logic.
 
 **`frontend/src/lib/components/grid/GridHeader.svelte`** — Column headers and sort
 - **IS:** The header row that displays column names and owns sort
-- **DOES:** Render column headers. Display sort direction indicators. Handle column resize. Trigger header menu. Own sort logic (`sortData`, `sortDataAsync`, `applySort`).
-- **DOES NOT:** Own data. Manage filters.
+- **DOES:** Render column headers. Display sort direction indicators. Own column resize logic (receives mouse events from GridOverlays). Trigger header menu. Own sort logic (`sortData`, `sortDataAsync`, `applySort`).
 
 **`frontend/src/lib/components/grid/GridRow.svelte`** — Row rendering
 - **IS:** A single data row in the grid
@@ -80,56 +79,110 @@
 - **DOES NOT:** Handle interaction. Track state.
 
 **`frontend/src/lib/components/grid/GridOverlays.svelte`** — Interaction and feedback layer
-- **IS:** The invisible layer on top of the grid that owns all user interaction and visual feedback
-- **DOES:** Listen for mouse events (click, double-click, drag, context menu). Manage cell selection. Render FloatingEditor for cell editing. Show selection highlights, copy highlights, dirty cell indicators, invalid cell overlays (yellow). Drive the edit → validate → display cycle — validation happens inline during edit save, invalid cells are tracked in change state. Create and own change/history controllers.
-- **DOES NOT:** Own data. Handle scrolling (that's GridContainer). Contain sort/filter logic.
+- **IS:** The invisible layer on top of the grid that owns ALL user input (keyboard + mouse) and visual feedback
+- **DOES:** Wrap GridHeader and GridRows as parent. Listen for ALL keyboard and mouse events. Route edit keystrokes to FloatingEditor. Route mouse events to GridHeader for column resize. Handle navigation/selection directly. Manage cell selection. Render FloatingEditor. Show selection highlights, copy highlights, dirty cell indicators, invalid cell overlays. Read edit context to display dirty/invalid visual feedback.
+- **TO BE IMPLEMENTED:** Parent wrapper around GridHeader and GridRows. Keyboard listener ownership. Event routing to FloatingEditor and GridHeader.
+- **DOES NOT:** Own data. Handle scrolling (that's GridContainer). Contain sort/filter logic. Implement edit operations (routes to FloatingEditor).
+
+**`frontend/src/lib/grid/components/floating-editor/`** — FloatingEditor (component set: `.svelte` + `.svelte.ts`)
+- **IS:** The inline cell editor. Owns the entire edit lifecycle including undo/redo.
+- **RECEIVES:** Edit keystrokes from GridOverlays as a prop (F2, Ctrl+Z, Ctrl+Y, Ctrl+V, Enter, Escape, typing characters).
+- **`.svelte` DOES:** Render textarea. Show edit dropdown for constrained columns. Show autocomplete for free-text columns.
+- **`.svelte.ts` DOES:** `startEdit()`, `save()`, `cancel()`, `undo()`, `redo()`, `paste()`. All cell mutations go through the edit flow (check edit context → validate → upsert → optimistic-update asset → record to history). Undo/redo applies values then runs the same edit flow per cell. Compute editor position within virtual scroll chunk.
+- **TO BE IMPLEMENTED:** `undo()`, `redo()`, `paste()`. Receiving edit keystrokes as prop from GridOverlays. History context integration.
+
+**`frontend/src/lib/components/grid/Toolbar.svelte`** — Grid toolbar
+- **IS:** The toolbar above the grid with search, filters, view selector, commit/discard buttons
+- **DOES:** Render search input. Render FilterPanel. Show New Row button. Show Commit/Discard buttons when changes exist. Show invalid cell warning and Go To button. Show view selector dropdown (Default, Audit, PED, Galaxy, Network).
+- **DOES NOT:** Contain business logic. Own data.
 
 ### Menu Components
 
-**`frontend/src/lib/grid/components/header-menu/headerMenu.svelte`** — Column dropdown menu
+**`frontend/src/lib/grid/components/header-menu/`** — HeaderMenu (component set: `.svelte` + `.svelte.ts`)
 - **IS:** The dropdown menu that appears on column header click
-- **DOES:** Show sort options (A-Z, Z-A, clear). Show filter item checkboxes. Write filter state directly to `searchManager` on selection.
+- **`.svelte` DOES:** Render sort options (A-Z, Z-A, clear). Render filter item checkboxes. Write filter state directly to `searchManager` on selection.
+- **`.svelte.ts` DOES:** Manage menu state (position, active key, filter search term, submenu direction). Handle toggle, reposition, close, outside click.
 - **DOES NOT:** Own sort implementation (calls GridHeader). Own filter logic.
 
-**`frontend/src/lib/grid/components/context-menu/contextMenu.svelte`** — Right-click cell menu
+**`frontend/src/lib/grid/components/context-menu/`** — ContextMenu (component set: `.svelte` + `.svelte.ts`)
 - **IS:** The context menu for cell-level actions
-- **DOES:** Show copy, filter-by-value, navigate-to-error options. Write filter state directly to `searchManager` on filter action.
+- **`.svelte` DOES:** Render copy, filter-by-value, navigate-to-error options.
+- **`.svelte.ts` DOES:** Manage menu state (position, visibility, cell value/key). Handle open/close. `handleFilterByValue` delegates to `uiCtx.handleFilterSelect`.
 - **DOES NOT:** Implement the actions beyond state writes.
+
+**`frontend/src/lib/grid/components/edit-dropdown/`** — EditDropdown (component set: `.svelte` + `.svelte.ts`)
+- **IS:** The dropdown shown inside FloatingEditor for constrained columns (location, status, condition, etc.)
+- **`.svelte` DOES:** Render option list with keyboard selection highlighting. Handle mouse selection.
+- **`.svelte.ts` DOES:** Manage dropdown state (options, selected index, visibility). Expose `show()`, `hide()`, `selectNext()`, `selectPrevious()`, `getSelectedValue()`.
+
+**`frontend/src/lib/grid/components/filter-panel/`** — FilterPanel (component set: `.svelte` + `.svelte.ts`)
+- **IS:** The popover panel showing active filters with remove/clear actions
+- **`.svelte` DOES:** Render trigger button with filter count badge. Render active filter list with remove buttons. Handle outside click to close.
+- **`.svelte.ts` DOES:** Manage panel state (open/close/toggle). Handle outside click detection.
+
+**`frontend/src/lib/grid/components/suggestion-menu/`** — Autocomplete (component set: `.svelte` + `.svelte.ts`)
+- **IS:** The suggestion dropdown shown inside FloatingEditor for free-text columns
+- **`.svelte` DOES:** Render suggestion list with keyboard selection highlighting. Handle mouse selection.
+- **`.svelte.ts` DOES:** Manage autocomplete state (suggestions, selected index, visibility). `updateSuggestions()` — filter unique column values matching input. Expose `selectNext()`, `selectPrevious()`, `getSelectedValue()`, `clear()`.
 
 ### Controllers
 
-> Controllers are factory-created objects: reactive `$state` + functions that operate on it. They are the single source of truth for their domain. They do NOT call `getContext()` internally — dependencies are passed explicitly.
+> Most former controllers are being eliminated — their state moves to contexts, their logic moves to owning components. Remaining controllers (virtualScrollManager) are factory-created objects with reactive `$state` + functions.
 
-**`frontend/src/lib/grid/utils/gridChanges.svelte.ts`** — Dirty change tracking
-- **IS:** The controller that tracks which cells have been modified
-- **DOES:** Track dirty changes (`Map<cellKey, HistoryAction>`). Track invalid cells (set by the edit flow when validation fails). Expose `update()`, `getAllChanges()`, `revert()`, `clear()`. Report `hasInvalidChanges` for commit gating.
-- **DOES NOT:** Contain validation logic. Validation happens in the edit flow (FloatingEditor save) — this controller just stores the result.
+**Edit context** (`editCtx`) — Dirty change tracking
+- **SHAPE:** Array of `CellEdit`: `{ row: number | string, col: string, original: string, value: string, valid: boolean }`. `row` is asset ID (number for existing, `"NEW-N"` string for new rows). `col` is column key. The `[row, col]` pair is unique.
+- **EDIT FLOW:** (1) Check edit context — entry exists for `[row, col]`? (2) If new value === `original` → remove entry, done (revert to baseline, no validation needed). (3) Otherwise → validate → upsert entry with new `value` and `valid`. This flow runs in FloatingEditor on save, and similarly when undo/redo modifies a cell.
+- **CLEARED:** On commit (valid entries removed, invalid remain). On discard (all entries removed, assets reverted to originals).
 
-**`frontend/src/lib/grid/utils/gridHistory.svelte.ts`** — Undo/redo
-- **IS:** The controller for edit history
-- **DOES:** Push actions. Undo/redo with state restoration.
-- **DOES NOT:** Validate. Track dirty state.
+**History context** (`historyCtx`) — Undo/redo stacks
+- **SHAPE:** `{ undoStack: HistoryAction[][], redoStack: HistoryAction[][] }`. Each batch is an array of `HistoryAction: { id: number | string, key: string, oldValue: string, newValue: string }`. Batches exist so multi-cell operations (e.g. paste) are one undo step.
+- **LIFETIME:** Session-lived. Persists across commits — undo after commit creates new edits against the new baseline.
 
-**`frontend/src/lib/grid/utils/rowGeneration.svelte.ts`** — New row management
-- **IS:** The controller for uncommitted new rows
-- **DOES:** Create new rows with NEW-N string IDs (monotonic counter). Track new rows in `$state`. Expose `addNewRow()`, `updateNewRowField()`, `clearNewRows()`. Counter resets on `clearNewRows()`.
-- **DOES NOT:** Contain validation logic (validation happens in the edit flow). Compute numeric IDs from `baseAssets`. Own a `setNextIdProvider`.
+**`frontend/src/lib/grid/utils/rowGeneration.svelte.ts`** — New row controller (TO BE ELIMINATED)
+- **IS:** Legacy controller for new rows. Replaced by `newRowCtx` context + NewRow component set.
+- **STATUS:** Will be removed. New row logic moves to a component set under GridContainer.
 
-**`frontend/src/lib/grid/utils/gridSelection.svelte.ts`** — Cell selection
-- **IS:** The controller for cell/range selection
-- **DOES:** Track selection start/end. Handle mouse-driven selection. Expose `selectCell()`, `handleMouseDown()`, `extendSelection()`.
+**New row context** (`newRowCtx`) — Uncommitted new rows
+- **SHAPE:** Array of new row objects, each with `id: "NEW-N"` and empty fields. Spreading an empty array into the `assets` derived list adds nothing — no new rows simply means no extra items.
+- **CLEARED:** On commit (successfully created rows removed). On discard (all removed).
 
-**`frontend/src/lib/grid/utils/gridColumns.svelte.ts`** — Column width management
-- **IS:** The controller for column widths
-- **DOES:** Track widths. Handle resize. Expose `getWidth()`, `startResize()`, `resetWidth()`.
+**`frontend/src/lib/grid/components/new-row/`** — NewRow (component set: `.svelte` + `.svelte.ts`)
+- **IS:** The new row manager that lives inside GridContainer's render tree.
+- **`.svelte` DOES:** Render a single new row.
+- **`.svelte.ts` DOES:** Manage NEW-N counter. `addRow()` — create row object with `NEW-N` ID and empty fields, push to `newRowCtx`. `deleteRow(id)` — splice by string ID. `clearRows()` — empty array, reset counter.
+- **TO BE IMPLEMENTED:** Entire component set. Currently `rowGeneration.svelte.ts` handles this.
 
-**`frontend/src/lib/grid/utils/gridRows.svelte.ts`** — Row height management
-- **IS:** The controller for row heights
-- **DOES:** Track heights. Expose `getHeight()`.
+**`frontend/src/lib/grid/utils/gridSelection.svelte.ts`** — Cell selection (TO BE ELIMINATED)
+- **IS:** Legacy selection controller. Selection state lives in `selCtx`. Selection logic (mouse handling, keyboard navigation) belongs in GridOverlays. Overlay computation functions are pure utilities for GridOverlays.
+- **STATUS:** Will be removed. Logic moves to GridOverlays.
 
-**`frontend/src/lib/grid/utils/gridEdit.svelte.ts`** — Cell editing
-- **IS:** The controller for starting/saving/cancelling cell edits
-- **DOES:** Manage edit state (which cell is being edited, original value). Expose `startEdit()`, `save()`, `cancel()`.
+**`frontend/src/lib/grid/utils/gridColumns.svelte.ts`** — Column width management (TO BE ELIMINATED)
+- **IS:** Legacy column width controller. Width state lives in `colCtx`. Resize logic belongs in GridHeader (owns handles, receives mouse events from GridOverlays). localStorage persistence is a utility.
+- **STATUS:** Will be removed. Logic moves to GridHeader.
+
+**`frontend/src/lib/grid/utils/gridRows.svelte.ts`** — Row height management (TO BE ELIMINATED)
+- **IS:** Legacy row height controller. Height state lives in `rowCtx`. Height math utilities (`getOffsetY`, `getTotalHeight`) move to virtualScrollManager or GridContainer.
+- **STATUS:** Will be removed.
+
+**`frontend/src/lib/grid/utils/gridClipboard.svelte.ts`** — Copy/paste (TO BE ELIMINATED)
+- **IS:** Legacy clipboard controller. Clipboard state lives in `clipboardCtx`. Copy is handled by GridOverlays (read-only). Paste is handled by FloatingEditor (edit operation).
+- **STATUS:** Will be removed.
+
+**`frontend/src/lib/grid/utils/gridShortcuts.svelte.ts`** — Keyboard/mouse shortcut attachment (TO BE ELIMINATED)
+- **IS:** Legacy attachable factory that wires shortcuts. GridOverlays now owns all input listeners directly.
+- **STATUS:** Will be removed. Listener setup moves to GridOverlays.
+
+**`frontend/src/lib/utils/interaction/interactionHandler.ts`** — Navigation handler (TO BE ELIMINATED)
+- **IS:** Legacy navigation handler. All input logic moves to GridOverlays.
+- **STATUS:** Will be removed.
+
+**`frontend/src/lib/grid/utils/virtualScrollManager.svelte.ts`** — Virtual scroll state
+- **IS:** The controller for virtual scrolling (which rows are visible based on scroll position)
+- **DOES:** Track `scrollTop`, `containerHeight`. Derive `visibleRange` (startIndex/endIndex with overscan). Expose `getVisibleItems()`, `getTotalHeight()`, `getOffsetY()`, `handleScroll()`, `scrollToRow()`, `ensureVisible()`.
+
+**`frontend/src/lib/grid/utils/gridValidation.svelte.ts`** — Validation controller (TO BE ELIMINATED)
+- **IS:** Legacy validation controller. Validation logic moves to `floatingEditor.svelte.ts`. Constraints (dropdown allowed values) are a separate concern — UI data for dropdowns, not validation.
+- **STATUS:** Will be removed. `isValidValue()` logic moves to FloatingEditor. `REQUIRED_FIELDS` and constraint data remain as data, not a controller.
 
 ### Data Layer
 
@@ -137,6 +190,67 @@
 - **IS:** The singleton that manages search input and filter selections
 - **DOES:** Track `inputValue`, `selectedFilters`, `error`. Expose `getFilterItems()`, `selectFilterItem()`, `removeFilter()`, `clearAllFilters()`. Compute filter item lists from base data.
 - **DOES NOT:** Fetch data. Enqueue events. Update URL.
+
+### Toast System
+
+**`frontend/src/lib/components/toast/ToastContainer.svelte`** — Toast notification renderer
+- **IS:** The fixed-position container that renders toast notifications
+- **DOES:** Render toasts from `toastState` with fly transitions. Pause timer on hover, resume on leave.
+
+**`frontend/src/lib/components/toast/toastState.svelte.ts`** — Toast state singleton
+- **IS:** Global toast state with add/remove/pause/resume
+- **DOES:** Manage toast array with auto-dismiss timers. Limit to 4 visible. Exported as `toastState` singleton.
+
+### Realtime
+
+**`frontend/src/lib/utils/interaction/realtimeManager.svelte.ts`** — WebSocket realtime manager
+- **IS:** Singleton that manages WebSocket connection for multi-user presence and cell locking
+- **DOES:** Connect/disconnect/reconnect with backoff. Send position updates, edit start/end. Track connected users and locked cells. Queue messages when disconnected. Reconnect on tab focus. Exported as `realtime` singleton.
+
+### Types
+
+**`frontend/src/lib/types.ts`** — Shared type definitions
+- **IS:** Module exporting `User`, `SafeUser`, `Session` interfaces used across client and server.
+
+### Layout and Routing
+
+**`frontend/src/routes/+layout.server.ts`** — Root layout server load
+- **DOES:** Read theme cookie, session color, session ID. Return `{ theme, url, user, session_color, sessionId }`.
+
+**`frontend/src/routes/+layout.svelte`** — Root layout component
+- **DOES:** Render app shell (header, navigation, user menu, theme toggle). Manage WebSocket connection lifecycle. Render `ToastContainer`. Import global CSS.
+
+**`frontend/src/routes/login/`** — Login page
+- **DOES:** `+page.server.ts` handles form action (authenticate, create session, set cookies). `+page.svelte` renders login form.
+
+**`frontend/src/routes/logout/`** — Logout endpoint
+- **DOES:** `+page.server.ts` handles form action (delete session, clear cookies, redirect).
+
+**`frontend/src/routes/admin/`** — Admin section
+- **DOES:** Admin panel with sub-pages for managing locations/statuses/conditions/departments (`[adminpage]`), user registration (`register`), and audit management (`audit`).
+
+**`frontend/src/routes/mobile/`** — Mobile pages
+- **DOES:** Mobile-optimized views for audit completion and asset management with barcode scanning.
+
+**`frontend/src/routes/api/`** — API endpoints
+- **DOES:** REST endpoints for asset CRUD (`api/assets`, `api/update`, `api/create/asset`), metadata CRUD (`api/create/[category]`, `api/delete/[category]`, `api/meta/[category]`, `api/update/[category]`), and audit operations (`api/audit/*`).
+
+### Server Layer
+
+**`frontend/src/hooks.server.ts`** — SvelteKit server hooks
+- **DOES:** Run DB migrations on startup. Periodic session cleanup (hourly). Authenticate requests by reading `sessionId` cookie, looking up session, attaching `user` to `locals`.
+
+**`frontend/src/lib/db/conn.ts`** — Database connection and schema
+- **IS:** Kysely database instance and all table type definitions
+- **DOES:** Define `Database` interface with all tables (`asset_inventory`, `users`, `sessions`, `change_log`, `asset_network_details`, `asset_ped_details`, `asset_audit`, etc.). Create connection pool via `MysqlDialect`. Export `db` singleton.
+
+**`frontend/src/lib/db/`** — Database modules
+- **`auth/`** — Session and user management: `createSession`, `deleteSession`, `cleanupExpiredSessions`, `createUser`, `findUserByUsername`.
+- **`select/`** — Read queries: `getAssets`, `getLocations`, `getStatuses`, `getConditions`, `getDepartments`, `getAuditAssignments`, `queryAssets`, `columnDefinitions`.
+- **`create/`** — Insert operations: `createAsset`, `createLocation`, `createStatus`, `createCondition`, `createDepartment`, `logChange`.
+- **`update/`** — Update operations: `updateAsset`, `updateAdmin`.
+- **`delete/`** — Delete operations: `deleteAdmin`.
+- **`migrations/`** — Schema migrations: `createChangeLog`.
 
 ---
 
