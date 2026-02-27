@@ -19,12 +19,11 @@
     getUiContext,
     getChangeControllerContext,
     getHistoryControllerContext,
-    setRowGenControllerContext,
+    getRowGenControllerContext,
   } from '$lib/context/gridContext.svelte.ts';
 
   import { searchManager } from '$lib/data/searchManager.svelte';
   import { createSelectionController } from '$lib/grid/utils/gridSelection.svelte.ts';
-  import { createRowGenerationController } from '$lib/grid/utils/rowGeneration.svelte.ts';
   import { createValidationController } from '$lib/grid/utils/gridValidation.svelte.ts';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import { toastState } from '$lib/components/toast/toastState.svelte';
@@ -54,8 +53,7 @@
   const changes = getChangeControllerContext();
   const history = getHistoryControllerContext();
   const selection = createSelectionController();
-  const rowGen = createRowGenerationController();
-  setRowGenControllerContext(rowGen);
+  const rowGen = getRowGenControllerContext();
   const validation = createValidationController();
 
   // --- LOCAL DATA STATE ---

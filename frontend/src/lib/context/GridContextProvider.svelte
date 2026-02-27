@@ -16,6 +16,7 @@
     setUiContext,
     setChangeControllerContext,
     setHistoryControllerContext,
+    setRowGenControllerContext,
   } from '$lib/context/gridContext.svelte.ts';
 
   import { ContextMenuState } from '$lib/grid/components/context-menu/contextMenu.svelte.ts';
@@ -26,6 +27,7 @@
   import { FilterPanelState } from '$lib/grid/components/filter-panel/filterPanel.svelte.ts';
   import { createChangeController } from '$lib/grid/utils/gridChanges.svelte.ts';
   import { createHistoryController } from '$lib/grid/utils/gridHistory.svelte.ts';
+  import { createRowGenerationController } from '$lib/grid/utils/rowGeneration.svelte.ts';
 
   let { children }: { children: Snippet } = $props();
 
@@ -121,8 +123,10 @@
   // because createChangeController() reads them via getValidationContext/getChangeContext.
   const changeController = createChangeController();
   const historyController = createHistoryController();
+  const rowGenController = createRowGenerationController();
   setChangeControllerContext(changeController);
   setHistoryControllerContext(historyController);
+  setRowGenControllerContext(rowGenController);
 </script>
 
 {@render children()}
