@@ -19,6 +19,7 @@
     getUiContext,
     getChangeControllerContext,
     getHistoryControllerContext,
+    setRowGenControllerContext,
   } from '$lib/context/gridContext.svelte.ts';
 
   import { searchManager } from '$lib/data/searchManager.svelte';
@@ -54,6 +55,7 @@
   const history = getHistoryControllerContext();
   const selection = createSelectionController();
   const rowGen = createRowGenerationController();
+  setRowGenControllerContext(rowGen);
   const validation = createValidationController();
 
   // --- LOCAL DATA STATE ---
@@ -303,11 +305,13 @@
     uiCtx.handleFilterSelect = handleFilterSelect;
   });
 
-  // --- HANDLE VIEW CHANGE — local-only, not queued ---
-  // Calls updateSearchUrl → triggers URL $effect → queue enqueue VIEW_CHANGE
+  // --- HANDLE VIEW CHANGE — directly queued ---
+  // Enqueues VIEW_CHANGE directly (not through URL -> $effect).
+  // URL is updated as side-effect by EventHandler after fetch completes.
+  // No guard — the queue handles serialization. Every click = one event.
   function handleViewChange(viewName: string) {
-    if (viewName === viewCtx.activeView) return;
-    updateSearchUrl({ view: viewName });
+    const { q, filters } = getCurrentUrlState();
+    queue.enqueue({ type: 'VIEW_CHANGE', view: viewName, q, filters });
   }
 
   // --- NAVIGATE ERROR — local-only, not queued ---
@@ -390,7 +394,7 @@
     dataCtx.addRows = async () => queue.enqueue({ type: 'COMMIT', mode: 'create' });
     dataCtx.addNewRow = handleAddNewRow;       // local-only, NOT queued
     dataCtx.navigateError = navigateToError;   // local-only, NOT queued
-    dataCtx.viewChange = handleViewChange;     // calls updateSearchUrl → triggers URL $effect → queue
+    dataCtx.viewChange = handleViewChange;     // direct enqueue, URL updated by EventHandler
   });
 
   // --- LOGOUT HANDLER ---
