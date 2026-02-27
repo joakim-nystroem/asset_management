@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 06.1
-current_plan: Not started
+current_plan: 04 (complete)
 status: unknown
-last_updated: "2026-02-27T01:22:26.010Z"
+last_updated: "2026-02-27T02:20:06.297Z"
 progress:
   total_phases: 7
   completed_phases: 7
-  total_plans: 26
-  completed_plans: 26
+  total_plans: 28
+  completed_plans: 28
 ---
 
 # Project State
@@ -27,12 +27,12 @@ See: `.planning/phases/05-db-side-filtering/05-VERIFICATION.md`
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 06.1
-- **Current Plan:** Not started
-- **Last Action:** Completed 06.1-02: created EventListener.svelte (renderless reactive signal watcher), wired into +page.svelte, deleted DataController.svelte — all network operations now flow through serial FIFO queue
-- **Last Session:** 2026-02-27T01:15:00Z
+- **Current Plan:** 04 (complete)
+- **Last Action:** Completed 06.1-04: direct enqueue for view changes bypassing URL/$effect coalescing, URL updated as side-effect after handler completion
+- **Last Session:** 2026-02-27T02:20:06.296Z
 
 ## Active Work
-Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete. Phase 6.1: 06.1-01 and 06.1-02 complete — full DataController migration done: EventQueue + EventHandler + EventListener created, DataController deleted.
+Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete. Phase 6.1: 06.1-01, 06.1-02, and 06.1-04 complete — full DataController migration done + view switch direct enqueue fix (UAT Gap 2 closure).
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -63,8 +63,14 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 - [x] **06-01**: Added auto-scroll (viewCtx.scrollToRow) + selection cursor (selection.moveTo) to onUndo/onRedo; verified all 6 history call-sites correct; updated F8.4 to match locked decision (commits: dfe5582, d1a0284)
 - [x] **06.1-01**: Created EventQueue.svelte.ts (GridEvent types + Promise-chain serial FIFO enforcer) and EventHandler.svelte.ts (dispatch + all handlers extracted from DataController); svelte-check 0 errors (commits: 3df18fa, 66f2645)
 - [x] **06.1-02**: Created EventListener.svelte (renderless reactive signal watcher); wired into +page.svelte replacing DataController; DataController.svelte deleted; all network ops now flow through serial queue; svelte-check 0 errors (commits: 8d815b8, 85be8fa)
+- [x] **06.1-04**: Direct enqueue for view changes bypassing URL/$effect coalescing; URL updated as side-effect after handler completion; stale guard removed; svelte-check 0 errors (commits: edaaecd, 8d95f88)
 
 ## Decisions
+
+### Phase 06.1-04 Decisions
+- [Phase 06.1-04]: handleViewChange enqueues directly instead of through URL/$effect — prevents Svelte 5 effect batching from coalescing rapid view switches
+- [Phase 06.1-04]: URL $effect kept unchanged for browser back/forward (popstate) — only handleViewChange bypasses it
+- [Phase 06.1-04]: updateSearchUrl injected into EventHandler via dependency injection — URL is updated as side-effect after fetch completes
 
 ### Phase 06.1-02 Decisions
 - [Phase 06.1-02]: async wrappers on commit/discard/addRows callbacks — queue.enqueue() returns void but DataContext requires Promise<void>; async arrow functions satisfy type while keeping enqueue synchronous
@@ -196,7 +202,7 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 | 4 | complete | 04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓, 04-05 ✓, 04-06 ✓ |
 | 5 | awaiting_verification | 05-01 ✓, 05-02 ✓ |
 | 6 | complete | 06-01 ✓ |
-| 6.1 | complete | 06.1-01 ✓, 06.1-02 ✓ |
+| 6.1 | in_progress | 06.1-01 ✓, 06.1-02 ✓, 06.1-04 ✓ |
 | 7 | pending | not planned |
 | 8 | pending | not planned |
 
@@ -228,6 +234,7 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 | 06 | 01 | ~1 min | 2/2 | 3 |
 | 06.1 | 01 | ~2 min | 2/2 | 2 |
 | 06.1 | 02 | ~3 min | 2/2 | 5 |
+| 06.1 | 04 | ~2 min | 2/2 | 2 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
