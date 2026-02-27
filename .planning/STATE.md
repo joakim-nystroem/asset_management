@@ -5,11 +5,11 @@ milestone_name: milestone
 current_phase: 06.1
 current_plan: Not started
 status: unknown
-last_updated: "2026-02-27T02:39:03.552Z"
+last_updated: "2026-02-27T07:08:10.309Z"
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 7
-  total_plans: 28
+  total_plans: 31
   completed_plans: 28
 ---
 
@@ -29,7 +29,7 @@ See: `.planning/phases/05-db-side-filtering/05-VERIFICATION.md`
 - **Current Phase:** 06.1
 - **Current Plan:** Not started
 - **Last Action:** Completed 06.1-04: direct enqueue for view changes bypassing URL/$effect coalescing, URL updated as side-effect after handler completion
-- **Last Session:** 2026-02-27T02:20:06.296Z
+- **Last Session:** 2026-02-27T07:08:10.305Z
 
 ## Active Work
 Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete. Phase 6.1: all 4 plans complete (06.1-01, 06.1-02, 06.1-03, 06.1-04) — full DataController migration, shared rowGen context, REQUIRED_FIELDS validation, view switch direct enqueue.
@@ -182,6 +182,7 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 
 ### Roadmap Evolution
 - Phase 06.1 inserted after Phase 06: Serial Event Queue Pipeline (URGENT) — all network events post-initial-load must flow through a single serial FIFO queue. Deferred since Phase 2 ("syncQueue"), never built. Now a showstopper before clipboard/WebSocket phases.
+- Phase 7 added: Row Generation Redesign (renumbered from 9; Clipboard→8, WebSocket→9)
 
 ## Key Context
 - Working dir: `/home/joakim/asset_management`
