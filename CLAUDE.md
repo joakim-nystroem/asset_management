@@ -24,7 +24,7 @@
 
 **`frontend/src/routes/+page.svelte`** — App entry point
 - **IS:** The page-level orchestrator that owns server data and initializes the app
-- **DOES:** Declare `$state` for ALL server load data (`baseAssets`, `filteredAssets`, `locations`, `statuses`, `conditions`, `departments`, `user`, `dbError`, `initialView`). Create and publish controllers. Pass data and setter lambdas as props to children.
+- **DOES:** Declare `$state` for ALL server load data (`baseAssets`, `filteredAssets`, `locations`, `statuses`, `conditions`, `departments`, `user`, `dbError`, `initialView`). Initialize the event system (EventQueue, EventHandler). Render `GridContextProvider` > `EventListener` > `Toolbar` > `GridContainer` > `ContextMenu`.
 - **DOES NOT:** Contain business logic. Render complex UI (delegates to children). Read from contexts.
 
 **`frontend/src/routes/+page.server.ts`** — Server data loader
@@ -36,31 +36,32 @@
 
 **`frontend/src/lib/context/GridContextProvider.svelte`** — Context shell factory
 - **IS:** The component that creates empty typed `$state` context objects and publishes them
-- **DOES:** Initialize ephemeral UI state shells (`editingCtx`, `editCtx`, `historyCtx`, `newRowCtx`, `selectionCtx`, `clipboardCtx`, `columnCtx`, `rowCtx`, `sortCtx`, `dataCtx`, `viewCtx`, `uiCtx`). Publish them via `setXContext()`. Render `{@render children()}`.
+- **DOES:** Initialize ephemeral UI state shells (`editingCtx`, `editCtx`, `historyCtx`, `newRowCtx`, `selectionCtx`, `clipboardCtx`, `columnCtx`, `rowCtx`, `sortCtx`, `viewCtx`, `uiCtx`). Publish them via `setXContext()`. Render `{@render children()}`.
 - **DOES NOT:** Receive data props (beyond `children: Snippet`). Create controllers. Transform data. Wire constraints. Seed contexts with server data.
 
 **`frontend/src/lib/context/gridContext.svelte.ts`** — Context type definitions
 - **IS:** The module that defines context types and exports `getXContext` / `setXContext` pairs
-- **DOES:** Define `DataContext`, `SortContext`, `EditingContext`, etc. Use Svelte's `createContext()` to create typed getter/setter pairs.
-- **DOES NOT:** Contain logic. Hold state.
+- **DOES:** Define `SortContext`, `EditingContext`, `EditContext`, `HistoryContext`, `NewRowContext`, `SelectionContext`, `ClipboardContext`, `ColumnContext`, `RowContext`, `ViewContext`, `UiContext`, `ValidationContext`, `ChangeContext`. Use Svelte's `createContext()` to create typed getter/setter pairs.
+- **DOES NOT:** Contain logic. Hold state. Define contexts for bulk data (no DataContext).
 
 ### Event System
 
-**`frontend/src/lib/grid/eventQueue/EventListener.svelte`** — Event queue wiring
-- **IS:** The component that creates the event queue + handler and wires reactive effects that dispatch events
-- **DOES:** Create `EventQueue` and `EventHandler` via factory functions. Register callbacks on `dataCtx` (commit, discard, addRows, addNewRow, viewChange, navigateError). Watch state changes via `$effect` and enqueue events (e.g., watch filter state → enqueue FILTER). Manage URL sync (temporary — future phase removes this). Handle WebSocket registration. Track dirty cells. Manage filter panel / header menu mutual-close effects.
-- **DOES NOT:** Own data. Implement sort logic. Implement filter selection logic. Wire validation constraints. Contain `handleFilterSelect`. Receive a `data` prop.
-- **RECEIVES:** `baseAssets`, `filteredAssets` (read-only props), `setBaseAssets`, `setFilteredAssets` (setter lambdas), `user`.
+The event system follows an event bus pattern: **Listener → Queue → Handler → Target**.
 
-**`frontend/src/lib/grid/eventQueue/EventHandler.svelte.ts`** — Event processing logic
-- **IS:** The factory that creates the `handle(event)` function for processing grid events
-- **DOES:** Handle COMMIT_UPDATE, COMMIT_CREATE, DISCARD, FILTER, VIEW_CHANGE, ADD_ROWS events. Call server APIs. Update data via setter lambdas. Show toast notifications.
-- **DOES NOT:** Own state. Create UI. Watch for state changes (that's EventListener's job).
+**`frontend/src/lib/grid/eventQueue/EventListener.svelte`** — Context watcher and event producer
+- **IS:** A propless component that watches ephemeral contexts and produces self-contained event objects
+- **DOES:** Read contexts via `getXContext()`. Watch state changes via `$effect`. When a context change is detected, package ALL relevant data from the context into a typed event object (e.g., `{ eventType: COMMIT, edits: [...] }`) and enqueue it. Manage URL sync (temporary — future phase removes this). Handle WebSocket registration. Manage filter panel / header menu mutual-close effects.
+- **DOES NOT:** Receive props. Own data. Implement business logic. Create EventHandler or EventQueue.
 
 **`frontend/src/lib/grid/eventQueue/EventQueue.svelte.ts`** — Serial async event queue
 - **IS:** Queue that processes events one at a time
 - **DOES:** Enqueue events. Process serially. Prevent concurrent handling.
 - **DOES NOT:** Know what events mean. Contain business logic.
+
+**`frontend/src/lib/grid/eventQueue/EventHandler.svelte.ts`** — Event router
+- **IS:** A thin routing layer that receives events from the queue and dispatches to the correct component or file
+- **DOES:** Match on `event.type` and forward the self-contained event payload to the appropriate target (e.g., COMMIT → API layer, USER_MOVED → realtimeManager, FILTER → search/fetch handler). Pure `switch` routing.
+- **DOES NOT:** Read contexts. Receive props. Own data. Contain business logic beyond routing. Watch for state changes.
 
 ### Grid Components
 
