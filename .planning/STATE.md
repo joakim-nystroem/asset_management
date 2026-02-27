@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 current_phase: 06.1
-current_plan: "01"
+current_plan: "02"
 status: in_progress
-last_updated: "2026-02-27T01:12:33Z"
+last_updated: "2026-02-27T01:15:00Z"
 progress:
   total_phases: 7
   completed_phases: 6
@@ -27,12 +27,12 @@ See: `.planning/phases/05-db-side-filtering/05-VERIFICATION.md`
 ## Status
 - **Milestone:** 1 — Architecture Rehaul
 - **Current Phase:** 06.1
-- **Current Plan:** 01 complete
-- **Last Action:** Completed 06.1-01: created EventQueue module — GridEvent types + serial FIFO enforcer + all handler implementations extracted from DataController
-- **Last Session:** 2026-02-27T01:12:33Z
+- **Current Plan:** 02 complete
+- **Last Action:** Completed 06.1-02: created EventListener.svelte (renderless reactive signal watcher), wired into +page.svelte, deleted DataController.svelte — all network operations now flow through serial FIFO queue
+- **Last Session:** 2026-02-27T01:15:00Z
 
 ## Active Work
-Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete. Phase 6.1: 06.1-01 complete — eventQueue module created with EventQueue.svelte.ts and EventHandler.svelte.ts.
+Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 complete. Phase 6.1: 06.1-01 and 06.1-02 complete — full DataController migration done: EventQueue + EventHandler + EventListener created, DataController deleted.
 
 ## Completed
 - [x] Codebase map (`.planning/codebase/` — 7 documents, 1297 lines)
@@ -62,8 +62,14 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 - [x] **05-02**: Migrated DataController fetch paths to /api/assets (view-change + search/filter); fixed response unwrapping result→result.assets; deleted 4 obsolete files (api/search, api/assets/view, searchAssets.ts, getAssetsByView.ts) (commits: fd7fc08, e3945aa)
 - [x] **06-01**: Added auto-scroll (viewCtx.scrollToRow) + selection cursor (selection.moveTo) to onUndo/onRedo; verified all 6 history call-sites correct; updated F8.4 to match locked decision (commits: dfe5582, d1a0284)
 - [x] **06.1-01**: Created EventQueue.svelte.ts (GridEvent types + Promise-chain serial FIFO enforcer) and EventHandler.svelte.ts (dispatch + all handlers extracted from DataController); svelte-check 0 errors (commits: 3df18fa, 66f2645)
+- [x] **06.1-02**: Created EventListener.svelte (renderless reactive signal watcher); wired into +page.svelte replacing DataController; DataController.svelte deleted; all network ops now flow through serial queue; svelte-check 0 errors (commits: 8d815b8, 85be8fa)
 
 ## Decisions
+
+### Phase 06.1-02 Decisions
+- [Phase 06.1-02]: async wrappers on commit/discard/addRows callbacks — queue.enqueue() returns void but DataContext requires Promise<void>; async arrow functions satisfy type while keeping enqueue synchronous
+- [Phase 06.1-02]: cancelled flag pattern removed from URL $effect — queue serialization makes it unnecessary (only one handler runs at a time)
+- [Phase 06.1-02]: handler + queue created at sync script init level, not inside $effect — required by Svelte 5 (factory must run during synchronous component initialization)
 
 ### Phase 06.1-01 Decisions
 - [Phase 06.1-01]: getter/setter pairs (getBaseAssets/setBaseAssets) used for mutable state refs in EventHandler — direct object property access across module boundary loses Svelte 5 reactivity
@@ -190,7 +196,7 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 | 4 | complete | 04-01 ✓, 04-02 ✓, 04-03 ✓, 04-04 ✓, 04-05 ✓, 04-06 ✓ |
 | 5 | awaiting_verification | 05-01 ✓, 05-02 ✓ |
 | 6 | complete | 06-01 ✓ |
-| 6.1 | in_progress | 06.1-01 ✓ |
+| 6.1 | complete | 06.1-01 ✓, 06.1-02 ✓ |
 | 7 | pending | not planned |
 | 8 | pending | not planned |
 
@@ -221,6 +227,7 @@ Phases 1-5 complete (Phase 5 awaiting human verification). Phase 6: 06-01 comple
 | 05 | 02 | ~2 min | 2/2 | 5 |
 | 06 | 01 | ~1 min | 2/2 | 3 |
 | 06.1 | 01 | ~2 min | 2/2 | 2 |
+| 06.1 | 02 | ~3 min | 2/2 | 5 |
 
 ## Notes
 - `.planning` is tracked in git (removed from .gitignore)
