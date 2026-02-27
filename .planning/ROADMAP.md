@@ -197,13 +197,15 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ## Phase 7: Row Generation Redesign
 **Status:** Planning complete
-**Goal:** Move data ownership to +page.svelte, replace numeric new-row IDs with "NEW-N" string counter, add per-cell validation. New rows are regular grid rows handled by existing GridRow, FloatingEditor, and ContextMenu components.
+**Goal:** Move ALL data ownership to +page.svelte, replace numeric new-row IDs with "NEW-N" string counter, add per-cell validation, extract sort logic to GridHeader, extract filter selection as reactive state write. EventListener becomes a pure event processor.
 
 **Depends on:** Phase 6.1
 
-**Plans:** 2 plans in 1 wave
-- [ ] 07-01-PLAN.md — Data ownership move: lift baseAssets/filteredAssets to +page.svelte (Wave 1)
+**Plans:** 4 plans in 3 waves
+- [ ] 07-01-PLAN.md — Full data ownership move: lift ALL server data to +page.svelte, eliminate `data` prop on EventListener (Wave 1)
 - [ ] 07-02-PLAN.md — NEW-N ID strategy + per-cell validation in rowGeneration controller (Wave 1)
+- [ ] 07-03-PLAN.md — Sort extraction: move sortData/applySort from EventListener to GridHeader (Wave 2)
+- [ ] 07-04-PLAN.md — Filter extraction: components write searchManager directly, EventListener reacts (Wave 3)
 
 ---
 
@@ -248,6 +250,6 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 6 | Undo/Redo Session Engine | Complete | Auto-scroll + selection cursor on undo/redo |
 | 6.1 | Serial Event Queue Pipeline | UAT gap closure | EventQueue + EventHandler + EventListener |
 | 6.2 | Event Type Definitions | Not started | Full event type audit and handler implementation |
-| 7 | Row Generation Redesign | Planning complete | Data ownership move, NEW-N IDs, per-cell validation |
+| 7 | Row Generation Redesign | Planning complete | Data ownership move, NEW-N IDs, per-cell validation, sort extraction, filter extraction |
 | 8 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
 | 9 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
