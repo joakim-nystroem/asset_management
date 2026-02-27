@@ -1,8 +1,7 @@
 <script lang="ts">
-  import { getUiContext, getDataContext, getColumnContext } from '$lib/context/gridContext.svelte.ts';
+  import { getUiContext, getDataContext, getColumnContext, getRowGenControllerContext } from '$lib/context/gridContext.svelte.ts';
   import { createEditController } from '$lib/grid/utils/gridEdit.svelte.ts';
   import { createClipboardController } from '$lib/grid/utils/gridClipboard.svelte.ts';
-  import { createRowGenerationController } from '$lib/grid/utils/rowGeneration.svelte.ts';
   import { toastState } from '$lib/components/toast/toastState.svelte';
   import { handleFilterByValue } from './contextMenu.svelte.ts';
 
@@ -11,7 +10,7 @@
   const colCtx = getColumnContext();
   const edit = createEditController();
   const clipboard = createClipboardController();
-  const rowGen = createRowGenerationController();
+  const rowGen = getRowGenControllerContext();
 
   const showDelete = $derived((uiCtx.contextMenu?.row ?? -1) >= dataCtx.filteredAssetsCount);
 

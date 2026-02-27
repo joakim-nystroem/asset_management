@@ -1,10 +1,9 @@
 <script lang="ts">
   import FilterPanel from "$lib/grid/components/filter-panel/filterPanel.svelte";
   import { searchManager } from "$lib/data/searchManager.svelte";
-  import { createRowGenerationController } from "$lib/grid/utils/rowGeneration.svelte.ts";
-  import { getDataContext, getViewContext, getUiContext, getChangeContext } from '$lib/context/gridContext.svelte.ts';
+  import { getDataContext, getViewContext, getUiContext, getChangeContext, getRowGenControllerContext } from '$lib/context/gridContext.svelte.ts';
 
-  const rowGen = createRowGenerationController();
+  const rowGen = getRowGenControllerContext();
   const dataCtx = getDataContext();
   const viewCtx = getViewContext();
   const uiCtx = getUiContext();

@@ -7,6 +7,7 @@ import type { createAutocomplete } from '$lib/grid/components/suggestion-menu/au
 import type { Filter } from '$lib/data/searchManager.svelte';
 import type { ChangeController } from '$lib/grid/utils/gridChanges.svelte.ts';
 import type { HistoryController } from '$lib/grid/utils/gridHistory.svelte.ts';
+import type { RowGenerationController } from '$lib/grid/utils/rowGeneration.svelte.ts';
 
 // ─── Shared primitive types ───────────────────────────────────────────────────
 
@@ -118,4 +119,5 @@ export const [getUiContext, setUiContext] = createContext<UiContext>();
 
 export const [getChangeControllerContext, setChangeControllerContext] = createContext<ChangeController>();
 export const [getHistoryControllerContext, setHistoryControllerContext] = createContext<HistoryController>();
+export const [getRowGenControllerContext, setRowGenControllerContext] = createContext<RowGenerationController>();
 

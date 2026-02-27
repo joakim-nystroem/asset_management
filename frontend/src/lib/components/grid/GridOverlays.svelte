@@ -8,10 +8,10 @@
     getUiContext,
     getChangeControllerContext,
     getHistoryControllerContext,
+    getRowGenControllerContext,
   } from '$lib/context/gridContext.svelte.ts';
   import { createSelectionController } from '$lib/grid/utils/gridSelection.svelte.ts';
   import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
-  import { createRowGenerationController } from '$lib/grid/utils/rowGeneration.svelte.ts';
   import { createClipboardController } from '$lib/grid/utils/gridClipboard.svelte.ts';
   import { createEditController } from '$lib/grid/utils/gridEdit.svelte.ts';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
@@ -28,7 +28,7 @@
   const selection = createSelectionController();
   const columns = createColumnController();
   const changes = getChangeControllerContext();
-  const rowGen = createRowGenerationController();
+  const rowGen = getRowGenControllerContext();
   const clipboard = createClipboardController();
   const history = getHistoryControllerContext();
   const edit = createEditController();
