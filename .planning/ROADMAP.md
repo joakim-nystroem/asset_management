@@ -195,7 +195,20 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 7: Spatial Clipboard Hardening
+## Phase 7: Row Generation Redesign
+**Status:** Planned
+**Goal:** Redesign row generation as a self-contained RowGeneration.svelte + .svelte.ts component pair. Inline form rows at bottom of grid with same UX as regular rows (dblclick/F2/right-click to edit). Multiple new rows, batch commit via existing Toolbar button and event queue flow.
+
+**Depends on:** Phase 6.1
+
+**Plans:** 3 plans in 2 waves
+- [ ] 07-01-PLAN.md — Create RowGeneration component + integrate into GridContainer (Wave 1)
+- [ ] 07-02-PLAN.md — Remove isNewRow forks from GridOverlays + contextMenu (Wave 2)
+- [ ] 07-03-PLAN.md — Clean up EventListener assets derived + move controller file (Wave 2)
+
+---
+
+## Phase 8: Spatial Clipboard Hardening
 **Status:** Not started
 **Goal:** Verify and harden the spatial clipboard with proper marching ants overlay and structural paste.
 
@@ -210,7 +223,7 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 
 ---
 
-## Phase 8: WebSocket Delta Sync
+## Phase 9: WebSocket Delta Sync
 **Status:** Not started
 **Goal:** On successful commit, broadcast only the changed cells to all connected clients.
 
@@ -236,5 +249,6 @@ Transform the asset management grid from a tightly-coupled monolith into a stric
 | 6 | Undo/Redo Session Engine | Complete | Auto-scroll + selection cursor on undo/redo |
 | 6.1 | Serial Event Queue Pipeline | UAT gap closure | EventQueue + EventHandler + EventListener |
 | 6.2 | Event Type Definitions | Not started | Full event type audit and handler implementation |
-| 7 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
-| 8 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
+| 7 | Row Generation Redesign | Not started | Self-contained RowGeneration component pair |
+| 8 | Spatial Clipboard Hardening | Pending | Verified clipboard, marching ants |
+| 9 | WebSocket Delta Sync | Pending | Go delta broadcast, client patch |
