@@ -85,7 +85,7 @@ Decompose EventListener.svelte (435-line god component) by extracting responsibi
 - Realtime WebSocket handler registration
 - Dirty cell tracking `$effect`
 - Filter panel / header menu mutual-close effects
-- (Logout is a form action in +layout.svelte — NOT in EventListener)
+- Logout URL-cleanup $effect (clears q/filter params when user becomes null — stays with URL logic)
 
 ### Success Criteria (from PRD)
 1. `+page.svelte` owns ALL server load data as `$state`
