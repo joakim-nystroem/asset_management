@@ -23,9 +23,9 @@
 ### Page Level
 
 **`frontend/src/routes/+page.svelte`** — App entry point
-- **IS:** The page-level orchestrator that owns server data and initializes the app
-- **DOES:** Declare `$state` for ALL server load data (`baseAssets`, `filteredAssets`, `locations`, `statuses`, `conditions`, `departments`, `user`, `dbError`, `initialView`). Initialize the event system (EventQueue, EventHandler). Render `GridContextProvider` > `EventListener` > `Toolbar` > `GridContainer` > `ContextMenu`.
-- **DOES NOT:** Contain business logic. Render complex UI (delegates to children). Read from contexts.
+- **IS:** The page-level orchestrator that seeds the data store and renders the component tree
+- **DOES:** Receive server load data via `$props()`. Seed `assetStore` with server data (`baseAssets`, `filteredAssets`, `locations`, `statuses`, `conditions`, `departments`). Render `GridContextProvider` > `EventOwner` > `Toolbar` > `GridContainer` > `ContextMenu`.
+- **DOES NOT:** Contain business logic. Declare `$state` for data (that's `assetStore`). Render complex UI (delegates to children). Read from contexts.
 
 **`frontend/src/routes/+page.server.ts`** — Server data loader
 - **IS:** SvelteKit server load function
@@ -46,22 +46,24 @@
 
 ### Event System
 
-The event system follows an event bus pattern: **Listener → Queue → Handler → Target**.
+The event system follows the **Smart Owner** pattern: **EventOwner → Queue → Handler → Target (mutates proxies)**.
 
-**`frontend/src/lib/grid/eventQueue/EventListener.svelte`** — Context watcher and event producer
-- **IS:** A propless component that watches ephemeral contexts and produces self-contained event objects
-- **DOES:** Read contexts via `getXContext()`. Watch state changes via `$effect`. When a context change is detected, package ALL relevant data from the context into a typed event object (e.g., `{ eventType: COMMIT, edits: [...] }`) and enqueue it. Manage URL sync (temporary — future phase removes this). Handle WebSocket registration. Manage filter panel / header menu mutual-close effects.
-- **DOES NOT:** Receive props. Own data. Implement business logic. Create EventHandler or EventQueue.
+Svelte 5 `$state` proxies are portable — `EventOwner.svelte` grabs them via `getContext()` during component init, then passes them as plain arguments through the pipeline. Target functions mutate the proxies directly to update the UI. Data never flows backward.
 
-**`frontend/src/lib/grid/eventQueue/EventQueue.svelte.ts`** — Serial async event queue
-- **IS:** Queue that processes events one at a time
-- **DOES:** Enqueue events. Process serially. Prevent concurrent handling.
-- **DOES NOT:** Know what events mean. Contain business logic.
+**`frontend/src/lib/grid/eventQueue/EventOwner.svelte`** — Smart conductor
+- **IS:** The ONLY file that calls `getContext()` in the event pipeline. Lives inside the Svelte component tree. Watches UI trigger flags and packages events.
+- **DOES:** Read contexts via `getXContext()`. Watch trigger flags via `$effect` (e.g., `uiCtx.commitRequested`). Snapshot reactive data for API payloads (`$state.snapshot()`). Pass both the flat payload AND the relevant live context proxies to `enqueue()`. Reset trigger flags after enqueuing.
+- **DOES NOT:** Receive props. Own data. Implement business logic. Know about APIs, routing, or the handler.
 
-**`frontend/src/lib/grid/eventQueue/EventHandler.svelte.ts`** — Event router
-- **IS:** A thin routing layer that receives events from the queue and dispatches to the correct component or file
-- **DOES:** Match on `event.type` and forward the self-contained event payload to the appropriate target (e.g., COMMIT → API layer, USER_MOVED → realtimeManager, FILTER → search/fetch handler). Pure `switch` routing.
-- **DOES NOT:** Read contexts. Receive props. Own data. Contain business logic beyond routing. Watch for state changes.
+**`frontend/src/lib/grid/eventQueue/eventQueue.ts`** — Serial FIFO queue
+- **IS:** Pure TypeScript FIFO queue. No Svelte, no runes, no reactivity.
+- **DOES:** Receive `(event, contexts)` pairs via `enqueue()`. Process serially — one event at a time. Catch errors so the queue doesn't die.
+- **DOES NOT:** Know what events mean. Contain business logic. Use `$state` or `$effect`.
+
+**`frontend/src/lib/grid/eventQueue/eventHandler.ts`** — Event router with target functions
+- **IS:** Pure TypeScript event router. No Svelte, no `getContext()`, no runes.
+- **DOES:** Switch on `event.type` and route to target functions. Target functions receive the payload AND context proxies, call APIs, and mutate proxies directly on success (e.g., `editCtx.edits = []`). Import `assetStore` directly for data mutations (e.g., `assetStore.filteredAssets = result.assets`).
+- **DOES NOT:** Call `getContext()`. Use runes. Return results backward. Use factory functions or dependency injection.
 
 ### Grid Components
 
@@ -187,10 +189,14 @@ The event system follows an event bus pattern: **Listener → Queue → Handler 
 
 ### Data Layer
 
-**`frontend/src/lib/data/searchManager.svelte.ts`** — Search and filter state
-- **IS:** The singleton that manages search input and filter selections
-- **DOES:** Track `inputValue`, `selectedFilters`, `error`. Expose `getFilterItems()`, `selectFilterItem()`, `removeFilter()`, `clearAllFilters()`. Compute filter item lists from base data.
-- **DOES NOT:** Fetch data. Enqueue events. Update URL.
+**`frontend/src/lib/data/assetStore.svelte.ts`** — Asset data store
+- **IS:** Module-level `$state` singleton for all server data. The single source of truth for asset data, locations, statuses, conditions, and departments.
+- **DOES:** Export `assetStore` — a `$state({...})` object with `baseAssets`, `filteredAssets`, `locations`, `statuses`, `conditions`, `departments`. Seeded by `+page.svelte` on init. Mutated by `eventHandler.ts` after API calls. Imported directly by grid components and handlers.
+- **DOES NOT:** Contain logic. Fetch data. Use contexts.
+
+**`frontend/src/lib/data/searchManager.svelte.ts`** — Search and filter state (TO BE ELIMINATED)
+- **IS:** Legacy singleton for search input and filter selections. Filter state moves to contexts. Helper functions become plain utilities.
+- **STATUS:** Will be removed. `selectedFilters` and `inputValue` move to contexts. `getFilterItems()` and related helpers become standalone utility functions if still needed.
 
 ### Toast System
 

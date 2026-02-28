@@ -4,19 +4,15 @@
 
   import {
     setEditingContext,
+    setEditContext,
+    setHistoryContext,
+    setNewRowContext,
     setSelectionContext,
     setClipboardContext,
     setColumnContext,
     setRowContext,
-    setSortContext,
-    setValidationContext,
-    setChangeContext,
-    setDataContext,
     setViewContext,
     setUiContext,
-    setChangeControllerContext,
-    setHistoryControllerContext,
-    setRowGenControllerContext,
   } from '$lib/context/gridContext.svelte.ts';
 
   import { ContextMenuState } from '$lib/grid/components/context-menu/contextMenu.svelte.ts';
@@ -25,15 +21,10 @@
   import { createAutocomplete } from '$lib/grid/components/suggestion-menu/autocomplete.svelte.ts';
   import { createVirtualScroll } from '$lib/grid/utils/virtualScrollManager.svelte';
   import { FilterPanelState } from '$lib/grid/components/filter-panel/filterPanel.svelte.ts';
-  import { createChangeController } from '$lib/grid/utils/gridChanges.svelte.ts';
-  import { createHistoryController } from '$lib/grid/utils/gridHistory.svelte.ts';
-  import { createRowGenerationController } from '$lib/grid/utils/rowGeneration.svelte.ts';
 
   let { children }: { children: Snippet } = $props();
 
   // ─── Domain context initialization ────────────────────────────────────────────
-  // Each domain gets its own typed $state object.
-  // EventListener enriches these contexts with live data on mount.
 
   let editingCtx = $state({
     isEditing: false,
@@ -47,6 +38,28 @@
     autocomplete: createAutocomplete(),
   });
   setEditingContext(editingCtx);
+
+  let editCtx = $state({
+    edits: [],
+    hasUnsavedChanges: false,
+    isValid: true,
+  });
+  setEditContext(editCtx);
+
+  let historyCtx = $state({
+    undoStack: [],
+    redoStack: [],
+    canUndo: false,
+    canRedo: false,
+  });
+  setHistoryContext(historyCtx);
+
+  let newRowCtx = $state({
+    newRows: [],
+    hasNewRows: false,
+    isValid: true,
+  });
+  setNewRowContext(newRowCtx);
 
   let selectionCtx = $state({
     selectionStart: { row: -1, col: -1 },
@@ -76,31 +89,6 @@
   });
   setRowContext(rowCtx);
 
-  let sortCtx = $state({
-    sortKey: null as string | null,
-    sortDirection: null as 'asc' | 'desc' | null,
-  });
-  setSortContext(sortCtx);
-
-  let validationCtx = $state({
-    validationConstraints: {} as Record<string, string[]>,
-  });
-  setValidationContext(validationCtx);
-
-  let changeCtx = $state({
-    hasUnsavedChanges: false,
-    hasInvalidChanges: false,
-  });
-  setChangeContext(changeCtx);
-
-  let dataCtx = $state({
-    assets: [] as Record<string, any>[],
-    baseAssets: [] as Record<string, any>[],
-    filteredAssetsCount: 0,
-    user: null as import('$lib/types').SafeUser | null,
-  });
-  setDataContext(dataCtx);
-
   let viewCtx = $state({
     activeView: 'default',
     virtualScroll: createVirtualScroll(),
@@ -112,21 +100,12 @@
     filterPanel: new FilterPanelState(),
     headerMenu: createHeaderMenu(),
     contextMenu: new ContextMenuState(),
-    handleFilterSelect: null as ((item: string, key: string) => void) | null,
-    applySort: null as ((key: string, dir: 'asc' | 'desc') => void) | null,
+    commitRequested: false,
+    commitCreateRequested: false,
+    discardRequested: false,
+    searchRequested: false,
   });
   setUiContext(uiCtx);
-
-  // ─── Controller instance contexts ──────────────────────────────────────────
-  // Created here (common ancestor) so both GridOverlays and EventListener
-  // share the SAME instances. Must run after validationCtx and changeCtx are set
-  // because createChangeController() reads them via getValidationContext/getChangeContext.
-  const changeController = createChangeController();
-  const historyController = createHistoryController();
-  const rowGenController = createRowGenerationController();
-  setChangeControllerContext(changeController);
-  setHistoryControllerContext(historyController);
-  setRowGenControllerContext(rowGenController);
 </script>
 
 {@render children()}
