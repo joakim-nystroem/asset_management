@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
+  import { getColumnContext } from '$lib/context/gridContext.svelte.ts';
 
-  const columns = createColumnController();
+  const colCtx = getColumnContext();
+  const DEFAULT_WIDTH = 150;
 
   type Props = {
     asset: Record<string, any>;
@@ -23,7 +24,7 @@
       border-r border-neutral-200 dark:border-slate-700 last:border-r-0
       px-2 cursor-cell hover:bg-blue-100 dark:hover:bg-slate-600
     "
-    style="width: {columns.getWidth(key)}px; min-width: {columns.getWidth(key)}px;"
+    style="width: {colCtx.columnWidths.get(key) ?? DEFAULT_WIDTH}px; min-width: {colCtx.columnWidths.get(key) ?? DEFAULT_WIDTH}px;"
   >
     <span class="truncate w-full">{asset[key]}</span>
   </div>

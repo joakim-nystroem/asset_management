@@ -3,8 +3,8 @@
   import { assetStore } from '$lib/data/assetStore.svelte';
   import GridContextProvider from '$lib/context/GridContextProvider.svelte';
   import EventOwner from '$lib/grid/eventQueue/EventOwner.svelte';
-  import Toolbar from '$lib/components/grid/Toolbar.svelte';
-  import GridContainer from '$lib/components/grid/GridContainer.svelte';
+  import Toolbar from '$lib/grid/components/toolbar/Toolbar.svelte';
+  import GridContainer from '$lib/grid/components/grid-container/GridContainer.svelte';
   import ContextMenu from '$lib/grid/components/context-menu/contextMenu.svelte';
 
   let { data }: PageProps = $props();

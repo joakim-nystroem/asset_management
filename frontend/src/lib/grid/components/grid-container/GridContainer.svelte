@@ -8,9 +8,9 @@
   } from '$lib/context/gridContext.svelte.ts';
   import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
   import { createRowController } from '$lib/grid/utils/gridRows.svelte.ts';
-  import GridRow from '$lib/components/grid/GridRow.svelte';
-  import GridHeader from '$lib/components/grid/GridHeader.svelte';
-  import GridOverlays from '$lib/components/grid/GridOverlays.svelte';
+  import GridRow from '$lib/grid/components/grid-row/GridRow.svelte';
+  import GridHeader from '$lib/grid/components/grid-header/GridHeader.svelte';
+  import GridOverlays from '$lib/grid/components/grid-overlays/GridOverlays.svelte';
   import HeaderMenu from '$lib/grid/components/header-menu/headerMenu.svelte';
   import { searchManager } from '$lib/data/searchManager.svelte';
   // NO import of ContextMenu, editDropdown, autocomplete, FloatingEditor
@@ -93,7 +93,6 @@
       The height style must be on the GridOverlays root div (handled via style prop below).
     -->
     <GridOverlays style="height: {virtualScroll.getTotalHeight(assets.length, rows) + 32 + 16}px;">
-      {#snippet children()}
         <GridHeader
           keys={colCtx.keys}
           onHeaderClick={handleHeaderClick}
@@ -121,7 +120,6 @@
             </div>
           {/each}
         </div>
-      {/snippet}
     </GridOverlays>
   </div>
   <p class="mt-2 ml-1 text-sm text-neutral-600 dark:text-neutral-300">

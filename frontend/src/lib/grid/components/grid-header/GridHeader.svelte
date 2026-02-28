@@ -1,9 +1,18 @@
 <script lang="ts">
-  import { createColumnController } from "$lib/grid/utils/gridColumns.svelte.ts";
-  import { getSortContext } from '$lib/context/gridContext.svelte.ts';
+  import { getColumnContext } from '$lib/context/gridContext.svelte.ts';
+  import { assetStore } from '$lib/data/assetStore.svelte';
 
-  const columns = createColumnController();
-  const sortCtx = getSortContext();
+  const colCtx = getColumnContext();
+  const DEFAULT_WIDTH = 150;
+  const MIN_WIDTH = 50;
+
+  // Sort state — local to GridHeader, no context needed
+  let sortKey = $state<string | null>(null);
+  let sortDirection = $state<'asc' | 'desc'>('asc');
+
+  // Resize tracking — transient mouse-drag state
+  let resizeStartX = 0;
+  let resizeStartWidth = 0;
 
   type Props = {
     keys: string[];
@@ -19,7 +28,7 @@
     <div
       data-header-col={i}
       class="header-interactive relative group border-r border-neutral-200 dark:border-slate-600 last:border-r-0"
-      style="width: {columns.getWidth(key)}px; min-width: {columns.getWidth(key)}px;"
+      style="width: {colCtx.columnWidths.get(key) ?? DEFAULT_WIDTH}px; min-width: {colCtx.columnWidths.get(key) ?? DEFAULT_WIDTH}px;"
     >
       <button
         class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
@@ -35,8 +44,8 @@
       >
         <span class="truncate">{key.replaceAll("_", " ")}</span>
         <span class="ml-1">
-          {#if sortCtx.sortKey === key}
-            <span>{sortCtx.sortDirection === "asc" ? "▲" : "▼"}</span>
+          {#if sortKey === key}
+            <span>{sortDirection === "asc" ? "▲" : "▼"}</span>
           {:else}
             <span class="invisible group-hover:visible text-neutral-400">▾</span>
           {/if}
@@ -52,12 +61,14 @@
           e.preventDefault();
           e.stopPropagation();
           document.body.style.cursor = "col-resize";
-          columns.startResize(key, e.clientX);
+          colCtx.resizingColumn = key;
+          resizeStartX = e.clientX;
+          resizeStartWidth = colCtx.columnWidths.get(key) ?? DEFAULT_WIDTH;
         }}
         onclick={(e) => e.stopPropagation()}
         ondblclick={(e) => {
           e.stopPropagation();
-          columns.resetWidth(key);
+          colCtx.columnWidths.delete(key);
         }}
       ></div>
     </div>

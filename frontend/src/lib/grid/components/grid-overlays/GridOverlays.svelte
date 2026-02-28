@@ -1,5 +1,4 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
   import {
     getEditingContext,
     getSelectionContext,
@@ -17,7 +16,7 @@
   import { createClipboardController } from '$lib/grid/utils/gridClipboard.svelte.ts';
   import { createEditController } from '$lib/grid/utils/gridEdit.svelte.ts';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
-  import { toastState } from '$lib/components/toast/toastState.svelte';
+  import { toastState } from '$lib/toast/toastState.svelte';
   import FloatingEditor from '$lib/grid/components/floating-editor/FloatingEditor.svelte';
 
   let { children, style = '' }: { children: Snippet; style?: string } = $props();

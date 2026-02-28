@@ -2,7 +2,7 @@
   import { getUiContext, getDataContext, getColumnContext, getRowGenControllerContext } from '$lib/context/gridContext.svelte.ts';
   import { createEditController } from '$lib/grid/utils/gridEdit.svelte.ts';
   import { createClipboardController } from '$lib/grid/utils/gridClipboard.svelte.ts';
-  import { toastState } from '$lib/components/toast/toastState.svelte';
+  import { toastState } from '$lib/toast/toastState.svelte';
   import { handleFilterByValue } from './contextMenu.svelte.ts';
 
   const uiCtx = getUiContext();

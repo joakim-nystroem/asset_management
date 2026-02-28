@@ -2,7 +2,7 @@
 // Pure TypeScript event router. No Svelte, no getContext(), no runes.
 // Receives event + context proxies. Target functions mutate proxies directly.
 
-import { toastState } from '$lib/components/toast/toastState.svelte';
+import { toastState } from '$lib/toast/toastState.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
 
 // ─── Router ─────────────────────────────────────────────────────────────────
