@@ -1,127 +1,101 @@
 # Phase 7: Architectural Correction - Context
 
-**Gathered:** 2026-02-28
-**Status:** Ready for planning (REWORK — updated with post-implementation reality)
-**Replaces:** Previous context that referenced EventListener pattern (now Smart Owner)
+**Gathered:** 2026-02-28 (v3 — updated to reflect current codebase reality)
+**Status:** In progress — 21 svelte-check errors remain
 
 <domain>
 ## Phase Boundary
 
-Eliminate all legacy controllers and ghost context imports so the codebase matches the Smart Owner + assetStore architecture. After this phase: zero legacy controllers, zero ghost imports, `svelte-check` passes with 0 errors.
+Eliminate all legacy controllers and ghost imports so the codebase matches the Smart Owner + assetStore architecture. After this phase: zero legacy files, zero ghost imports, `svelte-check` passes with 0 errors.
 
 **Already implemented (committed):**
 - Smart Owner event system: `EventOwner.svelte` → `eventQueue.ts` → `eventHandler.ts`
 - `assetStore.svelte.ts` — module-level `$state` singleton for all server data
 - `+page.svelte` seeds `assetStore`, renders component tree
-- Old event files deleted (`EventListener.svelte`, `EventQueue.svelte.ts`, `EventHandler.svelte.ts`)
+- 12 legacy files deleted (10 controllers + interactionHandler + searchManager)
+- Directory consolidation: all grid components under `lib/grid/components/`
+- ColumnContext eliminated — `columnWidths` local SvelteMap in GridOverlays, passed via snippet
+- GridHeader owns full resize lifecycle + local sort state
+- SortContext eliminated — sort state local to GridHeader
 
 **Remaining work:**
-- 36 svelte-check errors across 13 files (ghost context imports, missing UiContext properties, implicit any types)
-- 10 legacy controller files to delete + `interactionHandler.ts`
-- `searchManager.svelte.ts` to eliminate
-- Components need migration from ghost contexts to `assetStore` / correct context imports
+- 21 svelte-check errors across 6 files
+- searchManager ghost imports (4 files) → replace with SearchContext
+- Toolbar ghost context imports (3) → replace with editCtx/newRowCtx/uiCtx
+- UiContext missing properties (getCurrentUrlState, updateSearchUrl) → remove, replaced by SearchContext
+- HeaderMenu props mismatch → simplify, read assetStore + searchCtx directly
+- contextMenu handleFilterSelect → push to searchCtx.filters directly
+- Implicit any types (2) → add annotations
 
 </domain>
 
 <decisions>
 ## Implementation Decisions
 
-### DataContext → assetStore Migration
-- `getDataContext()` no longer exists — all 6 components importing it swap to `import { assetStore } from '$lib/data/assetStore.svelte.ts'`
-- Direct property access: `assetStore.filteredAssets`, `assetStore.baseAssets`, `assetStore.locations`, etc.
-- No DataContext, no data in contexts — `assetStore` is the single source of truth for server data
+### SearchContext (NEW — replaces searchManager)
+- New context: `SearchContext = { q: string, filters: { key: string, value: string }[] }`
+- Added to `gridContext.svelte.ts` with `[getSearchContext, setSearchContext]` pair
+- Initialized in `GridContextProvider.svelte` with empty defaults
+- `searchManager.svelte.ts` is already deleted — this is its replacement
 
-### searchManager Elimination
-- `searchManager` is deleted entirely — search/filter state moves to context
-- Filter state lives in context; components (headerMenu, filterPanel) write to context directly
-- EventOwner watches filter context changes via `$effect`, enqueues FILTER events
-- eventHandler processes FILTER events (API call, updates `assetStore.filteredAssets`)
-- 5 files currently importing searchManager need migration
+### Search Flow (auto-fire)
+- Toolbar has local `$state` for the search input text field (not in context)
+- On Enter keypress or Search button click, Toolbar writes `searchCtx.q = searchInput`
+- On clear, Toolbar sets `searchInput = ''; searchCtx.q = ''`
+- EventOwner watches `searchCtx` via `$effect` — any change enqueues a FILTER event
+- No `searchRequested` trigger flag needed — remove from UiContext
+- No debouncing needed — writes only happen on explicit user action
+
+### Filter Flow (inline, no utility file)
+- Filter selection: HeaderMenu pushes/splices `{ key, value }` in `searchCtx.filters`
+- Filter items (unique column values): HeaderMenu computes inline from `assetStore.baseAssets` — `[...new Set(assetStore.baseAssets.map(a => a[key]).filter(Boolean))]`
+- Is-selected check: `searchCtx.filters.some(f => f.key === key && f.value === item)` — inline one-liner
+- Filter count: `searchCtx.filters.length` — inline
+- No `filterUtils.ts` file. No searchManager helper functions. Everything is trivial with state in context.
+
+### HeaderMenu Simplification
+- Drop props: `searchManager`, `assets`, `baseAssets` — all replaced by direct imports
+- HeaderMenu imports `assetStore` for data, reads `getSearchContext()` for filter selection state
+- Remaining props: `state` (HeaderMenuState), `sortState`, `onSort`, `onFilterSelect` (or direct context write)
+
+### FilterPanel Simplification
+- Drop `searchManager` prop — reads `getSearchContext()` for active filters and count
+- Filter removal: splices from `searchCtx.filters`
+- Clear all: sets `searchCtx.filters = []`
+
+### Toolbar Wiring
+- Remove ghost imports: `getDataContext`, `getChangeContext`, `getRowGenControllerContext`
+- Read `editCtx` for dirty state (`hasUnsavedChanges`)
+- Read `newRowCtx` for new row state (`hasNewRows`, validity)
+- Read `uiCtx` for menu/panel state
+- Trigger actions via `uiCtx` flags: `commitRequested`, `commitCreateRequested`, `discardRequested`
+- Add new row: `uiCtx.commitCreateRequested` or direct context write
+- Remove all `getCurrentUrlState` / `updateSearchUrl` references — URL sync is scrapped
+
+### ContextMenu Filter-by-Value
+- `handleFilterByValue` pushes `{ key, value }` into `searchCtx.filters` directly
+- Remove `uiCtx.handleFilterSelect` reference — no longer exists on UiContext
 
 ### UiContext Cleanup
-- `getCurrentUrlState` / `updateSearchUrl` — **SCRAPPED**, URL sync deferred to future phase
-- `applySort` — moves to GridHeader (local JS rearrangement, completely local operation)
-- `handleFilterSelect` — moves through context (component writes context → EventOwner watches → eventHandler processes)
-- Remove all 5 missing properties from UiContext references
-
-### Edit Flow (FloatingEditor Ownership)
-- FloatingEditor owns the complete local edit lifecycle:
-  1. User edits cell
-  2. Check if value === original value → if same, revert (remove editCtx entry), return
-  3. Validate value
-  4. Upsert editCtx entry (`{ row, col, original, value, valid }`)
-  5. GridOverlays reacts to editCtx changes (dirty/invalid visual feedback)
-  6. Edit event pushed through event queue → websocket broadcast (real-time sync)
-- "Cell editing is cell editing" — identical path for existing rows (number ID) and new rows ("NEW-N" string ID)
-- Only exception: new rows skip websocket broadcast (don't exist for other users yet)
-- gridEdit, gridChanges, gridValidation, gridHistory all fold into FloatingEditor + editCtx/historyCtx
-
-### Controller Deletion Strategy
-- **Delete first, fix what breaks** — no cautious migration waves
-- Delete all 10 legacy controllers + interactionHandler in one pass
-- Fix resulting errors against the target architecture
-- Legacy controllers to delete:
-  1. `gridValidation.svelte.ts`
-  2. `gridChanges.svelte.ts`
-  3. `gridEdit.svelte.ts`
-  4. `gridHistory.svelte.ts`
-  5. `gridSelection.svelte.ts`
-  6. `gridColumns.svelte.ts`
-  7. `gridRows.svelte.ts`
-  8. `rowGeneration.svelte.ts`
-  9. `gridClipboard.svelte.ts`
-  10. `gridShortcuts.svelte.ts`
-  11. `interactionHandler.ts` (in `lib/utils/interaction/`)
-
-### Sort Extraction
-- `applySort` moves to GridHeader — local JS sort, rearranges the grid in-place
-- GridHeader owns the sort interaction AND the sort implementation
-- `getSortContext()` ghost imports fixed — sort state lives in `sortCtx` (already defined)
-
-### Remaining Architecture (LOCKED from prior decisions)
-- Contexts = ephemeral UI state ONLY (editCtx, historyCtx, selCtx, etc.)
-- Validation = part of edit flow in FloatingEditor, NOT a separate system
-- No validationCtx, no changeCtx — these were eliminated
-- GridOverlays = parent wrapper for input handling + visual feedback
-- NewRow component set replaces rowGeneration controller
-- NEW-N monotonic string counter for new row IDs
+- Remove `searchRequested` — replaced by EventOwner watching searchCtx
+- Remove `getCurrentUrlState` — scrapped
+- Remove `updateSearchUrl` — scrapped
+- Remove `handleFilterSelect` — replaced by direct searchCtx write
+- Keep: `commitRequested`, `commitCreateRequested`, `discardRequested`, `filterPanel`, `headerMenu`, `contextMenu`
 
 ### Claude's Discretion
-- Internal module structure for each component (inline vs co-located .svelte.ts)
-- Import organization and file-level code structure
-- Order of fixing the 36 errors (whatever is most efficient)
-- How to handle any remaining callers of deleted controllers
+- Order of fixing the 21 errors
+- Implicit `any` type annotations
+- Whether HeaderMenu `onFilterSelect` stays as prop or becomes a direct context write
 
 </decisions>
 
 <specifics>
 ## Specific Ideas
 
-### Execution Approach
-- Delete all legacy controllers + searchManager in one pass
-- Fix ghost context imports across all 13 error files
-- Swap `getDataContext()` → `import { assetStore }`
-- Remove UiContext properties that no longer exist
-- Add missing type annotations for implicit `any` parameters
-- Gate on `svelte-check` 0 errors
-
-### Error Breakdown (36 errors, 13 files)
-| Category | Count | Fix |
-|----------|-------|-----|
-| Ghost context imports (getDataContext, getSortContext, getValidationContext, getChangeContext, getRowGenControllerContext, etc.) | ~17 | Swap to assetStore / correct context |
-| Missing UiContext properties (applySort, getCurrentUrlState, updateSearchUrl, handleFilterSelect) | ~13 | Remove references, move logic to owners |
-| Implicit `any` types | ~6 | Add type annotations |
-
-### Success Criteria
-1. ALL legacy controller files deleted (10 controllers + interactionHandler)
-2. `searchManager.svelte.ts` deleted
-3. Zero ghost context imports
-4. `assetStore` used for all server data access
-5. Filter/search flow: context → EventOwner → eventHandler
-6. Sort logic lives in GridHeader
-7. Edit flow owned by FloatingEditor
-8. `svelte-check` 0 errors
-9. All existing functionality works: sort, filter, view change, commit, discard, add row, edit
+- "searchManager was doing simple things that looked complex because it owned the state too. With state in context, the helpers are trivial enough to inline."
+- Filter items from `assetStore.baseAssets`, selection state from `searchCtx.filters` — two direct imports, no intermediary
+- Toolbar search input is local `$state` (not in context) — only written to `searchCtx.q` on explicit submit
 
 </specifics>
 
@@ -129,45 +103,45 @@ Eliminate all legacy controllers and ghost context imports so the codebase match
 ## Existing Code Insights
 
 ### Reusable Assets
-- `assetStore.svelte.ts`: Already implemented, module-level `$state` singleton — components import directly
-- `EventOwner.svelte` / `eventQueue.ts` / `eventHandler.ts`: Smart Owner pipeline already working
-- `GridContextProvider.svelte`: Creates context shells — already exists, may need minor updates
-- `gridContext.svelte.ts`: Context type definitions — needs ghost exports removed
+- `assetStore.svelte.ts`: Module-level `$state` singleton — `baseAssets`, `filteredAssets`, `locations`, `statuses`, `conditions`, `departments`
+- `EventOwner.svelte`: Already watches context flags via `$effect` — add searchCtx watcher
+- `GridContextProvider.svelte`: Pure shell factory — add searchCtx initialization
+- `gridContext.svelte.ts`: Context type definitions — add SearchContext type + pair
 
 ### Established Patterns
-- Smart Owner pattern: EventOwner watches context flags → snapshots → enqueue → eventHandler routes → target mutates proxies/assetStore
-- Module singleton pattern: `assetStore` imported directly (no context), `$state` at module level
-- Component sets: `.svelte` + `.svelte.ts` co-located pairs (FloatingEditor, headerMenu, contextMenu, etc.)
+- Smart Owner: EventOwner watches context → enqueue → eventHandler processes
+- Module singleton: `assetStore` imported directly, no context wrapper
+- Context = ephemeral UI state only
+- Components import `assetStore` directly for data, read contexts for UI state
 
 ### Integration Points
-- `+page.svelte` seeds `assetStore` on init — already done
-- `GridContextProvider` creates empty context shells — may need context type updates
-- `eventHandler.ts` imports `assetStore` directly for data mutations
-- Components read contexts via `getXContext()` for ephemeral UI state
+- EventOwner: add `$effect` watching `searchCtx.q` and `searchCtx.filters`
+- eventHandler: FILTER event already exists, payload shape matches `{ q, filters, view }`
+- GridContextProvider: add `setSearchContext()` initialization
 
-### Files Needing Migration (callers of ghost contexts)
-- `GridContainer.svelte` — imports getDataContext, getSortContext
-- `Toolbar.svelte` — imports getDataContext, getChangeContext, getRowGenControllerContext
-- `GridHeader.svelte` — imports getSortContext
-- `GridOverlays.svelte` — imports getDataContext
-- `FloatingEditor.svelte` — imports getDataContext
-- `contextMenu.svelte` — imports getDataContext, getRowGenControllerContext
-- `gridChanges.svelte.ts` — imports getValidationContext, getChangeContext (DELETE file)
-- `gridValidation.svelte.ts` — imports getValidationContext (DELETE file)
-- `rowGeneration.svelte.ts` — imports getValidationContext (DELETE file)
+### Error Map (21 errors, 6 files)
+| File | Errors | Fix |
+|------|--------|-----|
+| Toolbar.svelte | 12 | Remove ghost imports, swap to editCtx/newRowCtx/searchCtx, remove URL refs |
+| headerMenu.svelte | 5 | Drop searchManager prop, import assetStore + searchCtx, fix implicit any |
+| filterPanel.svelte | 1 | Drop searchManager prop, read searchCtx |
+| EventOwner.svelte | 1 | Remove searchManager import, read searchCtx |
+| contextMenu.svelte.ts | 1 | handleFilterSelect → push to searchCtx.filters |
+| GridContainer.svelte | 1 | Fix HeaderMenu props (drop removed props) |
 
 </code_context>
 
 <deferred>
 ## Deferred Ideas
 
-- **URL solution** — URL sync scrapped. Full URL redesign (popstate/back-forward, initial load from URL params, removing `reactiveUrl` SvelteURL hack) is a future phase
-- **GridOverlays as parent wrapper** — structural DOM change (GridOverlays wrapping GridHeader + GridRows) not in this pass; focus is on eliminating legacy dependencies
-- **NewRow component set** — full component pair creation deferred; rowGeneration controller deleted but replacement component set is separate work
+- **URL sync** — Full URL redesign (popstate, initial load from URL params, removing SvelteURL hack) is a future phase
+- **NewRow component set** — Full `.svelte` + `.svelte.ts` component pair for new row rendering — separate phase
+- **Dirty cell overlays** — Removed from GridOverlays during cleanup, needs reimplementation with editCtx
+- **Undo/redo/paste** — Stubbed as TODO in GridOverlays + FloatingEditor
 
 </deferred>
 
 ---
 
 *Phase: 07-architectural-correction*
-*Context gathered: 2026-02-28 (rework — updated to reflect Smart Owner implementation reality)*
+*Context gathered: 2026-02-28 (v3 — searchContext decision + current error map)*
