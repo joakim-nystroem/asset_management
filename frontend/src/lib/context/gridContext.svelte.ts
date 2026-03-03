@@ -1,7 +1,5 @@
 import { createContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
-import type { FilterPanelState } from '$lib/grid/components/filter-panel/filterPanel.svelte.ts';
-
 // ─── Shared primitive types ───────────────────────────────────────────────────
 
 export type GridCell = { row: number; col: number };
@@ -66,8 +64,8 @@ export type ViewContext = {
 
 // 9. UI panel states (mutually exclusive) + trigger flags
 export type UiContext = {
-  filterPanel: FilterPanelState | null;
-  headerMenu: any | null;
+  filterPanel: { visible: boolean };
+  headerMenu: { visible: boolean };
   contextMenu: { visible: boolean };
   commitRequested: boolean;
   commitCreateRequested: boolean;

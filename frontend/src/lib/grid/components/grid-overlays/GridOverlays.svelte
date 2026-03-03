@@ -191,7 +191,8 @@
       }
       clearClipboard();
       if (ctxMenu.visible) closeContextMenu();
-      if (uiCtx.headerMenu?.activeKey) uiCtx.headerMenu.close();
+      if (uiCtx.headerMenu.visible) uiCtx.headerMenu.visible = false;
+      if (uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
       return;
     }
 
@@ -344,7 +345,7 @@
     const value = String(asset?.[key] ?? '');
     selectCell(assetId, col);
     openContextMenu(e, assetId, col, value, key);
-    uiCtx.headerMenu?.close();
+    uiCtx.headerMenu.visible = false;
   }
 
   // --- Window-level event listeners ---
@@ -354,7 +355,8 @@
     }
     function onWindowClick(e: MouseEvent) {
       if (ctxMenu.visible) closeContextMenu();
-      uiCtx.headerMenu?.handleOutsideClick(e);
+      if (uiCtx.headerMenu.visible) uiCtx.headerMenu.visible = false;
+      if (uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
     }
     window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('click', onWindowClick);

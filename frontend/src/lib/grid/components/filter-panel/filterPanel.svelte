@@ -3,40 +3,31 @@
 
   const uiCtx = getUiContext();
   const queryCtx = getQueryContext();
-  const state = uiCtx.filterPanel!;
-  let panelRef: HTMLDivElement | null = null;
-  
-  // Handle outside clicks
-  function handleClick(e: MouseEvent) {
-    state.handleOutsideClick(e, panelRef);
-  }
-  
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      state.close();
-    }
+
+  let isOpen = $state(false);
+
+  function toggle() {
+    isOpen = !isOpen;
+    uiCtx.filterPanel.visible = isOpen;
   }
 
+  function close() {
+    isOpen = false;
+    uiCtx.filterPanel.visible = false;
+  }
+
+  // React to external close (GridOverlays sets visible = false)
   $effect(() => {
-    if (state.isOpen) {
-      // Delay to avoid immediate close from the same click that opened it
-      setTimeout(() => {
-        window.addEventListener('click', handleClick);
-      }, 0);
-      window.addEventListener('keydown', handleKeydown);
-
-      return () => {
-        window.removeEventListener('click', handleClick);
-        window.removeEventListener('keydown', handleKeydown);
-      };
+    if (!uiCtx.filterPanel.visible && isOpen) {
+      isOpen = false;
     }
   });
 </script>
 
-<div class="relative" bind:this={panelRef}>
+<div class="relative">
   <!-- Trigger Button -->
   <button
-    onclick={(e) => { e.stopPropagation(); state.toggle(); }}
+    onclick={(e) => { e.stopPropagation(); toggle(); }}
     class="flex items-center gap-2 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
   >
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -51,10 +42,10 @@
   </button>
 
   <!-- Popover Panel -->
-  {#if state.isOpen}
+  {#if isOpen}
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div 
+    <div
       class="absolute top-full left-0 mt-1 w-80 bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-700 rounded-lg shadow-xl z-50"
       onclick={(e) => e.stopPropagation()}
     >
@@ -65,7 +56,7 @@
           <button
             onclick={() => {
               queryCtx.filters = [];
-              state.close();
+              close();
             }}
             class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium cursor-pointer"
           >

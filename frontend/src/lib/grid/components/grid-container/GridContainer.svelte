@@ -1,16 +1,11 @@
 <script lang="ts">
-  import {
-    getViewContext,
-    getUiContext,
-  } from '$lib/context/gridContext.svelte.ts';
+  import { getViewContext } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import GridRow from '$lib/grid/components/grid-row/GridRow.svelte';
   import GridHeader from '$lib/grid/components/grid-header/GridHeader.svelte';
   import GridOverlays from '$lib/grid/components/grid-overlays/GridOverlays.svelte';
   import EditHandler from '$lib/grid/components/edit-handler/EditHandler.svelte';
   const viewCtx = getViewContext();
-  const uiCtx = getUiContext();
-
   const virtualScroll = viewCtx.virtualScroll;
 
   const assets = $derived(assetStore.filteredAssets);
@@ -21,7 +16,6 @@
 
   function handleScroll(e: Event) {
     virtualScroll.handleScroll(e);
-    if (uiCtx.headerMenu?.activeKey) uiCtx.headerMenu.reposition();
   }
 
   // Observe viewCtx.scrollToRow — ensureVisible (only scroll if out of viewport)

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { SvelteMap } from 'svelte/reactivity';
-  import { getUiContext } from '$lib/context/gridContext.svelte.ts';
+  import { getUiContext, getViewContext } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import HeaderMenu from '$lib/grid/components/header-menu/headerMenu.svelte';
 
@@ -8,10 +8,7 @@
   const MIN_WIDTH = 50;
 
   const uiCtx = getUiContext();
-
-  // Sort state — owned by GridHeader
-  let sortKey = $state<string | null>(null);
-  let sortDirection = $state<'asc' | 'desc'>('asc');
+  const viewCtx = getViewContext();
 
   type Props = {
     keys: string[];
@@ -19,6 +16,52 @@
   };
 
   let { keys, columnWidths }: Props = $props();
+
+  // --- Sort state ---
+  let sortKey = $state<string | null>(null);
+  let sortDirection = $state<'asc' | 'desc'>('asc');
+
+  // --- Header menu state (local) ---
+  let menuActiveKey = $state('');
+  let menuX = $state(0);
+  let menuY = $state(0);
+  let menuIsLastColumn = $state(false);
+  let triggerElement: HTMLElement | null = null;
+  let scrollContainer: HTMLElement | null = null;
+
+  function repositionMenu() {
+    if (!triggerElement || !menuActiveKey || !scrollContainer) return;
+    const triggerRect = triggerElement.getBoundingClientRect();
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const xRel = triggerRect.left - containerRect.left + scrollContainer.scrollLeft;
+    menuX = menuIsLastColumn ? xRel - 42 : xRel;
+    menuY = triggerRect.bottom - containerRect.top + scrollContainer.scrollTop;
+  }
+
+  function closeMenu() {
+    menuActiveKey = '';
+    triggerElement = null;
+    scrollContainer = null;
+    uiCtx.headerMenu.visible = false;
+  }
+
+  function handleHeaderClick(e: MouseEvent, key: string, isLast: boolean) {
+    e.stopPropagation();
+    uiCtx.contextMenu.visible = false;
+    uiCtx.filterPanel.visible = false;
+
+    if (menuActiveKey === key) {
+      closeMenu();
+      return;
+    }
+
+    triggerElement = e.currentTarget as HTMLElement;
+    scrollContainer = triggerElement.closest('.overflow-auto');
+    menuActiveKey = key;
+    menuIsLastColumn = isLast;
+    repositionMenu();
+    uiCtx.headerMenu.visible = true;
+  }
 
   function handleSort(key: string, direction: 'asc' | 'desc') {
     sortKey = key;
@@ -29,16 +72,25 @@
       const cmp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' });
       return direction === 'asc' ? cmp : -cmp;
     });
-    uiCtx.headerMenu?.close();
+    closeMenu();
   }
 
-  function handleHeaderClick(e: MouseEvent, key: string, isLast: boolean) {
-    uiCtx.contextMenu.visible = false;
-    uiCtx.filterPanel?.close();
-    uiCtx.headerMenu?.toggle(e, key, [], isLast);
-  }
+  // Reposition on scroll
+  $effect(() => {
+    viewCtx.virtualScroll.scrollTop;
+    if (menuActiveKey) repositionMenu();
+  });
 
-  // Resize: self-contained with temp window listeners
+  // React to external close (GridOverlays sets visible = false)
+  $effect(() => {
+    if (!uiCtx.headerMenu.visible && menuActiveKey) {
+      menuActiveKey = '';
+      triggerElement = null;
+      scrollContainer = null;
+    }
+  });
+
+  // --- Resize ---
   function startResize(e: MouseEvent, key: string) {
     e.preventDefault();
     e.stopPropagation();
@@ -98,10 +150,12 @@
   {/each}
 </div>
 
-{#if uiCtx.headerMenu}
-  <HeaderMenu
-    state={uiCtx.headerMenu}
-    sortState={{ key: sortKey ?? '', direction: sortDirection }}
-    onSort={handleSort}
-  />
-{/if}
+<HeaderMenu
+  activeKey={menuActiveKey}
+  x={menuX}
+  y={menuY}
+  isLastColumn={menuIsLastColumn}
+  sortState={{ key: sortKey ?? '', direction: sortDirection }}
+  onSort={handleSort}
+  onclose={closeMenu}
+/>
