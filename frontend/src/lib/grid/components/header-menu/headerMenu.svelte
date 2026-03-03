@@ -1,28 +1,39 @@
 <script lang="ts">
   import { assetStore } from '$lib/data/assetStore.svelte';
-  import { getQueryContext } from '$lib/context/gridContext.svelte.ts';
-
-  type SortDirection = 'asc' | 'desc';
+  import { getQueryContext, getUiContext, getSortContext } from '$lib/context/gridContext.svelte.ts';
 
   let {
     activeKey,
     x,
     y,
     isLastColumn,
-    sortState,
-    onSort,
-    onclose,
   }: {
     activeKey: string;
     x: number;
     y: number;
     isLastColumn: boolean;
-    sortState: { key: string; direction: SortDirection };
-    onSort: (key: string, direction: SortDirection) => void;
-    onclose: () => void;
   } = $props();
 
   const queryCtx = getQueryContext();
+  const uiCtx = getUiContext();
+  const sortCtx = getSortContext();
+
+  function handleSort(key: string, direction: 'asc' | 'desc') {
+    if (sortCtx.key === key && sortCtx.direction === direction) {
+      sortCtx.key = null;
+      assetStore.filteredAssets = [...assetStore.filteredAssets].sort(
+        (a, b) => Number(a.id) - Number(b.id)
+      );
+    } else {
+      sortCtx.key = key;
+      sortCtx.direction = direction;
+      const d = direction === 'asc' ? 1 : -1;
+      assetStore.filteredAssets = [...assetStore.filteredAssets].sort(
+        (a, b) => String(a[key]).localeCompare(String(b[key])) * d
+      );
+    }
+    uiCtx.headerMenu.visible = false;
+  }
 
   // Local rendering state
   let filterOpen = $state(false);
@@ -62,20 +73,20 @@
   >
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full"
-      onclick={() => onSort(activeKey, 'asc')}
+      onclick={() => handleSort(activeKey, 'asc')}
     >
       <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
-        {#if sortState.key === activeKey && sortState.direction === 'asc'}✓{/if}
+        {#if sortCtx.key === activeKey && sortCtx.direction === 'asc'}✓{/if}
       </div>
       <span>Sort A to Z</span>
     </button>
 
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full"
-      onclick={() => onSort(activeKey, 'desc')}
+      onclick={() => handleSort(activeKey, 'desc')}
     >
       <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
-        {#if sortState.key === activeKey && sortState.direction === 'desc'}✓{/if}
+        {#if sortCtx.key === activeKey && sortCtx.direction === 'desc'}✓{/if}
       </div>
       <span>Sort Z to A</span>
     </button>
@@ -108,12 +119,6 @@
               class="w-full pl-2 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400! dark:placeholder:text-neutral-300! focus:outline-none text-xs"
               placeholder="Search values..."
               onclick={(e) => e.stopPropagation()}
-              onkeydown={(e) => {
-                if (e.key === 'Escape') {
-                  e.stopPropagation();
-                  onclose();
-                }
-              }}
             />
           </div>
 

@@ -72,6 +72,12 @@ export type UiContext = {
   discardRequested: boolean;
 };
 
+// 11. Sort state (client-side reorder, cleared on search/filter/view change)
+export type SortContext = {
+  key: string | null;
+  direction: 'asc' | 'desc';
+};
+
 // 10. Query state — view, search, and filters (replaces searchManager + activeView)
 export type QueryContext = {
   view: string;
@@ -91,3 +97,4 @@ export const [getRowContext, setRowContext] = createContext<RowContext>();
 export const [getViewContext, setViewContext] = createContext<ViewContext>();
 export const [getUiContext, setUiContext] = createContext<UiContext>();
 export const [getQueryContext, setQueryContext] = createContext<QueryContext>();
+export const [getSortContext, setSortContext] = createContext<SortContext>();

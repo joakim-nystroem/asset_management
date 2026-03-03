@@ -5,6 +5,7 @@
     getPendingContext,
     getNewRowContext,
     getQueryContext,
+    getSortContext,
   } from '$lib/context/gridContext.svelte';
   import { enqueue } from './eventQueue';
 
@@ -12,6 +13,7 @@
   const pendingCtx = getPendingContext();
   const newRowCtx = getNewRowContext();
   const queryCtx = getQueryContext();
+  const sortCtx = getSortContext();
 
   // ─── COMMIT_UPDATE: existing row edits ─────────────────────────────────────
   $effect(() => {
@@ -76,6 +78,7 @@
       return;
     }
 
+    sortCtx.key = null;
     enqueue(
       {
         type: 'QUERY',

@@ -1,7 +1,6 @@
 <script lang="ts">
   import { SvelteMap } from 'svelte/reactivity';
-  import { getUiContext, getViewContext } from '$lib/context/gridContext.svelte.ts';
-  import { assetStore } from '$lib/data/assetStore.svelte';
+  import { getUiContext, getViewContext, getSortContext } from '$lib/context/gridContext.svelte.ts';
   import HeaderMenu from '$lib/grid/components/header-menu/headerMenu.svelte';
 
   const DEFAULT_WIDTH = 150;
@@ -9,6 +8,7 @@
 
   const uiCtx = getUiContext();
   const viewCtx = getViewContext();
+  const sortCtx = getSortContext();
 
   type Props = {
     keys: string[];
@@ -16,10 +16,6 @@
   };
 
   let { keys, columnWidths }: Props = $props();
-
-  // --- Sort state ---
-  let sortKey = $state<string | null>(null);
-  let sortDirection = $state<'asc' | 'desc'>('asc');
 
   // --- Header menu state (local) ---
   let menuActiveKey = $state('');
@@ -61,18 +57,6 @@
     menuIsLastColumn = isLast;
     repositionMenu();
     uiCtx.headerMenu.visible = true;
-  }
-
-  function handleSort(key: string, direction: 'asc' | 'desc') {
-    sortKey = key;
-    sortDirection = direction;
-    assetStore.filteredAssets = [...assetStore.filteredAssets].sort((a, b) => {
-      const aVal = String(a[key] ?? '');
-      const bVal = String(b[key] ?? '');
-      const cmp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: 'base' });
-      return direction === 'asc' ? cmp : -cmp;
-    });
-    closeMenu();
   }
 
   // Reposition on scroll
@@ -126,8 +110,8 @@
       >
         <span class="truncate">{key.replaceAll("_", " ")}</span>
         <span class="ml-1">
-          {#if sortKey === key}
-            <span>{sortDirection === "asc" ? "▲" : "▼"}</span>
+          {#if sortCtx.key === key}
+            <span>{sortCtx.direction === "asc" ? "▲" : "▼"}</span>
           {:else}
             <span class="invisible group-hover:visible text-neutral-400">▾</span>
           {/if}
@@ -155,7 +139,4 @@
   x={menuX}
   y={menuY}
   isLastColumn={menuIsLastColumn}
-  sortState={{ key: sortKey ?? '', direction: sortDirection }}
-  onSort={handleSort}
-  onclose={closeMenu}
 />

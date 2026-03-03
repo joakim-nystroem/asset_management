@@ -14,6 +14,7 @@
     setViewContext,
     setUiContext,
     setQueryContext,
+    setSortContext,
   } from '$lib/context/gridContext.svelte.ts';
 
   import { createVirtualScroll } from '$lib/grid/utils/virtualScrollManager.svelte';
@@ -87,6 +88,12 @@
     discardRequested: false,
   });
   setUiContext(uiCtx);
+
+  let sortCtx = $state({
+    key: null as string | null,
+    direction: 'asc' as 'asc' | 'desc',
+  });
+  setSortContext(sortCtx);
 
   let queryCtx = $state({
     view: 'default',
