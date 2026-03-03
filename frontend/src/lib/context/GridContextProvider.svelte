@@ -16,7 +16,6 @@
     setQueryContext,
   } from '$lib/context/gridContext.svelte.ts';
 
-  import { ContextMenuState } from '$lib/grid/components/context-menu/contextMenu.svelte.ts';
   import { createHeaderMenu } from '$lib/grid/components/header-menu/headerMenu.svelte.ts';
   import { createVirtualScroll } from '$lib/grid/utils/virtualScrollManager.svelte';
   import { FilterPanelState } from '$lib/grid/components/filter-panel/filterPanel.svelte.ts';
@@ -84,7 +83,7 @@
   let uiCtx = $state({
     filterPanel: new FilterPanelState(),
     headerMenu: createHeaderMenu(),
-    contextMenu: new ContextMenuState(),
+    contextMenu: { visible: false },
     commitRequested: false,
     commitCreateRequested: false,
     discardRequested: false,

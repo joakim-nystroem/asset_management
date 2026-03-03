@@ -8,8 +8,6 @@
   import GridHeader from '$lib/grid/components/grid-header/GridHeader.svelte';
   import GridOverlays from '$lib/grid/components/grid-overlays/GridOverlays.svelte';
   import EditHandler from '$lib/grid/components/edit-handler/EditHandler.svelte';
-  import ContextMenu from '$lib/grid/components/context-menu/contextMenu.svelte';
-
   const viewCtx = getViewContext();
   const uiCtx = getUiContext();
 
@@ -115,7 +113,6 @@
       {/snippet}
     </GridOverlays>
   </div>
-  <ContextMenu />
   <p class="mt-2 ml-1 text-sm text-neutral-600 dark:text-neutral-300">
     Showing {assets.length} items.
   </p>

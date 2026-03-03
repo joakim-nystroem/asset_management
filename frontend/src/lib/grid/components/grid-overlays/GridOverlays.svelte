@@ -12,6 +12,7 @@
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
+  import ContextMenu from '$lib/grid/components/context-menu/contextMenu.svelte';
 
   const DEFAULT_WIDTH = 150;
 
@@ -29,6 +30,29 @@
 
   // --- Local UI state ---
   let hoveredUser: string | null = $state(null);
+
+  // --- Context menu (local, passed as props) ---
+  let ctxMenu = $state({ visible: false, x: 0, y: 0, row: -1, col: -1, value: '', key: '' });
+
+  function openContextMenu(e: MouseEvent, row: number, col: number, value: string, key: string) {
+    const estimatedWidth = 150;
+    const estimatedHeight = 200;
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
+    ctxMenu.x = e.clientX + estimatedWidth > winW ? e.clientX - estimatedWidth : e.clientX;
+    ctxMenu.y = e.clientY + estimatedHeight > winH ? Math.max(4, winH - estimatedHeight - 8) : e.clientY;
+    ctxMenu.row = row;
+    ctxMenu.col = col;
+    ctxMenu.value = value;
+    ctxMenu.key = key;
+    ctxMenu.visible = true;
+    uiCtx.contextMenu.visible = true;
+  }
+
+  function closeContextMenu() {
+    ctxMenu.visible = false;
+    uiCtx.contextMenu.visible = false;
+  }
 
   // --- Derived data ---
   const assets = $derived(assetStore.filteredAssets);
@@ -166,7 +190,7 @@
         resetSelection();
       }
       clearClipboard();
-      if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
+      if (ctxMenu.visible) closeContextMenu();
       if (uiCtx.headerMenu?.activeKey) uiCtx.headerMenu.close();
       return;
     }
@@ -195,8 +219,6 @@
       if (k === 'v') {
         e.preventDefault();
         if (!selCtx.isSelecting) return;
-        const text = navigator.clipboard.readText();
-        console.log('Pasting text:', text);
         editingCtx.isPasting = true;
         return;
       }
@@ -321,7 +343,7 @@
     const key = keys[col];
     const value = String(asset?.[key] ?? '');
     selectCell(assetId, col);
-    uiCtx.contextMenu?.open(e, assetId, col, value, key);
+    openContextMenu(e, assetId, col, value, key);
     uiCtx.headerMenu?.close();
   }
 
@@ -331,7 +353,7 @@
       endSelection();
     }
     function onWindowClick(e: MouseEvent) {
-      if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
+      if (ctxMenu.visible) closeContextMenu();
       uiCtx.headerMenu?.handleOutsideClick(e);
     }
     window.addEventListener('mouseup', onMouseUp);
@@ -531,4 +553,15 @@
 
   <!-- Children: GridHeader, GridRows, EditHandler -->
   {@render children(columnWidths)}
+
+  <ContextMenu
+    visible={ctxMenu.visible}
+    x={ctxMenu.x}
+    y={ctxMenu.y}
+    row={ctxMenu.row}
+    col={ctxMenu.col}
+    value={ctxMenu.value}
+    cellKey={ctxMenu.key}
+    onclose={closeContextMenu}
+  />
 </div>

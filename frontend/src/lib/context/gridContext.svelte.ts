@@ -42,7 +42,6 @@ export type SelectionContext = {
   selectionEnd: GridCell;
   isSelecting: boolean;
   hideSelection: boolean;
-  hasPasted: boolean;
   dirtyCells: Set<string>;
 };
 
@@ -58,24 +57,24 @@ export type RowContext = {
   rowHeights: SvelteMap<number, number>;
 };
 
-// 9. Scroll state
+// 8. Scroll state
 export type ViewContext = {
   virtualScroll: any;
   scrollToRow: number | null;
   scrollToCol: { left: number; right: number } | null;
 };
 
-// 10. UI panel states (mutually exclusive) + trigger flags
+// 9. UI panel states (mutually exclusive) + trigger flags
 export type UiContext = {
   filterPanel: FilterPanelState | null;
   headerMenu: any | null;
-  contextMenu: any | null;
+  contextMenu: { visible: boolean };
   commitRequested: boolean;
   commitCreateRequested: boolean;
   discardRequested: boolean;
 };
 
-// 11. Query state — view, search, and filters (replaces searchManager + activeView)
+// 10. Query state — view, search, and filters (replaces searchManager + activeView)
 export type QueryContext = {
   view: string;
   q: string;

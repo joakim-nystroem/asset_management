@@ -33,7 +33,7 @@
   }
 
   function handleHeaderClick(e: MouseEvent, key: string, isLast: boolean) {
-    uiCtx.contextMenu?.close();
+    uiCtx.contextMenu.visible = false;
     uiCtx.filterPanel?.close();
     uiCtx.headerMenu?.toggle(e, key, [], isLast);
   }

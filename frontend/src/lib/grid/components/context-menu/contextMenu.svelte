@@ -1,27 +1,45 @@
 <script lang="ts">
-  import { getUiContext, getEditingContext, getQueryContext, getClipboardContext } from '$lib/context/gridContext.svelte.ts';
+  import { getEditingContext, getQueryContext, getClipboardContext } from '$lib/context/gridContext.svelte.ts';
   import { handleFilterByValue } from './contextMenu.svelte.ts';
 
-  const uiCtx = getUiContext();
+  let {
+    visible,
+    x,
+    y,
+    row,
+    col,
+    value,
+    cellKey,
+    onclose,
+  }: {
+    visible: boolean;
+    x: number;
+    y: number;
+    row: number;
+    col: number;
+    value: string;
+    cellKey: string;
+    onclose: () => void;
+  } = $props();
+
   const editingCtx = getEditingContext();
   const queryCtx = getQueryContext();
   const clipCtx = getClipboardContext();
 </script>
 
-{#if uiCtx.contextMenu?.visible}
+{#if visible}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="fixed z-[60] bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm text-neutral-900 dark:text-neutral-100 min-w-32 cursor-default text-left flex flex-col"
-    style="top: {uiCtx.contextMenu.y}px; left: {uiCtx.contextMenu.x}px;"
+    style="top: {y}px; left: {x}px;"
     onclick={(e) => e.stopPropagation()}
   >
     <!-- Edit -->
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
       onclick={() => {
-        const { row, col } = uiCtx.contextMenu!;
-        uiCtx.contextMenu?.close();
+        onclose();
         editingCtx.isEditing = true;
         editingCtx.editRow = row;
         editingCtx.editCol = col;
@@ -40,7 +58,7 @@
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
       onclick={() => {
         clipCtx.isCopying = true;
-        uiCtx.contextMenu?.close();
+        onclose();
       }}
     >
       <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -53,7 +71,7 @@
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
       onclick={() => {
-        uiCtx.contextMenu?.close();
+        onclose();
         editingCtx.isPasting = true;
       }}
     >
@@ -68,7 +86,7 @@
     <!-- Filter by this value -->
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
-      onclick={() => handleFilterByValue(uiCtx, queryCtx)}
+      onclick={() => handleFilterByValue(cellKey, value, queryCtx, onclose)}
     >
       <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
