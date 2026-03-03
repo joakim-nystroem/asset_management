@@ -3,22 +3,21 @@
   import { SvelteMap } from 'svelte/reactivity';
 
   import {
+    type PendingContext,
     setEditingContext,
-    setEditContext,
+    setPendingContext,
     setHistoryContext,
     setNewRowContext,
     setSelectionContext,
     setClipboardContext,
-    setColumnContext,
     setRowContext,
     setViewContext,
     setUiContext,
+    setQueryContext,
   } from '$lib/context/gridContext.svelte.ts';
 
   import { ContextMenuState } from '$lib/grid/components/context-menu/contextMenu.svelte.ts';
   import { createHeaderMenu } from '$lib/grid/components/header-menu/headerMenu.svelte.ts';
-  import { createEditDropdown } from '$lib/grid/components/edit-dropdown/editDropdown.svelte.ts';
-  import { createAutocomplete } from '$lib/grid/components/suggestion-menu/autocomplete.svelte.ts';
   import { createVirtualScroll } from '$lib/grid/utils/virtualScrollManager.svelte';
   import { FilterPanelState } from '$lib/grid/components/filter-panel/filterPanel.svelte.ts';
 
@@ -28,23 +27,16 @@
 
   let editingCtx = $state({
     isEditing: false,
-    editKey: null as string | null,
+    isPasting: false,
     editRow: -1,
     editCol: -1,
-    editOriginalValue: '',
-    editOriginalColumnWidth: 0,
-    inputValue: '',
-    editDropdown: createEditDropdown(),
-    autocomplete: createAutocomplete(),
   });
   setEditingContext(editingCtx);
 
-  let editCtx = $state({
-    edits: [],
-    hasUnsavedChanges: false,
-    isValid: true,
+  let pendingCtx = $state({
+    edits: [] as PendingContext['edits'],
   });
-  setEditContext(editCtx);
+  setPendingContext(pendingCtx);
 
   let historyCtx = $state({
     undoStack: [],
@@ -65,7 +57,7 @@
     selectionStart: { row: -1, col: -1 },
     selectionEnd: { row: -1, col: -1 },
     isSelecting: false,
-    isHiddenAfterCopy: false,
+    hideSelection: false,
     dirtyCells: new Set<string>(),
   });
   setSelectionContext(selectionCtx);
@@ -73,16 +65,9 @@
   let clipboardCtx = $state({
     copyStart: { row: -1, col: -1 },
     copyEnd: { row: -1, col: -1 },
-    isCopyVisible: false,
+    isCopying: false,
   });
   setClipboardContext(clipboardCtx);
-
-  let columnCtx = $state({
-    keys: [] as string[],
-    columnWidths: new SvelteMap<string, number>(),
-    resizingColumn: null as string | null,
-  });
-  setColumnContext(columnCtx);
 
   let rowCtx = $state({
     rowHeights: new SvelteMap<number, number>(),
@@ -90,9 +75,9 @@
   setRowContext(rowCtx);
 
   let viewCtx = $state({
-    activeView: 'default',
     virtualScroll: createVirtualScroll(),
     scrollToRow: null as number | null,
+    scrollToCol: null as { left: number; right: number } | null,
   });
   setViewContext(viewCtx);
 
@@ -103,9 +88,15 @@
     commitRequested: false,
     commitCreateRequested: false,
     discardRequested: false,
-    searchRequested: false,
   });
   setUiContext(uiCtx);
+
+  let queryCtx = $state({
+    view: 'default',
+    q: '',
+    filters: [] as { key: string; value: string }[],
+  });
+  setQueryContext(queryCtx);
 </script>
 
 {@render children()}

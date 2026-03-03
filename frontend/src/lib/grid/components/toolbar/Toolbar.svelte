@@ -1,15 +1,28 @@
 <script lang="ts">
+  import { page } from '$app/state';
   import FilterPanel from "$lib/grid/components/filter-panel/filterPanel.svelte";
-  import { searchManager } from "$lib/data/searchManager.svelte";
-  import { getDataContext, getViewContext, getUiContext, getChangeContext, getRowGenControllerContext } from '$lib/context/gridContext.svelte.ts';
+  import { assetStore } from '$lib/data/assetStore.svelte';
+  import {
+    getPendingContext,
+    getNewRowContext,
+    getViewContext,
+    getUiContext,
+    getQueryContext,
+    getSelectionContext,
+    getClipboardContext,
+  } from '$lib/context/gridContext.svelte.ts';
 
-  const rowGen = getRowGenControllerContext();
-  const dataCtx = getDataContext();
+  const pendingCtx = getPendingContext();
+  const newRowCtx = getNewRowContext();
   const viewCtx = getViewContext();
   const uiCtx = getUiContext();
-  const changeCtx = getChangeContext();
+  const queryCtx = getQueryContext();
+  const selCtx = getSelectionContext();
+  const clipCtx = getClipboardContext();
 
-  // Static view config (was in viewManager.VIEW_CONFIGS)
+  // Local search input — only pushed to queryCtx on explicit action
+  let searchInput = $state('');
+
   const VIEW_CONFIGS = [
     { name: 'default', label: 'Default' },
     { name: 'audit', label: 'Audit' },
@@ -19,18 +32,56 @@
   ];
 
   const currentViewLabel = $derived(
-    VIEW_CONFIGS.find(v => v.name === viewCtx.activeView)?.label ?? 'Default'
+    VIEW_CONFIGS.find(v => v.name === queryCtx.view)?.label ?? 'Default'
   );
 
   const hasInvalid = $derived(
-    changeCtx.hasInvalidChanges || (rowGen.hasNewRows && rowGen.invalidNewRowCount > 0)
+    pendingCtx.edits.some((e) => !e.isValid) || (newRowCtx.hasNewRows && !newRowCtx.isValid)
   );
+
+  const user = $derived(page.data.user);
 
   let viewDropdownOpen = $state(false);
 
+  function handleSearch() {
+    queryCtx.q = searchInput;
+  }
+
+  function handleClearSearch() {
+    searchInput = '';
+    queryCtx.q = '';
+  }
+
   function handleViewChange(viewName: string) {
     viewDropdownOpen = false;
-    dataCtx.viewChange?.(viewName);
+    // View change resets search and filters
+    searchInput = '';
+    queryCtx.q = '';
+    queryCtx.filters = [];
+    queryCtx.view = viewName;
+  }
+
+  // New row counter
+  let newRowCounter = 0;
+  function addNewRow() {
+    newRowCounter++;
+    const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
+    const newRow: Record<string, any> = { id: `NEW-${newRowCounter}` };
+    for (const key of keys) {
+      if (key !== 'id') newRow[key] = '';
+    }
+    newRowCtx.newRows = [...newRowCtx.newRows, newRow];
+    newRowCtx.hasNewRows = true;
+  }
+
+  function navigateToError() {
+    const invalidEdit = pendingCtx.edits.find((e) => !e.isValid);
+    if (invalidEdit) {
+      const rowIndex = assetStore.filteredAssets.findIndex((a: any) => a.id === invalidEdit.row);
+      if (rowIndex >= 0) {
+        viewCtx.scrollToRow = rowIndex;
+      }
+    }
   }
 </script>
 
@@ -40,27 +91,16 @@
     <div class="flex gap-4 items-center">
       <div class="relative">
         <input
-          bind:value={searchManager.inputValue}
+          bind:value={searchInput}
           class="bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pr-7 border border-neutral-300 dark:border-none focus:outline-none"
           placeholder="Search..."
           onkeydown={(e) => {
-            if (e.key === "Enter") {
-              const state = uiCtx.getCurrentUrlState?.();
-              if (state) {
-                uiCtx.updateSearchUrl?.({ q: searchManager.inputValue, filters: state.filters, view: state.view });
-              }
-            }
+            if (e.key === "Enter") handleSearch();
           }}
         />
-        {#if searchManager.inputValue}
+        {#if searchInput}
           <button
-            onclick={() => {
-              searchManager.inputValue = '';
-              const state = uiCtx.getCurrentUrlState?.();
-              if (state) {
-                uiCtx.updateSearchUrl?.({ q: '', filters: state.filters, view: state.view });
-              }
-            }}
+            onclick={handleClearSearch}
             class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
             title="Clear search"
           >
@@ -69,12 +109,7 @@
         {/if}
       </div>
       <button
-        onclick={() => {
-          const state = uiCtx.getCurrentUrlState?.();
-          if (state) {
-            uiCtx.updateSearchUrl?.({ q: searchManager.inputValue, filters: state.filters, view: state.view });
-          }
-        }}
+        onclick={handleSearch}
         class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-neutral-100"
         >Search</button
       >
@@ -82,42 +117,33 @@
 
     <div class="flex flex-row w-full justify-between items-center">
       <div class="flex flex-row gap-2">
-        <FilterPanel
-          state={uiCtx.filterPanel!}
-          {searchManager}
-          onRemoveFilter={(filter) => {
-            const state = uiCtx.getCurrentUrlState?.();
-            if (state) {
-              const newFilters = state.filters.filter(f => !(f.key === filter.key && f.value === filter.value));
-              uiCtx.updateSearchUrl?.({ q: state.q, filters: newFilters, view: state.view });
-            }
-          }}
-          onClearAllFilters={() => {
-            const state = uiCtx.getCurrentUrlState?.();
-            if (state) {
-              uiCtx.updateSearchUrl?.({ q: state.q, filters: [], view: state.view });
-            }
-          }}
-        />
-        {#if dataCtx.user}
+        <FilterPanel />
+        {#if user}
           <button
-            onclick={() => dataCtx.addNewRow?.()}
+            onclick={addNewRow}
             class="flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path></svg>
             <span>New Row</span>
           </button>
         {/if}
-        {#if changeCtx.hasUnsavedChanges && dataCtx.user}
+        {#if pendingCtx.edits.length > 0 && user}
           <div class="flex gap-2 items-center">
             <button
-              onclick={() => dataCtx.commit?.()}
+              onclick={() => uiCtx.commitRequested = true}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
               Commit
             </button>
             <button
-              onclick={() => dataCtx.discard?.()}
+              onclick={() => {
+                uiCtx.discardRequested = true;
+                selCtx.selectionStart = { row: -1, col: -1 };
+                selCtx.selectionEnd = { row: -1, col: -1 };
+                selCtx.hideSelection = false;
+                clipCtx.copyStart = { row: -1, col: -1 };
+                clipCtx.copyEnd = { row: -1, col: -1 };
+              }}
               class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
             >
               Discard
@@ -128,7 +154,7 @@
                   Invalid cells found
                 </span>
                 <button
-                  onclick={() => dataCtx.navigateError?.('next')}
+                  onclick={navigateToError}
                   class="cursor-pointer bg-yellow-600 hover:bg-yellow-500 px-2 py-1 rounded text-neutral-100"
                   title="Next error"
                 >
@@ -137,16 +163,23 @@
               </div>
             {/if}
           </div>
-        {:else if rowGen.hasNewRows && dataCtx.user}
+        {:else if newRowCtx.hasNewRows && user}
           <div class="flex gap-2 items-center">
             <button
-              onclick={() => dataCtx.addRows?.()}
+              onclick={() => uiCtx.commitCreateRequested = true}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
               Commit
             </button>
             <button
-              onclick={() => dataCtx.discard?.()}
+              onclick={() => {
+                uiCtx.discardRequested = true;
+                selCtx.selectionStart = { row: -1, col: -1 };
+                selCtx.selectionEnd = { row: -1, col: -1 };
+                selCtx.hideSelection = false;
+                clipCtx.copyStart = { row: -1, col: -1 };
+                clipCtx.copyEnd = { row: -1, col: -1 };
+              }}
               class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
             >
               Discard
@@ -157,7 +190,7 @@
                   Invalid cells found
                 </span>
                 <button
-                  onclick={() => dataCtx.navigateError?.('next')}
+                  onclick={navigateToError}
                   class="cursor-pointer bg-yellow-600 hover:bg-yellow-500 px-2 py-1 rounded text-neutral-100"
                   title="Next error"
                 >
@@ -189,7 +222,7 @@
             {#each VIEW_CONFIGS as view}
               <button
                 onclick={() => handleViewChange(view.name)}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {viewCtx.activeView === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {queryCtx.view === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
               >
                 {view.label}
               </button>

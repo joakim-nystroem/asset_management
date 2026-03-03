@@ -1,122 +1,171 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
+  import { SvelteMap } from 'svelte/reactivity';
   import {
     getEditingContext,
+    getPendingContext,
     getSelectionContext,
     getClipboardContext,
-    getColumnContext,
-    getDataContext,
     getViewContext,
     getUiContext,
-    getChangeControllerContext,
-    getHistoryControllerContext,
-    getRowGenControllerContext,
   } from '$lib/context/gridContext.svelte.ts';
-  import { createSelectionController } from '$lib/grid/utils/gridSelection.svelte.ts';
-  import { createColumnController } from '$lib/grid/utils/gridColumns.svelte.ts';
-  import { createClipboardController } from '$lib/grid/utils/gridClipboard.svelte.ts';
-  import { createEditController } from '$lib/grid/utils/gridEdit.svelte.ts';
+  import { assetStore } from '$lib/data/assetStore.svelte';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
-  import FloatingEditor from '$lib/grid/components/floating-editor/FloatingEditor.svelte';
 
-  let { children, style = '' }: { children: Snippet; style?: string } = $props();
+  const DEFAULT_WIDTH = 150;
 
-  const editCtx = getEditingContext();
+  let { children, style = '' }: { children: Snippet<[SvelteMap<string, number>]>; style?: string } = $props();
+
+  const editingCtx = getEditingContext();
+  const pendingCtx = getPendingContext();
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
-  const colCtx = getColumnContext();
-  const dataCtx = getDataContext();
   const viewCtx = getViewContext();
   const uiCtx = getUiContext();
 
-  const selection = createSelectionController();
-  const columns = createColumnController();
-  const changes = getChangeControllerContext();
-  const rowGen = getRowGenControllerContext();
-  const history = getHistoryControllerContext();
-  const edit = createEditController();
-  // Keep clipboard controller for paste only — copy is inlined below
-  const clipboard = createClipboardController();
+  // --- Local column state (no context needed) ---
+  const columnWidths = new SvelteMap<string, number>();
 
-  // GridOverlays accepts no data props. F2.5: 0 data props.
+  // --- Local UI state ---
   let hoveredUser: string | null = $state(null);
 
-  // --- Inlined copy logic (moved from gridClipboard.copy) ---
-  type CopiedItem = { relRow: number; relCol: number; value: string };
-  let clipboardInternal = $state<CopiedItem[]>([]);
-  let lastCopiedText = $state('');
+  // --- Derived data ---
+  const assets = $derived(assetStore.filteredAssets);
+  const keys = $derived(Object.keys(assets[0] ?? {}));
 
-  function getSelectionBounds() {
-    if (selCtx.selectionStart.row === -1 || selCtx.selectionEnd.row === -1) return null;
+  // --- Column width helper ---
+  function getWidth(key: string): number {
+    return columnWidths.get(key) ?? DEFAULT_WIDTH;
+  }
+
+  // --- Asset ID → array index helper ---
+  function assetIndex(id: number): number {
+    return assets.findIndex((a: Record<string, any>) => a.id === id);
+  }
+
+  // --- Column pixel bounds helper ---
+  function colBounds(col: number): { left: number; right: number } {
+    let left = 0;
+    for (let c = 0; c < col; c++) left += getWidth(keys[c]);
+    return { left, right: left + getWidth(keys[col]) };
+  }
+
+  // --- Selection helpers (inlined from selCtx) ---
+  let isDragging = false;
+
+  function selectCell(row: number, col: number) {
+    selCtx.selectionStart = { row, col };
+    selCtx.selectionEnd = { row, col };
+    selCtx.isSelecting = true;
+    selCtx.hideSelection = false;
+  }
+
+  function startSelection(row: number, col: number, e: MouseEvent) {
+    if (e.shiftKey) {
+      selCtx.selectionEnd = { row, col };
+    } else {
+      selCtx.selectionStart = { row, col };
+      selCtx.selectionEnd = { row, col };
+      isDragging = true;
+      selCtx.isSelecting = true;
+      selCtx.hideSelection = false;
+    }
+  }
+
+  function extendSelection(row: number, col: number) {
+    if (isDragging) {
+      selCtx.selectionEnd = { row, col };
+    }
+  }
+
+  function endSelection() {
+    isDragging = false;
+    // Normalize: start = top-left, end = bottom-right
+    const s = selCtx.selectionStart;
+    const e = selCtx.selectionEnd;
+    const minRow = Math.min(s.row, e.row);
+    const maxRow = Math.max(s.row, e.row);
+    const minCol = Math.min(s.col, e.col);
+    const maxCol = Math.max(s.col, e.col);
+    selCtx.selectionStart = { row: minRow, col: minCol };
+    selCtx.selectionEnd = { row: maxRow, col: maxCol };
+  }
+
+  function resetSelection() {
+    selCtx.selectionStart = { row: -1, col: -1 };
+    selCtx.selectionEnd = { row: -1, col: -1 };
+    selCtx.isSelecting = false;
+    isDragging = false;
+    selCtx.hideSelection = false;
+  }
+
+  // --- Start cell editing helper ---
+  function startCellEdit(row: number, col: number) {
+    editingCtx.isEditing = true;
+    editingCtx.editRow = row;
+    editingCtx.editCol = col;
+  }
+
+  // --- Overlay computation ---
+  function computeVisualOverlay(
+    start: { row: number; col: number },
+    end: { row: number; col: number },
+  ) {
+    const { startIndex, endIndex } = viewCtx.virtualScroll.visibleRange;
+    const rowHeight = viewCtx.virtualScroll.rowHeight;
+
+    const startRowIdx = assetIndex(start.row);
+    const endRowIdx = assetIndex(end.row);
+    if (startRowIdx === -1 || endRowIdx === -1) return null;
+
+    const minRow = Math.min(startRowIdx, endRowIdx);
+    const maxRow = Math.max(startRowIdx, endRowIdx);
+    const minCol = Math.min(start.col, end.col);
+    const maxCol = Math.max(start.col, end.col);
+
+    const clampedMinRow = Math.max(minRow, startIndex);
+    const clampedMaxRow = Math.min(maxRow, endIndex - 1);
+    if (clampedMinRow > clampedMaxRow) return null;
+
+    let left = 0;
+    for (let c = 0; c < minCol; c++) left += getWidth(keys[c]);
+    let width = 0;
+    for (let c = minCol; c <= maxCol; c++) width += getWidth(keys[c]);
+
+    const top = clampedMinRow * rowHeight + 32; // absolute position in virtual space
+    const height = (clampedMaxRow - clampedMinRow + 1) * rowHeight;
+
     return {
-      minRow: Math.min(selCtx.selectionStart.row, selCtx.selectionEnd.row),
-      maxRow: Math.max(selCtx.selectionStart.row, selCtx.selectionEnd.row),
-      minCol: Math.min(selCtx.selectionStart.col, selCtx.selectionEnd.col),
-      maxCol: Math.max(selCtx.selectionStart.col, selCtx.selectionEnd.col),
+      top, left, width, height,
+      showTopBorder: minRow >= startIndex,
+      showBottomBorder: maxRow < endIndex,
+      showLeftBorder: true,
+      showRightBorder: true,
     };
   }
 
-  async function copyToSystemClipboard(text: string): Promise<void> {
-    try { await navigator.clipboard.writeText(text); }
-    catch (err) { console.error('Failed to copy to clipboard:', err); }
-  }
-
-  async function handleCopy() {
-    // 1. Snapshot visual overlay
-    if (selCtx.selectionStart.row !== -1) {
-      clipCtx.copyStart = { ...selCtx.selectionStart };
-      clipCtx.copyEnd = { ...selCtx.selectionEnd };
-      clipCtx.isCopyVisible = true;
-      selCtx.isHiddenAfterCopy = true;
-    }
-    // 2. Get selection bounds
-    const bounds = getSelectionBounds();
-    if (!bounds) return;
-    // 3. Capture data into internal buffer + system clipboard
-    const newClipboard: CopiedItem[] = [];
-    const externalRows: string[] = [];
-    for (let r = bounds.minRow; r <= bounds.maxRow; r++) {
-      const rowStrings: string[] = [];
-      for (let c = bounds.minCol; c <= bounds.maxCol; c++) {
-        const key = colCtx.keys[c];
-        const value = String(dataCtx.assets[r]?.[key] ?? '');
-        newClipboard.push({ relRow: r - bounds.minRow, relCol: c - bounds.minCol, value });
-        rowStrings.push(value);
-      }
-      externalRows.push(rowStrings.join('\t'));
-    }
-    clipboardInternal = newClipboard;
-    const textBlock = externalRows.join('\n');
-    lastCopiedText = textBlock;
-    setTimeout(async () => { await copyToSystemClipboard(textBlock); }, 0);
-    if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
-  }
-
+  // --- Clipboard visual helpers (data ops live in EditHandler) ---
   function clearClipboard() {
-    clipboardInternal = [];
-    lastCopiedText = '';
+    clipCtx.copyStart = { row: -1, col: -1 };
+    clipCtx.copyEnd = { row: -1, col: -1 };
   }
 
-  // --- Inline keyboard handler (replaces gridShortcuts / interactionHandler) ---
+  // --- Keyboard handler ---
   function handleKeyDown(e: KeyboardEvent) {
     const target = e.target as HTMLElement;
-    const isInput =
-      target.tagName === 'INPUT' ||
-      target.tagName === 'TEXTAREA' ||
-      target.isContentEditable;
+    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
     if (isInput) return;
 
-    // Escape — clear everything
     if (e.key === 'Escape') {
-      if (editCtx.isEditing) {
-        edit.cancel();
+      if (editingCtx.isEditing) {
+        editingCtx.isEditing = false;
         return;
       }
-      if (selection.hasSelection) {
-        selection.resetAll();
+      if (selCtx.selectionStart.row !== -1) {
+        resetSelection();
       }
       clearClipboard();
-      clipboard.clear();
       if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
       if (uiCtx.headerMenu?.activeKey) uiCtx.headerMenu.close();
       return;
@@ -124,285 +173,227 @@
 
     if (e.key === 'F2') {
       e.preventDefault();
-      const target2 = selection.anchor;
-      if (!target2) return;
-      const key = colCtx.keys[target2.col];
-      const asset = dataCtx.assets[target2.row];
-      if (!asset || !key || key === 'id') return;
-      const currentValue = String(asset[key] ?? '');
-      edit.startEdit(target2.row, target2.col, key, currentValue);
+      if (selCtx.selectionStart.row === -1) return;
+      const row = selCtx.selectionStart.row;
+      const col = selCtx.selectionStart.col;
+      const key = keys[col];
+      if (!key || key === 'id') return;
+      startCellEdit(row, col);
       return;
     }
 
-    // Ctrl/Cmd shortcuts
     if (e.metaKey || e.ctrlKey) {
       const k = e.key.toLowerCase();
 
-      if (k === 'z') {
-        e.preventDefault();
-        const batch = history.undo(dataCtx.assets);
-        if (batch) {
-          for (const action of batch) {
-            changes.update({
-              id: action.id,
-              key: action.key,
-              newValue: action.oldValue,
-              oldValue: action.newValue,
-            });
-          }
-          const firstAction = batch[0];
-          const row = dataCtx.assets.findIndex(a => a.id === firstAction.id);
-          const col = colCtx.keys.indexOf(firstAction.key);
-          if (row !== -1) {
-            viewCtx.scrollToRow = row;
-            selection.moveTo(row, col !== -1 ? col : 0);
-          }
-        }
-        return;
-      }
-
-      if (k === 'y') {
-        e.preventDefault();
-        const batch = history.redo(dataCtx.assets);
-        if (batch) {
-          for (const action of batch) {
-            changes.update(action);
-          }
-          const firstAction = batch[0];
-          const row = dataCtx.assets.findIndex(a => a.id === firstAction.id);
-          const col = colCtx.keys.indexOf(firstAction.key);
-          if (row !== -1) {
-            viewCtx.scrollToRow = row;
-            selection.moveTo(row, col !== -1 ? col : 0);
-          }
-        }
-        return;
-      }
-
       if (k === 'c') {
         e.preventDefault();
-        handleCopy();
+        if (!selCtx.isSelecting) return;
+        clipCtx.isCopying = true;
         return;
       }
 
       if (k === 'v') {
         e.preventDefault();
-        (async () => {
-          const anchor = selection.anchor;
-          if (!anchor) return;
-          const result = await clipboard.paste(anchor, dataCtx.assets, colCtx.keys);
-          if (result && result.changes.length > 0) {
-            for (const change of result.changes) {
-              changes.update(change);
-            }
-            history.recordBatch(result.changes);
-          }
-          if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
-        })();
+        if (!selCtx.isSelecting) return;
+        const text = navigator.clipboard.readText();
+        console.log('Pasting text:', text);
+        editingCtx.isPasting = true;
         return;
       }
+
+      // TODO: Ctrl+Z (undo), Ctrl+Y (redo) — will be owned by EditHandler
     }
 
     // Arrow key navigation
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       e.preventDefault();
-      const rows = dataCtx.assets.length;
-      const cols = colCtx.keys.length;
-      const primary = selection.primaryRange;
-      if (!primary) return;
+      if (selCtx.hideSelection) selCtx.hideSelection = false;
+      const colCount = keys.length;
+      const anchor = selCtx.selectionStart;
+      if (anchor.row === -1) return;
 
-      // Ctrl + Arrow (jump/extend to edge)
       if (e.metaKey || e.ctrlKey) {
-        let targetRow = primary.end.row;
-        let targetCol = primary.end.col;
+        let targetRow = selCtx.selectionEnd.row;
+        let targetCol = selCtx.selectionEnd.col;
         switch (e.key) {
-          case 'ArrowUp':    targetRow = 0; break;
-          case 'ArrowDown':  targetRow = rows - 1; break;
+          case 'ArrowUp':    targetRow = assets[0]?.id ?? targetRow; break;
+          case 'ArrowDown':  targetRow = assets[assets.length - 1]?.id ?? targetRow; break;
           case 'ArrowLeft':  targetCol = 0; break;
-          case 'ArrowRight': targetCol = cols - 1; break;
+          case 'ArrowRight': targetCol = colCount - 1; break;
         }
         if (e.shiftKey) {
-          selection.end = { row: targetRow, col: targetCol };
+          selCtx.selectionEnd = { row: targetRow, col: targetCol };
         } else {
-          selection.moveTo(targetRow, targetCol);
+          selectCell(targetRow, targetCol);
         }
-        viewCtx.scrollToRow = targetRow;
+        const idx = assetIndex(targetRow);
+        if (idx !== -1) viewCtx.scrollToRow = idx;
+        viewCtx.scrollToCol = colBounds(targetCol);
         return;
       }
 
-      // Shift + Arrow: extend selection
       if (e.shiftKey) {
-        const next = getKeyboardNavigation(e, primary.end, rows, cols);
+        const next = getArrowTarget(e.key, selCtx.selectionEnd, colCount);
         if (next) {
-          selection.end = next;
-          viewCtx.scrollToRow = next.row;
+          selCtx.selectionEnd = next;
+          const idx = assetIndex(next.row);
+          if (idx !== -1) viewCtx.scrollToRow = idx;
+          viewCtx.scrollToCol = colBounds(next.col);
         }
       } else {
-        // Arrow only: move selection
-        const next = getKeyboardNavigation(e, primary.start, rows, cols);
+        const next = getArrowTarget(e.key, anchor, colCount);
         if (next) {
-          selection.moveTo(next.row, next.col);
-          viewCtx.scrollToRow = next.row;
+          selectCell(next.row, next.col);
+          const idx = assetIndex(next.row);
+          if (idx !== -1) viewCtx.scrollToRow = idx;
+          viewCtx.scrollToCol = colBounds(next.col);
         }
       }
     }
   }
 
-  function getKeyboardNavigation(
-    e: KeyboardEvent,
+  function getArrowTarget(
+    key: string,
     current: { row: number; col: number },
-    rowCount: number,
-    colCount: number
+    colCount: number,
   ): { row: number; col: number } | null {
-    const { row, col } = current;
-    switch (e.key) {
-      case 'ArrowUp':    return row > 0 ? { row: row - 1, col } : null;
-      case 'ArrowDown':  return row < rowCount - 1 ? { row: row + 1, col } : null;
-      case 'ArrowLeft':  return col > 0 ? { row, col: col - 1 } : null;
-      case 'ArrowRight': return col < colCount - 1 ? { row, col: col + 1 } : null;
+    const idx = assetIndex(current.row);
+    if (idx === -1) return null;
+    const { col } = current;
+    switch (key) {
+      case 'ArrowUp':    return idx > 0 ? { row: assets[idx - 1].id, col } : null;
+      case 'ArrowDown':  return idx < assets.length - 1 ? { row: assets[idx + 1].id, col } : null;
+      case 'ArrowLeft':  return col > 0 ? { row: current.row, col: col - 1 } : null;
+      case 'ArrowRight': return col < colCount - 1 ? { row: current.row, col: col + 1 } : null;
       default:           return null;
     }
   }
 
-  // --- Mouse handlers (moved from GridContainer) ---
+  // --- Mouse handlers ---
   function handleMouseDown(e: MouseEvent) {
-    const target = e.target as HTMLElement;
-    const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+    const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
     const row = Number(cell.dataset.row);
     const col = Number(cell.dataset.col);
     if (isNaN(row) || isNaN(col)) return;
-    if (editCtx.isEditing) {
-      // Do NOT call edit.save() here — let FloatingEditor's handleBlur own the save.
-      selection.selectCell(row, col);
+    if (editingCtx.isEditing) {
+      selectCell(row, col);
       return;
     }
-    selection.handleMouseDown(row, col, e);
+    startSelection(row, col, e);
   }
 
   function handleMouseOver(e: MouseEvent) {
-    const target = e.target as HTMLElement;
-    const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+    const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
     const row = Number(cell.dataset.row);
     const col = Number(cell.dataset.col);
     if (isNaN(row) || isNaN(col)) return;
-    if (!editCtx.isEditing) {
-      selection.extendSelection(row, col);
+    if (!editingCtx.isEditing) {
+      extendSelection(row, col);
     }
   }
 
   function handleDblClick(e: MouseEvent) {
-    const target = e.target as HTMLElement;
-    const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+    const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
     const row = Number(cell.dataset.row);
     const col = Number(cell.dataset.col);
     if (isNaN(row) || isNaN(col)) return;
-    if (!dataCtx.user) {
-      toastState.addToast('Log in to edit.', 'warning');
-      return;
-    }
-    const key = colCtx.keys[col];
+    const key = keys[col];
     if (key === 'id') {
       toastState.addToast('ID column cannot be edited.', 'warning');
       return;
     }
     e.preventDefault();
-    selection.selectCell(row, col);
-    const currentValue = String(dataCtx.assets[row]?.[key] ?? '');
-    edit.startEdit(row, col, key, currentValue);
+    selectCell(row, col);
+    startCellEdit(row, col);
   }
 
   function handleContextMenu(e: MouseEvent) {
-    const target = e.target as HTMLElement;
-    const cell = target.closest('[data-row][data-col]') as HTMLElement | null;
+    const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
-    const visibleIndex = Number(cell.dataset.row);
+    const assetId = Number(cell.dataset.row);
     const col = Number(cell.dataset.col);
-    if (isNaN(visibleIndex) || isNaN(col)) return;
+    if (isNaN(assetId) || isNaN(col)) return;
     e.preventDefault();
-    const actualRow = viewCtx.virtualScroll.getActualIndex(visibleIndex);
-    const key = colCtx.keys[col];
-    const value = String(dataCtx.assets[actualRow]?.[key] ?? '');
-    selection.selectCell(actualRow, col);
-    uiCtx.contextMenu?.open(e, actualRow, col, value, key);
+    const asset = assets.find((a: Record<string, any>) => a.id === assetId);
+    const key = keys[col];
+    const value = String(asset?.[key] ?? '');
+    selectCell(assetId, col);
+    uiCtx.contextMenu?.open(e, assetId, col, value, key);
     uiCtx.headerMenu?.close();
   }
 
-  // Window-level event listeners
+  // --- Window-level event listeners ---
   $effect(() => {
     function onMouseUp() {
-      if (columns.resizingColumn) {
-        columns.endResize();
-        document.body.style.cursor = '';
-      }
-      selection.endSelection();
-    }
-    function onMouseMove(e: MouseEvent) {
-      if (columns.resizingColumn) {
-        e.preventDefault();
-        columns.updateResize(e.clientX);
-      }
+      endSelection();
     }
     function onWindowClick(e: MouseEvent) {
       if (uiCtx.contextMenu?.visible) uiCtx.contextMenu.close();
       uiCtx.headerMenu?.handleOutsideClick(e);
     }
     window.addEventListener('mouseup', onMouseUp);
-    window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('click', onWindowClick);
     return () => {
       window.removeEventListener('mouseup', onMouseUp);
-      window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('click', onWindowClick);
     };
   });
 
   // --- Overlay derivations ---
-
   const selectionOverlay = $derived(
-    selection.computeVisualOverlay(
-      selection.start,
-      selection.end,
-      viewCtx.virtualScroll.visibleRange,
-      colCtx.keys,
-      (key) => columns.getWidth(key),
-      viewCtx.virtualScroll.rowHeight,
-    )
+    computeVisualOverlay(selCtx.selectionStart, selCtx.selectionEnd)
   );
+
+  // Dirty cell overlays — per-cell with merged borders between adjacent dirty cells
+  const dirtyCellOverlays = $derived.by(() => {
+    if (pendingCtx.edits.length === 0) return [];
+    const { startIndex, endIndex } = viewCtx.virtualScroll.visibleRange;
+    const rowHeight = viewCtx.virtualScroll.rowHeight;
+
+    // Map dirty cell coords for adjacency checks: "rowIdx,colIdx" → edit
+    const editMap = new Map<string, typeof pendingCtx.edits[0]>();
+    for (const edit of pendingCtx.edits) {
+      const rowIdx = assets.findIndex((a: Record<string, any>) => a.id === edit.row);
+      if (rowIdx === -1) continue;
+      const colIdx = keys.indexOf(edit.col);
+      if (colIdx === -1) continue;
+      editMap.set(`${rowIdx},${colIdx}`, edit);
+    }
+
+    const overlays: { top: number; left: number; width: number; height: number; isValid: boolean; value: string; borderTop: boolean; borderBottom: boolean; borderLeft: boolean; borderRight: boolean }[] = [];
+
+    for (const [coord, edit] of editMap) {
+      const [rowIdx, colIdx] = coord.split(',').map(Number);
+      if (rowIdx < startIndex || rowIdx >= endIndex) continue;
+
+      let left = 0;
+      for (let c = 0; c < colIdx; c++) left += getWidth(keys[c]);
+      const w = getWidth(keys[colIdx]);
+      const top = rowIdx * rowHeight + 32;
+
+      // Hide border on edges adjacent to a dirty neighbor with same validity
+      const sameAbove = editMap.get(`${rowIdx - 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx - 1},${colIdx}`);
+      const sameBelow = editMap.get(`${rowIdx + 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx + 1},${colIdx}`);
+      const sameLeft = editMap.get(`${rowIdx},${colIdx - 1}`)?.isValid === edit.isValid && editMap.has(`${rowIdx},${colIdx - 1}`);
+      const sameRight = editMap.get(`${rowIdx},${colIdx + 1}`)?.isValid === edit.isValid && editMap.has(`${rowIdx},${colIdx + 1}`);
+
+      overlays.push({
+        top, left, width: w, height: rowHeight,
+        isValid: edit.isValid, value: edit.value,
+        borderTop: !sameAbove, borderBottom: !sameBelow,
+        borderLeft: !sameLeft, borderRight: !sameRight,
+      });
+    }
+    return overlays;
+  });
 
   const copyOverlay = $derived(
-    selection.isCopyVisible
-      ? selection.computeVisualOverlay(
-          selection.copyStart,
-          selection.copyEnd,
-          viewCtx.virtualScroll.visibleRange,
-          colCtx.keys,
-          (key) => columns.getWidth(key),
-          viewCtx.virtualScroll.rowHeight,
-        )
+    clipCtx.copyStart.row !== -1
+      ? computeVisualOverlay(clipCtx.copyStart, clipCtx.copyEnd)
       : null
-  );
-
-  const dirtyCellOverlays = $derived(
-    selection.computeDirtyCellOverlays(
-      viewCtx.virtualScroll.visibleRange,
-      colCtx.keys,
-      (key) => columns.getWidth(key),
-      viewCtx.virtualScroll.rowHeight,
-      (row, col) => {
-        const asset = dataCtx.assets[row];
-        if (!asset) return false;
-        const key = colCtx.keys[col];
-        const isNewRow = row >= dataCtx.filteredAssetsCount;
-        if (isNewRow) {
-          const newRowIndex = row - dataCtx.filteredAssetsCount;
-          return rowGen.isNewRowFieldInvalid(newRowIndex, key);
-        }
-        return changes.isInvalid(asset.id, key);
-      },
-    )
   );
 
   const otherUserSelections = $derived(
@@ -410,7 +401,7 @@
       (acc, [clientId, position]) => {
         let rowIndex = -1;
         if (position.assetId !== undefined) {
-          rowIndex = dataCtx.assets.findIndex((a: Record<string, any>) => a.id === position.assetId);
+          rowIndex = assets.findIndex((a: Record<string, any>) => a.id === position.assetId);
         } else {
           rowIndex = position.row;
         }
@@ -433,11 +424,6 @@
   );
 </script>
 
-<!--
-  GridOverlays: parent wrapper that owns ALL user input (keyboard + mouse) and visual feedback.
-  GridContainer passes GridHeader + GridRows as snippet children.
-  Overlay layers are absolutely positioned; children render below them in the same relative container.
--->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <!-- svelte-ignore a11y_mouse_events_have_key_events -->
@@ -451,26 +437,18 @@
   ondblclick={handleDblClick}
   oncontextmenu={handleContextMenu}
 >
-  <!-- Overlay layers (absolutely positioned over content) -->
-
+  <!-- Other user cursors -->
   {#each Object.entries(otherUserSelections) as [clientId, position]}
-    {@const otherUserOverlay = selection.computeVisualOverlay(
-      position,
-      position,
-      viewCtx.virtualScroll.visibleRange,
-      colCtx.keys,
-      (key) => columns.getWidth(key),
-      viewCtx.virtualScroll.rowHeight,
-    )}
-    {#if otherUserOverlay}
+    {@const otherOverlay = computeVisualOverlay(position, position)}
+    {#if otherOverlay}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="absolute pointer-events-none z-50"
         style="
-            top: {otherUserOverlay.top}px;
-            left: {otherUserOverlay.left}px;
-            width: {otherUserOverlay.width}px;
-            height: {otherUserOverlay.height}px;
+            top: {otherOverlay.top}px;
+            left: {otherOverlay.left}px;
+            width: {otherOverlay.width}px;
+            height: {otherOverlay.height}px;
             border: {position.editing ? '2px' : '1px'} solid {position.color};
             box-sizing: border-box;
           "
@@ -501,6 +479,7 @@
     {/if}
   {/each}
 
+  <!-- Copy overlay -->
   {#if copyOverlay}
     <div
       class="absolute pointer-events-none z-20 border-blue-600 dark:border-blue-500"
@@ -517,7 +496,24 @@
     ></div>
   {/if}
 
-  {#if selectionOverlay && selCtx.selectionStart.row !== -1 && !selCtx.isHiddenAfterCopy}
+  <!-- Dirty cell overlays — show pending value on top of the real cell -->
+  {#each dirtyCellOverlays as cell}
+    <div
+      class="absolute pointer-events-none z-[5] flex items-center px-2 text-xs truncate
+        {cell.isValid ? 'bg-green-50 dark:bg-slate-800' : 'bg-yellow-50 dark:bg-slate-800'}
+        text-neutral-700 dark:text-neutral-200
+        {cell.borderTop ? (cell.isValid ? 'border-t-2 border-t-green-400 dark:border-t-green-600' : 'border-t-2 border-t-yellow-500 dark:border-t-yellow-600') : 'border-t border-t-neutral-200 dark:border-t-slate-700'}
+        {cell.borderBottom ? (cell.isValid ? 'border-b-2 border-b-green-400 dark:border-b-green-600' : 'border-b-2 border-b-yellow-500 dark:border-b-yellow-600') : 'border-b border-b-neutral-200 dark:border-b-slate-700'}
+        {cell.borderLeft ? (cell.isValid ? 'border-l-2 border-l-green-400 dark:border-l-green-600' : 'border-l-2 border-l-yellow-500 dark:border-l-yellow-600') : 'border-l border-l-neutral-200 dark:border-l-slate-700'}
+        {cell.borderRight ? (cell.isValid ? 'border-r-2 border-r-green-400 dark:border-r-green-600' : 'border-r-2 border-r-yellow-500 dark:border-r-yellow-600') : 'border-r border-r-neutral-200 dark:border-r-slate-700'}"
+      style="top: {cell.top}px; left: {cell.left}px; width: {cell.width}px; height: {cell.height}px;"
+    >
+      <span class="truncate w-full">{cell.value}</span>
+    </div>
+  {/each}
+
+  <!-- Selection overlay -->
+  {#if selectionOverlay && selCtx.selectionStart.row !== -1 && !selCtx.hideSelection}
     <div
       class="absolute pointer-events-none z-10 border-blue-600 dark:border-blue-500 bg-blue-900/10"
       style="
@@ -533,53 +529,6 @@
     ></div>
   {/if}
 
-  {#each dirtyCellOverlays as overlay}
-    {@const overlayRowIndex = viewCtx.virtualScroll.visibleRange.startIndex + Math.floor(overlay.top / viewCtx.virtualScroll.rowHeight)}
-    {@const overlayColIndex = (() => {
-      let accWidth = 0;
-      for (let c = 0; c < colCtx.keys.length; c++) {
-        const colWidth = columns.getWidth(colCtx.keys[c]);
-        if (overlay.left < accWidth + colWidth) return c;
-        accWidth += colWidth;
-      }
-      return 0;
-    })()}
-    {@const overlayKey = colCtx.keys[overlayColIndex]}
-    {@const overlayAsset = dataCtx.assets[overlayRowIndex]}
-    {@const isNewRowOverlay = overlayRowIndex >= dataCtx.filteredAssetsCount}
-    {@const isInvalid = isNewRowOverlay
-      ? rowGen.isNewRowFieldInvalid(overlayRowIndex - dataCtx.filteredAssetsCount, overlayKey)
-      : changes.isInvalid(overlayAsset?.id, overlayKey)}
-    <div
-      class="absolute pointer-events-none z-40 border-2
-        {isInvalid
-        ? 'bg-yellow-400/20 dark:bg-yellow-400/10 border-yellow-500 dark:border-yellow-600'
-        : 'bg-green-400/20 dark:bg-green-400/10 border-green-400 dark:border-green-600'}"
-      style="
-        top: {overlay.top}px;
-        left: {overlay.left}px;
-        width: {overlay.width}px;
-        height: {overlay.height}px;
-      "
-    ></div>
-  {/each}
-
-  {#if editCtx.isEditing}
-    <FloatingEditor onSave={(change) => {
-      const editRow = editCtx.editRow;
-      const isNewRow = editRow >= dataCtx.filteredAssetsCount;
-      if (isNewRow) {
-        // New row: route to rowGen, not ChangeController
-        const newRowIndex = editRow - dataCtx.filteredAssetsCount;
-        rowGen.updateNewRowField(newRowIndex, change.key, change.newValue);
-      } else {
-        // Existing row: route to ChangeController + History (original behavior)
-        history.record(change.id, change.key, change.oldValue, change.newValue);
-        changes.update(change);
-      }
-    }} />
-  {/if}
-
-  <!-- Content layer: GridHeader + GridRows passed as snippet children from GridContainer -->
-  {@render children()}
+  <!-- Children: GridHeader, GridRows, EditHandler -->
+  {@render children(columnWidths)}
 </div>

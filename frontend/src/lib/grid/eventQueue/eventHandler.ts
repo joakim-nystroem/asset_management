@@ -5,6 +5,39 @@
 import { toastState } from '$lib/toast/toastState.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
 
+// ─── API helpers ────────────────────────────────────────────────────────────
+
+type ApiResult = { success: true; data: any } | { success: false; data: null };
+
+async function apiFetch(endpoint: string, params?: URLSearchParams): Promise<ApiResult> {
+  try {
+    const url = params ? `${endpoint}?${params.toString()}` : endpoint;
+    const response = await fetch(url);
+    if (!response.ok) return { success: false, data: null };
+    const data = await response.json();
+    return { success: true, data };
+  } catch (err) {
+    console.error(`Fetch failed for ${endpoint}:`, err);
+    return { success: false, data: null };
+  }
+}
+
+async function apiPost(endpoint: string, body: any): Promise<ApiResult> {
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) return { success: false, data: null };
+    const data = await response.json();
+    return { success: true, data };
+  } catch (err) {
+    console.error(`Post failed for ${endpoint}:`, err);
+    return { success: false, data: null };
+  }
+}
+
 // ─── Router ─────────────────────────────────────────────────────────────────
 
 export async function processEvent(
@@ -20,12 +53,8 @@ export async function processEvent(
       await handleCommitCreate(event.payload, contexts);
       break;
 
-    case 'FILTER':
-      await handleFilter(event.payload, contexts);
-      break;
-
-    case 'VIEW_CHANGE':
-      await handleViewChange(event.payload, contexts);
+    case 'QUERY':
+      await handleQuery(event.payload, contexts);
       break;
 
     case 'DISCARD':
@@ -49,7 +78,7 @@ async function handleCommitUpdate(
   payload: Record<string, any>,
   contexts: Record<string, any>,
 ): Promise<void> {
-  const { editCtx } = contexts;
+  const { pendingCtx } = contexts;
   const { changes, hasInvalidChanges, user } = payload;
 
   if (!user) {
@@ -63,34 +92,28 @@ async function handleCommitUpdate(
   if (!changes || changes.length === 0) return;
 
   const apiChanges = changes.map((c: any) => ({
-    rowId: c.id,
-    columnId: c.key,
-    newValue: c.newValue,
-    oldValue: c.oldValue,
+    rowId: c.row,
+    columnId: c.col,
+    newValue: c.value,
+    oldValue: c.original,
   }));
 
-  try {
-    const response = await fetch('/api/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(apiChanges),
-    });
-
-    if (!response.ok) {
-      console.error('Commit failed:', await response.text());
-      toastState.addToast('Failed to commit changes. See console for details.', 'error');
-      return;
-    }
-
-    // Mutate the Svelte 5 proxy directly — UI updates instantly
-    editCtx.edits = [];
-    editCtx.hasUnsavedChanges = false;
-    editCtx.isValid = true;
-    toastState.addToast('Changes saved successfully.', 'success');
-  } catch (error) {
-    console.error('Commit failed:', error);
-    toastState.addToast('Network error while committing changes.', 'error');
+  const res = await apiPost('/api/update', apiChanges);
+  if (!res.success) {
+    toastState.addToast('Failed to commit changes.', 'error');
+    return;
   }
+
+  // Apply committed values to the live assets
+  for (const change of changes) {
+    const filtered = assetStore.filteredAssets.find((a: any) => a.id === change.row);
+    if (filtered) filtered[change.col] = change.value;
+    const base = assetStore.baseAssets.find((a: any) => a.id === change.row);
+    if (base) base[change.col] = change.value;
+  }
+
+  pendingCtx.edits = [];
+  toastState.addToast('Changes saved successfully.', 'success');
 }
 
 async function handleCommitCreate(
@@ -111,99 +134,46 @@ async function handleCommitCreate(
     return fields;
   });
 
-  try {
-    const response = await fetch('/api/create/asset', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(rowsToSave),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      toastState.addToast(errorData.error || 'Failed to save new rows.', 'error');
-      return;
-    }
-
-    // Mutate the Svelte 5 proxy directly
-    newRowCtx.newRows = [];
-    newRowCtx.hasNewRows = false;
-    toastState.addToast(`${rows.length} new rows saved successfully.`, 'success');
-  } catch (error) {
-    console.error('Add rows failed:', error);
-    toastState.addToast('Network error while adding new rows.', 'error');
-  }
-}
-
-async function handleFilter(
-  payload: Record<string, any>,
-  _contexts: Record<string, any>,
-): Promise<void> {
-  const { q, filters, view } = payload;
-
-  if (!q && (!filters || filters.length === 0)) {
-    assetStore.filteredAssets = assetStore.baseAssets;
+  const res = await apiPost('/api/create/asset', rowsToSave);
+  if (!res.success) {
+    toastState.addToast('Failed to save new rows.', 'error');
     return;
   }
 
+  newRowCtx.newRows = [];
+  newRowCtx.hasNewRows = false;
+  assetStore.baseAssets = assetStore.filteredAssets.map((a: Record<string, any>) => ({ ...a }));
+  toastState.addToast(`${rows.length} new rows saved successfully.`, 'success');
+}
+
+async function handleQuery(
+  payload: Record<string, any>,
+  _contexts: Record<string, any>,
+): Promise<void> {
+  const { view, q, filters } = payload;
+
   const params = new URLSearchParams();
+  params.set('view', view || 'default');
   if (q) params.set('q', q);
   if (filters) {
     for (const f of filters) {
       params.append('filter', `${f.key}:${f.value}`);
     }
   }
-  params.set('view', view || 'default');
 
-  try {
-    const response = await fetch(`/api/assets?${params.toString()}`);
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
-    const result = await response.json();
+  const hasFilters = q || (filters && filters.length > 0);
+  const res = await apiFetch('/api/assets', params);
 
-    assetStore.filteredAssets = result.assets;
-  } catch (err) {
-    console.error('Search failed:', err);
-    toastState.addToast('Search failed. Please try again.', 'error');
+  if (!res.success) {
+    toastState.addToast('Query failed. Please try again.', 'error');
+    return;
   }
-}
 
-async function handleViewChange(
-  payload: Record<string, any>,
-  _contexts: Record<string, any>,
-): Promise<void> {
-  const { view, q, filters } = payload;
-  const validViews = ['default', 'audit', 'ped', 'galaxy', 'network'];
-
-  if (!validViews.includes(view)) return;
-
-  try {
-    const response = await fetch(`/api/assets?view=${view}`);
-    if (!response.ok) throw new Error(`API Error: ${response.status}`);
-    const result = await response.json();
-
-    assetStore.baseAssets = result.assets;
-
-    if (!q && (!filters || filters.length === 0)) {
-      assetStore.filteredAssets = result.assets;
-      return;
-    }
-
-    const filterParams = new URLSearchParams();
-    if (q) filterParams.set('q', q);
-    if (filters) {
-      for (const f of filters) {
-        filterParams.append('filter', `${f.key}:${f.value}`);
-      }
-    }
-    filterParams.set('view', view);
-
-    const filterResponse = await fetch(`/api/assets?${filterParams.toString()}`);
-    if (!filterResponse.ok) throw new Error(`API Error: ${filterResponse.status}`);
-    const filterResult = await filterResponse.json();
-
-    assetStore.filteredAssets = filterResult.assets;
-  } catch (err) {
-    console.error(`Failed to load ${view} view:`, err);
-    toastState.addToast(`Failed to load ${view} view.`, 'error');
+  if (hasFilters) {
+    assetStore.filteredAssets = res.data.assets;
+  } else {
+    assetStore.baseAssets = res.data.assets;
+    assetStore.filteredAssets = res.data.assets;
   }
 }
 
@@ -211,7 +181,7 @@ function handleDiscard(
   payload: Record<string, any>,
   contexts: Record<string, any>,
 ): void {
-  const { editCtx, newRowCtx } = contexts;
+  const { pendingCtx, newRowCtx } = contexts;
   const { user } = payload;
 
   if (!user) {
@@ -219,10 +189,7 @@ function handleDiscard(
     return;
   }
 
-  // Mutate proxies directly
-  editCtx.edits = [];
-  editCtx.hasUnsavedChanges = false;
-  editCtx.isValid = true;
+  pendingCtx.edits = [];
   newRowCtx.newRows = [];
   newRowCtx.hasNewRows = false;
   toastState.addToast('Changes discarded.', 'info');

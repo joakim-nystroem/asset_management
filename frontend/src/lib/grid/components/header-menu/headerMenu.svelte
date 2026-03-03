@@ -1,20 +1,19 @@
 <script lang="ts">
   import type { HeaderMenuState } from './headerMenu.svelte.ts';
-  import type { SearchManager } from '$lib/data/searchManager.svelte';
+  import { assetStore } from '$lib/data/assetStore.svelte';
+  import { getQueryContext } from '$lib/context/gridContext.svelte.ts';
 
   type SortDirection = 'asc' | 'desc';
 
   type Props = {
     state: HeaderMenuState;
     sortState: { key: string; direction: SortDirection };
-    searchManager: SearchManager;
-    assets: any[];
-    baseAssets: any[];
     onSort: (key: string, direction: SortDirection) => void;
-    onFilterSelect?: (item: string, key: string) => void;
   };
 
-  let { state, sortState, searchManager, assets, baseAssets, onSort, onFilterSelect }: Props = $props();
+  let { state, sortState, onSort }: Props = $props();
+
+  const queryCtx = getQueryContext();
 
   $effect(() => {
     if (state.activeKey) {
@@ -93,22 +92,23 @@
           </div>
 
           <div class="max-h-48 overflow-y-auto no-scrollbar">
-             {#each searchManager.getFilterItems(state.activeKey, assets, baseAssets)
-                .filter(i => i.toLowerCase().includes(state.filterSearchTerm.toLowerCase())) 
+             {#each [...new Set(assetStore.baseAssets.map((a: Record<string, any>) => String(a[state.activeKey] ?? '')).filter(Boolean))]
+                .filter((i: string) => i.toLowerCase().includes(state.filterSearchTerm.toLowerCase()))
                 as item
              }
-              <button 
-                class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full" 
+              <button
+                class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full"
                 onclick={() => {
-                  if (onFilterSelect) {
-                    onFilterSelect(item, state.activeKey);
+                  const idx = queryCtx.filters.findIndex(f => f.key === state.activeKey && f.value === item);
+                  if (idx >= 0) {
+                    queryCtx.filters.splice(idx, 1);
                   } else {
-                    searchManager.selectFilterItem(item, state.activeKey, assets);
+                    queryCtx.filters.push({ key: state.activeKey, value: item });
                   }
                 }}
               >
                 <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
-                  {#if searchManager.isFilterSelected(state.activeKey, item)}✓{/if}
+                  {#if queryCtx.filters.some(f => f.key === state.activeKey && f.value === item)}✓{/if}
                 </div>
                 <div class="truncate">{item}</div>
               </button>

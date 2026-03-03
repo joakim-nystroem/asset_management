@@ -1,4 +1,4 @@
-import type { UiContext } from '$lib/context/gridContext.svelte.ts';
+import type { UiContext, QueryContext } from '$lib/context/gridContext.svelte.ts';
 
 export class ContextMenuState {
   visible = $state(false);
@@ -44,10 +44,12 @@ export class ContextMenuState {
   }
 }
 
-export function handleFilterByValue(uiCtx: UiContext) {
+export function handleFilterByValue(uiCtx: UiContext, queryCtx: QueryContext) {
   if (!uiCtx.contextMenu?.visible) return;
   const { key, value: filterValue } = uiCtx.contextMenu;
-  // Delegate to the handleFilterSelect stored in UiContext
-  uiCtx.handleFilterSelect?.(filterValue, key);
+  const alreadyExists = queryCtx.filters.some(f => f.key === key && f.value === filterValue);
+  if (!alreadyExists) {
+    queryCtx.filters.push({ key, value: filterValue });
+  }
   uiCtx.contextMenu.close();
 }

@@ -2,17 +2,16 @@
   import { page } from '$app/state';
   import {
     getUiContext,
-    getEditContext,
+    getPendingContext,
     getNewRowContext,
-    getViewContext,
+    getQueryContext,
   } from '$lib/context/gridContext.svelte';
   import { enqueue } from './eventQueue';
-  import { searchManager } from '$lib/data/searchManager.svelte';
 
   const uiCtx = getUiContext();
-  const editCtx = getEditContext();
+  const pendingCtx = getPendingContext();
   const newRowCtx = getNewRowContext();
-  const viewCtx = getViewContext();
+  const queryCtx = getQueryContext();
 
   // ─── COMMIT_UPDATE: existing row edits ─────────────────────────────────────
   $effect(() => {
@@ -21,12 +20,12 @@
         {
           type: 'COMMIT_UPDATE',
           payload: {
-            changes: $state.snapshot(editCtx.edits),
-            hasInvalidChanges: !editCtx.isValid,
+            changes: $state.snapshot(pendingCtx.edits),
+            hasInvalidChanges: pendingCtx.edits.some((e) => !e.isValid),
             user: page.data.user ?? null,
           },
         },
-        { editCtx },
+        { pendingCtx },
       );
       uiCtx.commitRequested = false;
     }
@@ -59,27 +58,30 @@
             user: page.data.user ?? null,
           },
         },
-        { editCtx, newRowCtx },
+        { pendingCtx, newRowCtx },
       );
       uiCtx.discardRequested = false;
     }
   });
 
-  // ─── FILTER: search/filter request ─────────────────────────────────────────
+  // ─── QUERY: auto-fire on any queryCtx change (view, search, filters) ──────
+  let queryInitialized = false;
   $effect(() => {
-    if (uiCtx.searchRequested) {
-      enqueue(
-        {
-          type: 'FILTER',
-          payload: {
-            q: searchManager.inputValue,
-            filters: $state.snapshot(searchManager.selectedFilters),
-            view: viewCtx.activeView,
-          },
-        },
-        {},
-      );
-      uiCtx.searchRequested = false;
+    const view = queryCtx.view;
+    const q = queryCtx.q;
+    const filters = $state.snapshot(queryCtx.filters);
+
+    if (!queryInitialized) {
+      queryInitialized = true;
+      return;
     }
+
+    enqueue(
+      {
+        type: 'QUERY',
+        payload: { view, q, filters },
+      },
+      {},
+    );
   });
 </script>

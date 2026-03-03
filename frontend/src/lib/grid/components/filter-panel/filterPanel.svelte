@@ -1,15 +1,9 @@
 <script lang="ts">
-  import type { FilterPanelState } from './filterPanel.svelte.ts';
-  import type { SearchManager } from '$lib/data/searchManager.svelte';
-  
-  type Props = {
-    state: FilterPanelState;
-    searchManager: SearchManager;
-    onRemoveFilter?: (filter: { key: string; value: string }) => void;
-    onClearAllFilters?: () => void;
-  };
+  import { getUiContext, getQueryContext } from '$lib/context/gridContext.svelte.ts';
 
-  let { state, searchManager, onRemoveFilter, onClearAllFilters }: Props = $props();
+  const uiCtx = getUiContext();
+  const queryCtx = getQueryContext();
+  const state = uiCtx.filterPanel!;
   let panelRef: HTMLDivElement | null = null;
   
   // Handle outside clicks
@@ -49,9 +43,9 @@
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
     </svg>
     <span>Filters</span>
-    {#if searchManager.getFilterCount() > 0}
+    {#if queryCtx.filters.length > 0}
       <span class="px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-xs font-medium">
-        {searchManager.getFilterCount()}
+        {queryCtx.filters.length}
       </span>
     {/if}
   </button>
@@ -67,14 +61,10 @@
       <!-- Header -->
       <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-slate-700">
         <h3 class="font-semibold text-sm text-neutral-900 dark:text-neutral-100">Active Filters</h3>
-        {#if searchManager.getFilterCount() > 0}
+        {#if queryCtx.filters.length > 0}
           <button
             onclick={() => {
-              if (onClearAllFilters) {
-                onClearAllFilters();
-              } else {
-                searchManager.clearAllFilters();
-              }
+              queryCtx.filters = [];
               state.close();
             }}
             class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium cursor-pointer"
@@ -86,13 +76,13 @@
 
       <!-- Filter List -->
       <div class="max-h-96 overflow-y-auto">
-        {#if searchManager.getFilterCount() === 0}
+        {#if queryCtx.filters.length === 0}
           <div class="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400 text-sm">
             No active filters
           </div>
         {:else}
           <div class="p-2 space-y-1">
-            {#each searchManager.selectedFilters as filter}
+            {#each queryCtx.filters as filter, i}
               <div class="flex items-center justify-between px-3 py-2 rounded hover:bg-neutral-50 dark:hover:bg-slate-700 group">
                 <div class="flex-1 min-w-0">
                   <div class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
@@ -104,11 +94,7 @@
                 </div>
                 <button
                   onclick={() => {
-                    if (onRemoveFilter) {
-                      onRemoveFilter(filter);
-                    } else {
-                      searchManager.removeFilter(filter);
-                    }
+                    queryCtx.filters.splice(i, 1);
                   }}
                   class="ml-2 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 cursor-pointer"
                   aria-label="Remove filter"
