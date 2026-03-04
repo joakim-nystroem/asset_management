@@ -1,7 +1,7 @@
 import type { SvelteMap } from 'svelte/reactivity';
 import type { VirtualScrollManager } from '$lib/grid/utils/virtualScrollManager.svelte.ts';
 
-const DEFAULT_WIDTH = 150;
+import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
 /**
  * Compute the absolute pixel position of EditHandler within GridOverlays.

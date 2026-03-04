@@ -1,15 +1,15 @@
 <script lang="ts">
-  import { SvelteMap } from 'svelte/reactivity';
+  import { getColumnWidthContext } from '$lib/context/gridContext.svelte.ts';
 
-  const DEFAULT_WIDTH = 150;
+  import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+  const colWidthCtx = getColumnWidthContext();
 
   type Props = {
     asset: Record<string, any>;
     keys: string[];
-    columnWidths: SvelteMap<string, number>;
   };
 
-  let { asset, keys, columnWidths }: Props = $props();
+  let { asset, keys }: Props = $props();
 </script>
 
 {#each keys as key, j}
@@ -23,7 +23,7 @@
       border-r border-neutral-200 dark:border-slate-700 last:border-r-0
       px-2 cursor-cell hover:bg-blue-100 dark:hover:bg-slate-600
     "
-    style="width: {columnWidths.get(key) ?? DEFAULT_WIDTH}px; min-width: {columnWidths.get(key) ?? DEFAULT_WIDTH}px;"
+    style="width: {colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH}px; min-width: {colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH}px;"
   >
     <span class="truncate w-full">{asset[key]}</span>
   </div>

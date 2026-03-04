@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
-  import { SvelteMap } from 'svelte/reactivity';
   import {
     getEditingContext,
     getPendingContext,
@@ -8,15 +7,16 @@
     getClipboardContext,
     getViewContext,
     getUiContext,
+    getColumnWidthContext,
   } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
   import ContextMenu from '$lib/grid/components/context-menu/contextMenu.svelte';
 
-  const DEFAULT_WIDTH = 150;
+  import { DEFAULT_WIDTH, MIN_COLUMN_WIDTH } from '$lib/grid/gridConfig';
 
-  let { children, style = '' }: { children: Snippet<[SvelteMap<string, number>]>; style?: string } = $props();
+  let { children }: { children: Snippet } = $props();
 
   const editingCtx = getEditingContext();
   const pendingCtx = getPendingContext();
@@ -25,14 +25,13 @@
   const viewCtx = getViewContext();
   const uiCtx = getUiContext();
 
-  // --- Local column state (no context needed) ---
-  const columnWidths = new SvelteMap<string, number>();
+  const colWidthCtx = getColumnWidthContext();
 
   // --- Local UI state ---
   let hoveredUser: string | null = $state(null);
 
   // --- Context menu (local, passed as props) ---
-  let ctxMenu = $state({ visible: false, x: 0, y: 0, row: -1, col: -1, value: '', key: '' });
+  let ctxMenu = $state({ x: 0, y: 0, row: -1, col: -1, value: '', key: '' });
 
   function openContextMenu(e: MouseEvent, row: number, col: number, value: string, key: string) {
     const estimatedWidth = 150;
@@ -45,14 +44,9 @@
     ctxMenu.col = col;
     ctxMenu.value = value;
     ctxMenu.key = key;
-    ctxMenu.visible = true;
     uiCtx.contextMenu.visible = true;
   }
 
-  function closeContextMenu() {
-    ctxMenu.visible = false;
-    uiCtx.contextMenu.visible = false;
-  }
 
   // --- Derived data ---
   const assets = $derived(assetStore.filteredAssets);
@@ -60,7 +54,7 @@
 
   // --- Column width helper ---
   function getWidth(key: string): number {
-    return columnWidths.get(key) ?? DEFAULT_WIDTH;
+    return colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH;
   }
 
   // --- Asset ID → array index helper ---
@@ -190,8 +184,8 @@
         resetSelection();
       }
       clearClipboard();
-      if (ctxMenu.visible) closeContextMenu();
-      if (uiCtx.headerMenu.visible) uiCtx.headerMenu.visible = false;
+      if (uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
+      if (uiCtx.headerMenu.visible) { uiCtx.headerMenu.activeKey = ''; uiCtx.headerMenu.visible = false; }
       if (uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
       return;
     }
@@ -294,8 +288,15 @@
 
   // --- Mouse handlers ---
   function handleMouseDown(e: MouseEvent) {
+    // Header click — close other panels, let GridHeader handle menu toggle
+    const headerCol = (e.target as HTMLElement).closest('[data-header-col]') as HTMLElement | null;
+    if (headerCol) return;
+
     const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
+    uiCtx.headerMenu.visible = false;
+    uiCtx.headerMenu.activeKey = '';
+    uiCtx.filterPanel.visible = false;
     const row = Number(cell.dataset.row);
     const col = Number(cell.dataset.col);
     if (isNaN(row) || isNaN(col)) return;
@@ -344,8 +345,9 @@
     const key = keys[col];
     const value = String(asset?.[key] ?? '');
     selectCell(assetId, col);
+    if (uiCtx.headerMenu.visible) uiCtx.headerMenu.visible = false;
+    if (uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
     openContextMenu(e, assetId, col, value, key);
-    uiCtx.headerMenu.visible = false;
   }
 
   // --- Window-level event listeners ---
@@ -354,9 +356,32 @@
       endSelection();
     }
     function onWindowClick(e: MouseEvent) {
-      if (ctxMenu.visible) closeContextMenu();
-      if (uiCtx.headerMenu.visible) uiCtx.headerMenu.visible = false;
+      // Step 1: Snapshot current state before closing
+      const wasHeaderKey = uiCtx.headerMenu.visible ? uiCtx.headerMenu.activeKey : '';
+      const wasFilterOpen = uiCtx.filterPanel.visible;
+
+      // Step 2: Close all panels
+      if (uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
+      if (uiCtx.headerMenu.visible) { uiCtx.headerMenu.activeKey = ''; uiCtx.headerMenu.visible = false; }
       if (uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
+
+      // Step 3: If click was on a panel trigger, open it (unless toggling off)
+      const headerCol = (e.target as HTMLElement).closest('[data-header-col]') as HTMLElement | null;
+      if (headerCol) {
+        const key = keys[Number(headerCol.dataset.headerCol)];
+        if (key !== wasHeaderKey) {
+          uiCtx.headerMenu.activeKey = key;
+          uiCtx.headerMenu.visible = true;
+        }
+        return;
+      }
+
+      const filterTrigger = (e.target as HTMLElement).closest('[data-filter-trigger]');
+      if (filterTrigger) {
+        if (!wasFilterOpen) {
+          uiCtx.filterPanel.visible = true;
+        }
+      }
     }
     window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('click', onWindowClick);
@@ -453,7 +478,7 @@
 <!-- svelte-ignore a11y_mouse_events_have_key_events -->
 <div
   class="w-max min-w-full bg-white dark:bg-slate-800 text-left relative"
-  {style}
+  style="height: {viewCtx.virtualScroll.getTotalHeight(assets.length) + 32 + 16}px;"
   tabindex="-1"
   onkeydown={handleKeyDown}
   onmousedown={handleMouseDown}
@@ -554,16 +579,16 @@
   {/if}
 
   <!-- Children: GridHeader, GridRows, EditHandler -->
-  {@render children(columnWidths)}
+  {@render children()}
 
-  <ContextMenu
-    visible={ctxMenu.visible}
-    x={ctxMenu.x}
-    y={ctxMenu.y}
-    row={ctxMenu.row}
-    col={ctxMenu.col}
-    value={ctxMenu.value}
-    cellKey={ctxMenu.key}
-    onclose={closeContextMenu}
-  />
+  {#if uiCtx.contextMenu.visible}
+    <ContextMenu
+      x={ctxMenu.x}
+      y={ctxMenu.y}
+      row={ctxMenu.row}
+      col={ctxMenu.col}
+      value={ctxMenu.value}
+      cellKey={ctxMenu.key}
+    />
+  {/if}
 </div>
