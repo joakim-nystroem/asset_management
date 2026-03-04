@@ -1,58 +1,86 @@
-# Project: Collaborative Inventory Grid — Architecture Rehaul
+# Asset Management System
 
-## Overview
+## What This Is
 
-A comprehensive architectural rehaul of the existing SvelteKit asset management system to align with the "To-Be Architecture" specification. The current system is a functional but tightly-coupled monolith centered around a 1200+ line `+page.svelte` file using module-level singletons. The goal is to refactor it into a strictly decoupled, context-driven, component-autonomous architecture.
+An inventory management system built around a high-performance, Excel-like data grid. Users view, edit, sort, filter, and search asset data in a reactive grid with virtual scrolling, real-time multi-user presence, and a serial event queue for network operations. The system also includes admin panels and mobile views for audit workflows.
 
-## Problem Statement
+## Core Value
 
-The current architecture has several structural issues that limit scalability, testability, and collaborative development:
+The grid must feel like a native spreadsheet — fast cell editing, keyboard navigation, multi-cell selection, copy/paste, and instant visual feedback for dirty state. Everything else serves this.
 
-1. **Module-level singletons** — All managers (`editManager`, `selectionManager`, `columnManager`, etc.) are module-level singletons, making them impossible to scope, test in isolation, or have multiple instances
-2. **Monolithic page component** — `+page.svelte` (~1200 lines) orchestrates all state, data fetching, event handling, and UI rendering
-3. **Prop drilling risk** — Components receive too much from the page and import singletons directly
-4. **Inline editor in GridRow** — The textarea editor lives inside each cell, not as a floating component
-5. **Client-side filtering** — `searchManager.getFilterItems()` does client-side array filtering instead of DB queries
-6. **No WebSocket delta sync** — Commits don't broadcast specific cell changes; clients need full refetch
-7. **Tightly-coupled grid components** — `GridRow` and `GridOverlays` import singletons directly
+## Requirements
 
-## Target Architecture
+### Validated
 
-Based on the "To-Be Architecture: Collaborative Inventory Grid" specification:
+<!-- Shipped and confirmed working in current codebase. -->
 
-- **Svelte 5 Context** (`createContext`) for inter-component communication — no prop drilling, no singletons
-- **InventoryGrid** as the main autonomous component owning all grid state locally
-- **FloatingEditor** positioned absolutely via context coordinates — outside grid DOM hierarchy
-- **GridContainer** rendering only visible rows, ignorant of editors/menus
-- **ContextMenu** as independent command dispatcher
-- **DB-side filtering** via Kysely — no client-side array processing
-- **Spatial clipboard** with 0,0-indexed mini-grid and marching ants overlay
-- **Session undo/redo** with local history stack (Yellow=Invalid, Green=Valid draft cells)
-- **WebSocket delta sync** — broadcast only changed cells on commit
+- ✓ Virtual-scrolled grid rendering with visible-row-only DOM — existing
+- ✓ Cell selection (click, shift-click, keyboard arrows, shift-extend) with overlay rendering — existing
+- ✓ Inline cell editing (textarea, constrained dropdowns, free-text autocomplete) — existing
+- ✓ Dirty cell tracking via PendingContext with overlay indicators — existing
+- ✓ Multi-cell copy/paste via clipboard API — existing
+- ✓ Column sorting via HeaderMenu with SortContext — existing
+- ✓ Column filtering via HeaderMenu + FilterPanel + QueryContext — existing
+- ✓ Search via Toolbar → QueryContext — existing
+- ✓ Context menu (edit, copy, paste, filter-by-value) — existing
+- ✓ Column width management via ColumnWidthContext — existing
+- ✓ View selector (Default, Audit, PED, Galaxy, Network) — existing
+- ✓ Serial event queue (EventListener → eventQueue → eventHandler) — existing
+- ✓ Commit/discard workflow (pending edits → API → clear) — existing
+- ✓ Real-time WebSocket presence and cell locking — existing
+- ✓ Session-based authentication with server hooks — existing
+- ✓ Toast notification system — existing
+- ✓ API layer for asset CRUD with change logging — existing
+- ✓ Admin panel (locations, statuses, conditions, departments, audit management) — existing
+- ✓ Mobile views (audit completion, asset management with barcode scanning) — existing
 
-## Tech Stack
+### Active
 
-- SvelteKit 2.43.2 + Svelte 5.49.1 (runes: $state, $derived, $effect, createContext)
-- Kysely 0.28.8 + MariaDB (host: 10.236.133.207, port: 3101, db: asset_db)
-- Go WebSocket server (port 8080) for real-time presence + delta sync
-- Tailwind CSS v4 + Vite 7
-- TypeScript strict mode
+<!-- Current scope. Building toward these. -->
+
+- [ ] Undo/redo system (HistoryContext populated, Ctrl+Z/Y forwarding, batch support for multi-cell ops)
+- [ ] Cell validation (constraint checking on save, isValid flag in pending edits, invalid cell indicators)
+- [ ] New row component set (NewRow manager, rows pushed into filteredAssets, same editing as existing rows)
+- [ ] Custom scrollbar for virtual scroller (cross-browser consistent, styled, integrated with virtual scroll)
+- [ ] Code cleanup (remove refactor bloat, dead code, unused helpers like startCellEdit())
+
+### Out of Scope
+
+<!-- Explicit boundaries. -->
+
+- Admin panel refactor — deferred until main grid refactor complete
+- Mobile page refactor — deferred until main grid refactor complete
+- Test suite — important but separate initiative from the architecture refactor
+- Pagination/lazy-loading — virtual scroll handles current dataset sizes
+- Conflict resolution (CRDT/OT) — WebSocket locking sufficient for current user count
+
+## Context
+
+The application is mid-refactor on the `arch-rehaul` branch. The original codebase used singleton manager patterns (editManager, columnManager, sortManager, etc.) which have been replaced with a context-based architecture using Svelte 5's `createContext()`. All former controllers are eliminated — state lives in 12 typed contexts, logic lives in owning components.
+
+The architecture rules are codified in `CLAUDE.md` at the project root. This is the source of truth for file responsibilities, context shapes, and design principles.
+
+The refactor is 80-90% complete. The grid renders, edits, sorts, filters, copies, pastes, and commits. The remaining work (undo/redo, validation, new rows, custom scrollbar, cleanup) builds on a stable foundation.
 
 ## Constraints
 
-- **Zero regressions** — All existing functionality must continue working throughout refactor
-- **Incremental migration** — Each phase must leave the app in a working state
-- **No DB schema changes** — Architecture rehaul is frontend/state management only
-- **Preserve WebSocket protocol** — Go server message types unchanged; only add new ones
-- **svelte-check must pass** after each phase
+- **Tech stack**: SvelteKit + Svelte 5 runes, Kysely ORM, MariaDB — no changes
+- **Architecture**: Context-based state, component-owned logic, no controllers — per CLAUDE.md
+- **No optimistic mutation**: `filteredAssets` stays clean during editing; pending edits render as overlays
+- **Branch**: All work on `arch-rehaul` branch
 
-## Success Criteria
+## Key Decisions
 
-- [ ] All managers scoped via Svelte 5 context (no module singletons in grid path)
-- [ ] `+page.svelte` reduced to thin route shell (< 100 lines)
-- [ ] `FloatingEditor` is a standalone autonomous component
-- [ ] `GridContainer` has zero knowledge of editors, menus, or clipboard
-- [ ] Filters/search execute Kysely queries server-side
-- [ ] WebSocket broadcasts delta changes on commit
-- [ ] Full undo/redo with session history stack
-- [ ] `svelte-check` passes with no new errors
+| Decision | Rationale | Outcome |
+|----------|-----------|---------|
+| Contexts over controllers | Controllers mixed state + logic + context access; contexts separate concerns cleanly | ✓ Good |
+| 12 typed contexts | Each context has a single responsibility; no god-context | ✓ Good |
+| Panel system (uiCtx + onWindowClick) | Unified open/close pattern for all dropdowns and panels | ✓ Good |
+| No optimistic mutation | Simplifies rollback (discard = clear pending), avoids data corruption edge cases | ✓ Good |
+| Copy/paste in EditHandler | Single owner for clipboard operations, triggered via context flags | ✓ Good |
+| Sort owned by HeaderMenu | Sort is a header action, not a grid-wide concern | ✓ Good |
+| New rows as regular GridRows | Same editing path, no parallel logic — `NEW-N` string IDs distinguish from server rows | — Pending |
+| Custom scrollbar | Browser defaults inconsistent and clash with virtual scroll UX | — Pending |
+
+---
+*Last updated: 2026-03-04 after project reinitialization*
