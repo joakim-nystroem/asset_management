@@ -30,6 +30,9 @@
   // --- Local UI state ---
   let hoveredUser: string | null = $state(null);
 
+  // --- Resize drag state ---
+  let resizeDrag = $state<{ key: string; startX: number; startWidth: number } | null>(null);
+
   // --- Context menu (local, passed as props) ---
   let ctxMenu = $state({ x: 0, y: 0, row: -1, col: -1, value: '', key: '' });
 
@@ -288,6 +291,18 @@
 
   // --- Mouse handlers ---
   function handleMouseDown(e: MouseEvent) {
+    // Resize handle check — MUST come before header-col check (handle is inside header col)
+    const handle = (e.target as HTMLElement).closest('[data-resize-handle]') as HTMLElement | null;
+    if (handle) {
+      const key = handle.dataset.resizeHandle!;
+      const startWidth = colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH;
+      resizeDrag = { key, startX: e.clientX, startWidth };
+      document.body.style.cursor = 'col-resize';
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
     // Header click — close other panels, let GridHeader handle menu toggle
     const headerCol = (e.target as HTMLElement).closest('[data-header-col]') as HTMLElement | null;
     if (headerCol) return;
@@ -308,6 +323,7 @@
   }
 
   function handleMouseOver(e: MouseEvent) {
+    if (resizeDrag) return; // Don't extend selection while resizing
     const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
     const row = Number(cell.dataset.row);
@@ -352,9 +368,21 @@
 
   // --- Window-level event listeners ---
   $effect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!resizeDrag) return;
+      const delta = e.clientX - resizeDrag.startX;
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, resizeDrag.startWidth + delta);
+      colWidthCtx.widths.set(resizeDrag.key, newWidth);
+    }
+
     function onMouseUp() {
       endSelection();
+      if (resizeDrag) {
+        document.body.style.cursor = '';
+        resizeDrag = null;
+      }
     }
+
     function onWindowClick(e: MouseEvent) {
       // Step 1: Snapshot current state before closing
       const wasHeaderKey = uiCtx.headerMenu.visible ? uiCtx.headerMenu.activeKey : '';
@@ -383,9 +411,12 @@
         }
       }
     }
+
+    window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     window.addEventListener('click', onWindowClick);
     return () => {
+      window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
       window.removeEventListener('click', onWindowClick);
     };
