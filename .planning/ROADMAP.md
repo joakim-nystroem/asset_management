@@ -13,6 +13,7 @@ Five phases that complete the arch-rehaul refactor. The grid already renders, ed
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Grid Fixes** - Apply ColumnWidthContext widths correctly in GridHeader and GridRow
+- [ ] **Phase 01.1: closePanels helper** - Extract repeated panel-closing pattern into reusable helper (INSERTED)
 - [ ] **Phase 2: Validation** - Real constraint checking on cell save with commit gating
 - [ ] **Phase 3: New Row** - NewRow component set with full editing parity to existing rows
 - [ ] **Phase 4: Undo/Redo** - HistoryContext population, Ctrl+Z/Y, batch undo for paste
@@ -31,6 +32,16 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md — Create gridConfig.ts constants module, migrate DEFAULT_WIDTH imports, implement drag-to-resize in GridOverlays
+
+### Phase 01.1: closePanels helper function (INSERTED)
+
+**Goal:** Consolidate the repeated panel-closing pattern in GridOverlays into a single closePanels() helper function
+**Requirements**: None (inserted polish phase, no formal requirements)
+**Depends on:** Phase 1
+**Plans:** 1 plan
+
+Plans:
+- [ ] 01.1-01-PLAN.md — Create closePanels() helper and replace all 5 inline panel-closing patterns in GridOverlays
 
 ### Phase 2: Validation
 **Goal**: Cell saves check real constraints and the commit workflow reflects actual validity
@@ -79,11 +90,12 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 01.1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Grid Fixes | 1/1 | Complete | 2026-03-04 |
+| 1. Grid Fixes | 1/1 | Complete    | 2026-03-04 |
+| 01.1. closePanels helper | 0/1 | Not started | - |
 | 2. Validation | 0/TBD | Not started | - |
 | 3. New Row | 0/TBD | Not started | - |
 | 4. Undo/Redo | 0/TBD | Not started | - |
