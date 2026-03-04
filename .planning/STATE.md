@@ -1,3 +1,16 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+last_updated: "2026-03-04T03:30:35Z"
+progress:
+  total_phases: 2
+  completed_phases: 1
+  total_plans: 2
+  completed_plans: 2
+---
+
 # Project State
 
 ## Project Reference
@@ -9,29 +22,30 @@ See: .planning/PROJECT.md (updated 2026-03-04)
 
 ## Current Position
 
-Phase: 1 of 5 (Grid Fixes)
-Plan: 1 of TBD in current phase
-Status: Plan 01-01 complete — drag-to-resize and gridConfig.ts done
-Last activity: 2026-03-04 — Executed 01-01 (drag-to-resize column headers)
+Phase: 01.1 (closePanels helper function) — COMPLETE
+Plan: 1 of 1 in current phase
+Status: Plan 01.1-01 complete — setOpenPanel() helper extracted in GridOverlays
+Last activity: 2026-03-04 — Executed 01.1-01 (setOpenPanel helper function)
 
-Progress: [█░░░░░░░░░] ~5%
+Progress: [██░░░░░░░░] ~10%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 3 min
-- Total execution time: 3 min
+- Total plans completed: 2
+- Average duration: 4 min
+- Total execution time: 8 min
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-grid-fixes | 1 | 3 min | 3 min |
+| 01.1-closepanels-helper-function | 1 | 5 min | 5 min |
 
 **Recent Trend:**
-- Last 5 plans: 3 min
-- Trend: —
+- Last 5 plans: 5 min, 3 min
+- Trend: stable
 
 *Updated after each plan completion*
 
@@ -48,6 +62,11 @@ Recent decisions affecting current work:
 - gridConfig.ts: shared constants file for grid-wide magic numbers — import from here, never re-declare (01-01)
 - Resize interaction owned entirely by GridOverlays — aligns with CLAUDE.md that GridOverlays owns ALL mouse events (01-01)
 - data-* handshake pattern: child declares data attribute, GridOverlays detects via .closest() — no prop drilling needed (01-01)
+- setOpenPanel() pattern: pass panel to keep open as argument, omit to close all — string literal union type, local to GridOverlays (01.1-01)
+
+### Roadmap Evolution
+
+- Phase 01.1 inserted after Phase 1: closePanels helper function (URGENT)
 
 ### Pending Todos
 
@@ -62,5 +81,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-04
-Stopped at: Completed 01-01-PLAN.md (drag-to-resize column headers)
-Resume file: .planning/phases/01-grid-fixes/01-01-SUMMARY.md
+Stopped at: Completed 01.1-01-PLAN.md (setOpenPanel helper function)
+Resume file: .planning/phases/01.1-closepanels-helper-function/01.1-01-SUMMARY.md
