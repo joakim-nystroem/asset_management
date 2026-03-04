@@ -294,6 +294,11 @@
     // Resize handle check — MUST come before header-col check (handle is inside header col)
     const handle = (e.target as HTMLElement).closest('[data-resize-handle]') as HTMLElement | null;
     if (handle) {
+      // Close any open panels before starting resize
+      if (uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
+      if (uiCtx.headerMenu.visible) { uiCtx.headerMenu.activeKey = ''; uiCtx.headerMenu.visible = false; }
+      if (uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
+
       const key = handle.dataset.resizeHandle!;
       const startWidth = colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH;
       resizeDrag = { key, startX: e.clientX, startWidth };
