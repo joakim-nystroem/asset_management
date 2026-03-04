@@ -33,6 +33,16 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Create gridConfig.ts constants module, migrate DEFAULT_WIDTH imports, implement drag-to-resize in GridOverlays
 
+### Phase 01.2: Interaction Grid Layer (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 1
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 01.2 to break down)
+
 ### Phase 01.1: closePanels helper function (INSERTED)
 
 **Goal:** Consolidate the repeated panel-closing pattern in GridOverlays into a single closePanels() helper function
