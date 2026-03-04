@@ -1,25 +1,19 @@
 <script lang="ts">
-  import { SvelteMap } from 'svelte/reactivity';
-  import { getEditingContext, getPendingContext, getSelectionContext, getClipboardContext, getViewContext } from '$lib/context/gridContext.svelte.ts';
+  import { getEditingContext, getPendingContext, getSelectionContext, getClipboardContext, getViewContext, getColumnWidthContext } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import EditDropdownComponent from '$lib/grid/components/edit-dropdown/editDropdown.svelte';
   import AutocompleteComponent from '$lib/grid/components/suggestion-menu/autocomplete.svelte';
   import { createEditDropdown } from '$lib/grid/components/edit-dropdown/editDropdown.svelte.ts';
   import { createAutocomplete } from '$lib/grid/components/suggestion-menu/autocomplete.svelte.ts';
   import { computeEditorPosition } from './editHandler.svelte.ts';
+  import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
   const editingCtx = getEditingContext();
   const pendingCtx = getPendingContext();
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
   const viewCtx = getViewContext();
-
-  type Props = {
-    columnWidths: SvelteMap<string, number>;
-  };
-  let { columnWidths }: Props = $props();
-
-  const DEFAULT_WIDTH = 150;
+  const colWidthCtx = getColumnWidthContext();
   const assets = $derived(assetStore.filteredAssets);
   const keys = $derived(Object.keys(assets[0] ?? {}));
 
@@ -47,7 +41,7 @@
       editingCtx.editRow,
       editingCtx.editCol,
       editKey,
-      columnWidths,
+      colWidthCtx.widths,
       keys,
       assets,
       viewCtx.virtualScroll
