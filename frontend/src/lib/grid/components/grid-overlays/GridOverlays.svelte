@@ -617,12 +617,14 @@
 
   {#if uiCtx.contextMenu.visible}
     <ContextMenu
+      visible={true}
       x={ctxMenu.x}
       y={ctxMenu.y}
       row={ctxMenu.row}
       col={ctxMenu.col}
       value={ctxMenu.value}
       cellKey={ctxMenu.key}
+      onclose={() => uiCtx.contextMenu.visible = false}
     />
   {/if}
 </div>

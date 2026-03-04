@@ -65,14 +65,19 @@ export type ViewContext = {
 // 9. UI panel states (mutually exclusive) + trigger flags
 export type UiContext = {
   filterPanel: { visible: boolean };
-  headerMenu: { visible: boolean };
+  headerMenu: { visible: boolean; activeKey: string };
   contextMenu: { visible: boolean };
   commitRequested: boolean;
   commitCreateRequested: boolean;
   discardRequested: boolean;
 };
 
-// 11. Sort state (client-side reorder, cleared on search/filter/view change)
+// 11. Column width overrides (drag-resize)
+export type ColumnWidthContext = {
+  widths: import('svelte/reactivity').SvelteMap<string, number>;
+};
+
+// 12. Sort state (client-side reorder, cleared on search/filter/view change)
 export type SortContext = {
   key: string | null;
   direction: 'asc' | 'desc';
@@ -97,4 +102,5 @@ export const [getRowContext, setRowContext] = createContext<RowContext>();
 export const [getViewContext, setViewContext] = createContext<ViewContext>();
 export const [getUiContext, setUiContext] = createContext<UiContext>();
 export const [getQueryContext, setQueryContext] = createContext<QueryContext>();
+export const [getColumnWidthContext, setColumnWidthContext] = createContext<ColumnWidthContext>();
 export const [getSortContext, setSortContext] = createContext<SortContext>();

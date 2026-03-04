@@ -14,6 +14,7 @@
     setViewContext,
     setUiContext,
     setQueryContext,
+    setColumnWidthContext,
     setSortContext,
   } from '$lib/context/gridContext.svelte.ts';
 
@@ -81,13 +82,18 @@
 
   let uiCtx = $state({
     filterPanel: { visible: false },
-    headerMenu: { visible: false },
+    headerMenu: { visible: false, activeKey: '' },
     contextMenu: { visible: false },
     commitRequested: false,
     commitCreateRequested: false,
     discardRequested: false,
   });
   setUiContext(uiCtx);
+
+  let colWidthCtx = $state({
+    widths: new SvelteMap<string, number>(),
+  });
+  setColumnWidthContext(colWidthCtx);
 
   let sortCtx = $state({
     key: null as string | null,

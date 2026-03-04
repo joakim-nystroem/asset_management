@@ -78,33 +78,24 @@
     class="rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
     tabindex="-1"
   >
-    <GridOverlays style="height: {virtualScroll.getTotalHeight(assets.length) + 32 + 16}px;">
-      {#snippet children(columnWidths)}
-        <GridHeader
-          {keys}
-          {columnWidths}
-        />
+    <GridOverlays>
+      <GridHeader {keys} />
 
-        <div
-          class="absolute top-8 w-full"
-          style="transform: translateY({virtualScroll.getOffsetY()}px);"
-        >
-          {#each visibleData.items as asset, i (asset.id || visibleData.startIndex + i)}
-            <div
-              class="flex border-b border-neutral-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700"
-              style="height: {virtualScroll.rowHeight}px;"
-            >
-              <GridRow
-                {asset}
-                {keys}
-                {columnWidths}
-              />
-            </div>
-          {/each}
-        </div>
+      <div
+        class="absolute top-8 w-full"
+        style="transform: translateY({virtualScroll.getOffsetY()}px);"
+      >
+        {#each visibleData.items as asset, i (asset.id || visibleData.startIndex + i)}
+          <div
+            class="flex border-b border-neutral-200 dark:border-slate-700 hover:bg-blue-50 dark:hover:bg-slate-700"
+            style="height: {virtualScroll.rowHeight}px;"
+          >
+            <GridRow {asset} {keys} />
+          </div>
+        {/each}
+      </div>
 
-        <EditHandler {columnWidths} />
-      {/snippet}
+      <EditHandler />
     </GridOverlays>
   </div>
   <p class="mt-2 ml-1 text-sm text-neutral-600 dark:text-neutral-300">
