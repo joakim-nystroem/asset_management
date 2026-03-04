@@ -72,6 +72,13 @@
     return { left, right: left + getWidth(keys[col]) };
   }
 
+  // --- Panel management helper ---
+  function setOpenPanel(panel?: 'contextMenu' | 'headerMenu' | 'filterPanel') {
+    if (panel !== 'contextMenu' && uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
+    if (panel !== 'headerMenu' && uiCtx.headerMenu.visible) { uiCtx.headerMenu.activeKey = ''; uiCtx.headerMenu.visible = false; }
+    if (panel !== 'filterPanel' && uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
+  }
+
   // --- Selection helpers (inlined from selCtx) ---
   let isDragging = false;
 
@@ -187,9 +194,7 @@
         resetSelection();
       }
       clearClipboard();
-      if (uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
-      if (uiCtx.headerMenu.visible) { uiCtx.headerMenu.activeKey = ''; uiCtx.headerMenu.visible = false; }
-      if (uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
+      setOpenPanel();
       return;
     }
 
@@ -295,9 +300,7 @@
     const handle = (e.target as HTMLElement).closest('[data-resize-handle]') as HTMLElement | null;
     if (handle) {
       // Close any open panels before starting resize
-      if (uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
-      if (uiCtx.headerMenu.visible) { uiCtx.headerMenu.activeKey = ''; uiCtx.headerMenu.visible = false; }
-      if (uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
+      setOpenPanel();
 
       const key = handle.dataset.resizeHandle!;
       const startWidth = colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH;
@@ -314,9 +317,7 @@
 
     const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
-    uiCtx.headerMenu.visible = false;
-    uiCtx.headerMenu.activeKey = '';
-    uiCtx.filterPanel.visible = false;
+    setOpenPanel('contextMenu');
     const row = Number(cell.dataset.row);
     const col = Number(cell.dataset.col);
     if (isNaN(row) || isNaN(col)) return;
@@ -366,8 +367,7 @@
     const key = keys[col];
     const value = String(asset?.[key] ?? '');
     selectCell(assetId, col);
-    if (uiCtx.headerMenu.visible) uiCtx.headerMenu.visible = false;
-    if (uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
+    setOpenPanel('contextMenu');
     openContextMenu(e, assetId, col, value, key);
   }
 
@@ -394,9 +394,7 @@
       const wasFilterOpen = uiCtx.filterPanel.visible;
 
       // Step 2: Close all panels
-      if (uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
-      if (uiCtx.headerMenu.visible) { uiCtx.headerMenu.activeKey = ''; uiCtx.headerMenu.visible = false; }
-      if (uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
+      setOpenPanel();
 
       // Step 3: If click was on a panel trigger, open it (unless toggling off)
       const headerCol = (e.target as HTMLElement).closest('[data-header-col]') as HTMLElement | null;
