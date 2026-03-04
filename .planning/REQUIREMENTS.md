@@ -77,29 +77,29 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UNDO-01 | — | Pending |
-| UNDO-02 | — | Pending |
-| UNDO-03 | — | Pending |
-| UNDO-04 | — | Pending |
-| VALID-01 | — | Pending |
-| VALID-02 | — | Pending |
-| VALID-03 | — | Pending |
-| NROW-01 | — | Pending |
-| NROW-02 | — | Pending |
-| NROW-03 | — | Pending |
-| NROW-04 | — | Pending |
-| NROW-05 | — | Pending |
-| SCRL-01 | — | Pending |
-| SCRL-02 | — | Pending |
-| SCRL-03 | — | Pending |
-| GRID-01 | — | Pending |
-| GRID-02 | — | Pending |
+| GRID-01 | Phase 1 | Pending |
+| GRID-02 | Phase 1 | Pending |
+| VALID-01 | Phase 2 | Pending |
+| VALID-02 | Phase 2 | Pending |
+| VALID-03 | Phase 2 | Pending |
+| NROW-01 | Phase 3 | Pending |
+| NROW-02 | Phase 3 | Pending |
+| NROW-03 | Phase 3 | Pending |
+| NROW-04 | Phase 3 | Pending |
+| NROW-05 | Phase 3 | Pending |
+| UNDO-01 | Phase 4 | Pending |
+| UNDO-02 | Phase 4 | Pending |
+| UNDO-03 | Phase 4 | Pending |
+| UNDO-04 | Phase 4 | Pending |
+| SCRL-01 | Phase 5 | Pending |
+| SCRL-02 | Phase 5 | Pending |
+| SCRL-03 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 17 total
-- Mapped to phases: 0
-- Unmapped: 17
+- Mapped to phases: 17
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-04*
-*Last updated: 2026-03-04 after initial definition*
+*Last updated: 2026-03-04 — traceability filled after roadmap creation*
