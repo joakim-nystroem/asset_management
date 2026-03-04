@@ -14,6 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Grid Fixes** - Apply ColumnWidthContext widths correctly in GridHeader and GridRow
 - [x] **Phase 01.1: closePanels helper** - Extract repeated panel-closing pattern into reusable helper (INSERTED)
+- [ ] **Phase 01.2: Interaction Grid Layer** - Gut GridOverlays, move interaction to GridContainer (INSERTED)
 - [ ] **Phase 2: Validation** - Real constraint checking on cell save with commit gating
 - [ ] **Phase 3: New Row** - NewRow component set with full editing parity to existing rows
 - [ ] **Phase 4: Undo/Redo** - HistoryContext population, Ctrl+Z/Y, batch undo for paste
@@ -35,13 +36,19 @@ Plans:
 
 ### Phase 01.2: Interaction Grid Layer (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
-**Depends on:** Phase 1
-**Plans:** 0 plans
+**Goal:** GridContainer owns all user interaction (mouse, keyboard, resize, context menu, panel management) and GridOverlays is a pure overlay-only renderer with zero event listeners
+**Requirements**: None (inserted phase, no formal requirements)
+**Depends on:** Phase 01.1
+**Success Criteria** (what must be TRUE):
+  1. GridContainer.svelte owns all mouse/keyboard event listeners and context menu rendering
+  2. GridOverlays.svelte renders only visual overlays (dirty cells, selection, copy, user cursors) with no event handlers
+  3. All existing interaction works identically: cell selection, keyboard navigation, column resize, context menu, panel management
+  4. DOM structure inverted: GridOverlays is a child of GridContainer, not a wrapper
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 01.2 to break down)
+- [ ] 01.2-01-PLAN.md — Create companion files: gridContainer.svelte.ts, gridKeyboardHandler.ts, gridContainerHelpers.ts
+- [ ] 01.2-02-PLAN.md — Rewrite GridContainer.svelte and GridOverlays.svelte (atomic swap)
 
 ### Phase 01.1: closePanels helper function (INSERTED)
 
@@ -100,12 +107,13 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 01.1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 01.1 → 01.2 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Grid Fixes | 1/1 | Complete    | 2026-03-04 |
 | 01.1. closePanels helper | 1/1 | Complete    | 2026-03-04 |
+| 01.2. Interaction Grid Layer | 0/2 | Not started | - |
 | 2. Validation | 0/TBD | Not started | - |
 | 3. New Row | 0/TBD | Not started | - |
 | 4. Undo/Redo | 0/TBD | Not started | - |
