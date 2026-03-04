@@ -27,7 +27,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Success Criteria** (what must be TRUE):
   1. Resizing a column header updates the rendered width in both the header and all data rows simultaneously
   2. Column width state from ColumnWidthContext is the sole source of width for GridHeader and GridRow — no hardcoded or fallback widths override it
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md — Create gridConfig.ts constants module, migrate DEFAULT_WIDTH imports, implement drag-to-resize in GridOverlays
 
 ### Phase 2: Validation
 **Goal**: Cell saves check real constraints and the commit workflow reflects actual validity
@@ -80,7 +83,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Grid Fixes | 0/TBD | Not started | - |
+| 1. Grid Fixes | 0/1 | Planned | - |
 | 2. Validation | 0/TBD | Not started | - |
 | 3. New Row | 0/TBD | Not started | - |
 | 4. Undo/Redo | 0/TBD | Not started | - |
