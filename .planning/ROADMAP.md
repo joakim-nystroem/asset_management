@@ -12,7 +12,7 @@ Five phases that complete the arch-rehaul refactor. The grid already renders, ed
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Grid Fixes** - Apply ColumnWidthContext widths correctly in GridHeader and GridRow
+- [x] **Phase 1: Grid Fixes** - Apply ColumnWidthContext widths correctly in GridHeader and GridRow
 - [ ] **Phase 2: Validation** - Real constraint checking on cell save with commit gating
 - [ ] **Phase 3: New Row** - NewRow component set with full editing parity to existing rows
 - [ ] **Phase 4: Undo/Redo** - HistoryContext population, Ctrl+Z/Y, batch undo for paste
@@ -30,7 +30,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md — Create gridConfig.ts constants module, migrate DEFAULT_WIDTH imports, implement drag-to-resize in GridOverlays
+- [x] 01-01-PLAN.md — Create gridConfig.ts constants module, migrate DEFAULT_WIDTH imports, implement drag-to-resize in GridOverlays
 
 ### Phase 2: Validation
 **Goal**: Cell saves check real constraints and the commit workflow reflects actual validity
@@ -83,7 +83,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Grid Fixes | 0/1 | Planned | - |
+| 1. Grid Fixes | 1/1 | Complete | 2026-03-04 |
 | 2. Validation | 0/TBD | Not started | - |
 | 3. New Row | 0/TBD | Not started | - |
 | 4. Undo/Redo | 0/TBD | Not started | - |

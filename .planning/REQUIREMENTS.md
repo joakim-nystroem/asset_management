@@ -36,8 +36,8 @@ Requirements for completing the architecture refactor. Each maps to roadmap phas
 
 ### Grid Fixes
 
-- [ ] **GRID-01**: Column widths from ColumnWidthContext are applied in GridHeader column rendering
-- [ ] **GRID-02**: Column widths from ColumnWidthContext are applied in GridRow cell rendering
+- [x] **GRID-01**: Column widths from ColumnWidthContext are applied in GridHeader column rendering
+- [x] **GRID-02**: Column widths from ColumnWidthContext are applied in GridRow cell rendering
 
 ## v2 Requirements
 
@@ -77,8 +77,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| GRID-01 | Phase 1 | Pending |
-| GRID-02 | Phase 1 | Pending |
+| GRID-01 | Phase 1 | Complete (01-01) |
+| GRID-02 | Phase 1 | Complete (01-01) |
 | VALID-01 | Phase 2 | Pending |
 | VALID-02 | Phase 2 | Pending |
 | VALID-03 | Phase 2 | Pending |
