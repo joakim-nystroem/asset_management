@@ -9,17 +9,17 @@ Requirements for this refactor. Each maps to roadmap phases.
 
 ### Selection Model
 
-- [ ] **SEL-01**: Selection uses two anchor points (`selectionStart`, `selectionEnd`) with `{ row: number, col: string }` — col is column key, not numeric index
+- [x] **SEL-01**: Selection uses two anchor points (`selectionStart`, `selectionEnd`) with `{ row: number, col: string }` — col is column key, not numeric index
 - [ ] **SEL-02**: `selectedCells: GridCell[]` is `$derived` from rectangle bounds (min/max of start/end) by iterating `filteredAssets` within range — always complete, no gaps
 - [ ] **SEL-03**: User can click a cell to select it (per-cell `<button>` with click handler, no DOM crawling)
 - [ ] **SEL-04**: User can shift+click to select rectangular range from current selection to clicked cell
 - [ ] **SEL-05**: User can drag to select range — mousedown sets anchor, mouseenter on cells updates `selectionEnd`, rectangle derived from bounds
 - [ ] **SEL-06**: Drag mouseup listener on window — drag ends even if mouse leaves the grid
-- [ ] **SEL-07**: User can arrow-key navigate between cells (moves selection)
-- [ ] **SEL-08**: User can shift+arrow to extend selection range
+- [x] **SEL-07**: User can arrow-key navigate between cells (moves selection)
+- [x] **SEL-08**: User can shift+arrow to extend selection range
 - [ ] **SEL-09**: User can Ctrl+Shift+Arrow to select from current cell to edge of grid (Excel-style)
-- [ ] **SEL-10**: User can press Escape to clear selection
-- [ ] **SEL-11**: Selection survives virtual scroll — selected cells remain selected when scrolled out of view and back
+- [x] **SEL-10**: User can press Escape to clear selection
+- [x] **SEL-11**: Selection survives virtual scroll — selected cells remain selected when scrolled out of view and back
 
 ### Per-Cell Interaction
 
@@ -53,7 +53,7 @@ Requirements for this refactor. Each maps to roadmap phases.
 
 - [ ] **CONT-01**: All existing grid functionality works after refactor: edit, sort, filter, context menu, header menu, column resize, commit, discard, search, new row, view selector
 - [ ] **CONT-02**: Each phase leaves the grid in a fully working state — no intermediate breakage
-- [ ] **CONT-03**: `col: number` → `col: string` migration is atomic — all consumers updated in same commit (overlay math, clipboard, editor position)
+- [x] **CONT-03**: `col: number` → `col: string` migration is atomic — all consumers updated in same commit (overlay math, clipboard, editor position)
 
 ## v2 Requirements
 
@@ -94,17 +94,17 @@ Deferred to future milestones. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEL-01 | Phase 1 | Pending |
+| SEL-01 | Phase 1 | Complete |
 | SEL-02 | Phase 1 | Pending |
 | SEL-03 | Phase 1 | Pending |
 | SEL-04 | Phase 1 | Pending |
 | SEL-05 | Phase 1 | Pending |
 | SEL-06 | Phase 1 | Pending |
-| SEL-07 | Phase 1 | Pending |
-| SEL-08 | Phase 1 | Pending |
+| SEL-07 | Phase 1 | Complete |
+| SEL-08 | Phase 1 | Complete |
 | SEL-09 | Phase 2 | Pending |
-| SEL-10 | Phase 1 | Pending |
-| SEL-11 | Phase 1 | Pending |
+| SEL-10 | Phase 1 | Complete |
+| SEL-11 | Phase 1 | Complete |
 | CELL-01 | Phase 1 | Pending |
 | CELL-02 | Phase 1 | Pending |
 | CELL-03 | Phase 1 | Pending |
@@ -126,7 +126,7 @@ Deferred to future milestones. Tracked but not in current roadmap.
 | OVER-05 | Phase 3 | Pending |
 | CONT-01 | All | Pending |
 | CONT-02 | All | Pending |
-| CONT-03 | Phase 1 | Pending |
+| CONT-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 33 total

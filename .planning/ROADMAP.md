@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can arrow-key navigate between cells and shift+arrow to extend selection
   4. User can double-click a cell to start editing it, and right-click to open the context menu with that cell's data
   5. No `closest()`, `dataset`, `data-row`, or `data-col` lookups exist anywhere in the interaction code paths
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 01-01-PLAN.md — Atomic col:number to col:string migration across all consumers
@@ -69,6 +69,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Cell-Based Selection Model | 0/2 | Planning complete | - |
+| 1. Cell-Based Selection Model | 1/2 | In Progress|  |
 | 2. Keyboard Handler Extraction | 0/2 | Not started | - |
 | 3. GridOverlays Cleanup | 0/1 | Not started | - |
