@@ -1,8 +1,8 @@
-# Roadmap: Asset Management — Refactor Completion
+# Roadmap: GridOverlays Decomposition
 
 ## Overview
 
-Five phases that complete the arch-rehaul refactor. The grid already renders, edits, sorts, filters, copies, pastes, and commits. What remains is correctness (column widths, validation), feature parity (new rows, undo/redo), and UX polish (custom scrollbar). Each phase delivers one coherent capability that can be verified independently before moving on.
+Decompose GridOverlays from a god component into three clean layers: cells that own their interactions, a pure TypeScript keyboard handler, and a visual-only overlay renderer. Three phases follow the natural dependency chain -- selection model first (keyboard needs it), keyboard extraction second (cleanup needs both done), GridOverlays cleanup last.
 
 ## Phases
 
@@ -12,109 +12,64 @@ Five phases that complete the arch-rehaul refactor. The grid already renders, ed
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [x] **Phase 1: Grid Fixes** - Apply ColumnWidthContext widths correctly in GridHeader and GridRow
-- [x] **Phase 01.1: closePanels helper** - Extract repeated panel-closing pattern into reusable helper (INSERTED)
-- [ ] **Phase 01.2: Interaction Grid Layer** - Gut GridOverlays, move interaction to GridContainer (INSERTED)
-- [ ] **Phase 2: Validation** - Real constraint checking on cell save with commit gating
-- [ ] **Phase 3: New Row** - NewRow component set with full editing parity to existing rows
-- [ ] **Phase 4: Undo/Redo** - HistoryContext population, Ctrl+Z/Y, batch undo for paste
-- [ ] **Phase 5: Custom Scrollbar** - Styled scrollbar replacing browser default, integrated with virtual scroll
+- [ ] **Phase 1: Cell-Based Selection Model** - Per-cell buttons in GridRow, selection via anchor points with col-as-string, drag selection, all DOM crawling removed
+- [ ] **Phase 2: Keyboard Handler Extraction** - Pure TypeScript keyboardHandler.ts wired through EventListener, arrow nav, F2/Escape, copy/paste signals, edge selection
+- [ ] **Phase 3: GridOverlays Cleanup** - Strip all event handlers and state from GridOverlays, leaving a read-only overlay renderer
 
 ## Phase Details
 
-### Phase 1: Grid Fixes
-**Goal**: Column widths are applied correctly everywhere the grid renders
+### Phase 1: Cell-Based Selection Model
+**Goal**: Users interact with grid cells directly -- each cell knows its own identity and handles its own clicks, selection is tracked by anchor points using column keys, and no DOM crawling exists in any interaction path
 **Depends on**: Nothing (first phase)
-**Requirements**: GRID-01, GRID-02
+**Requirements**: SEL-01, SEL-02, SEL-03, SEL-04, SEL-05, SEL-06, SEL-07, SEL-08, SEL-10, SEL-11, CELL-01, CELL-02, CELL-03, CELL-04, CELL-05, CONT-03
 **Success Criteria** (what must be TRUE):
-  1. Resizing a column header updates the rendered width in both the header and all data rows simultaneously
-  2. Column width state from ColumnWidthContext is the sole source of width for GridHeader and GridRow — no hardcoded or fallback widths override it
-**Plans**: 1 plan
+  1. User can click any cell to select it, and the selection highlight appears on that cell
+  2. User can shift+click or drag to select a rectangular range of cells, with the selection rectangle rendering correctly
+  3. User can arrow-key navigate between cells and shift+arrow to extend selection
+  4. User can double-click a cell to start editing it, and right-click to open the context menu with that cell's data
+  5. No `closest()`, `dataset`, `data-row`, or `data-col` lookups exist anywhere in the interaction code paths
+**Plans**: TBD
 
 Plans:
-- [x] 01-01-PLAN.md — Create gridConfig.ts constants module, migrate DEFAULT_WIDTH imports, implement drag-to-resize in GridOverlays
+- [ ] 01-01: TBD
+- [ ] 01-02: TBD
+- [ ] 01-03: TBD
 
-### Phase 01.2: Interaction Grid Layer (INSERTED)
-
-**Goal:** GridContainer owns all user interaction (mouse, keyboard, resize, context menu, panel management) and GridOverlays is a pure overlay-only renderer with zero event listeners
-**Requirements**: None (inserted phase, no formal requirements)
-**Depends on:** Phase 01.1
-**Success Criteria** (what must be TRUE):
-  1. GridContainer.svelte owns all mouse/keyboard event listeners and context menu rendering
-  2. GridOverlays.svelte renders only visual overlays (dirty cells, selection, copy, user cursors) with no event handlers
-  3. All existing interaction works identically: cell selection, keyboard navigation, column resize, context menu, panel management
-  4. DOM structure inverted: GridOverlays is a child of GridContainer, not a wrapper
-**Plans:** 2 plans
-
-Plans:
-- [ ] 01.2-01-PLAN.md — Create companion files: gridContainer.svelte.ts, gridKeyboardHandler.ts, gridContainerHelpers.ts
-- [ ] 01.2-02-PLAN.md — Rewrite GridContainer.svelte and GridOverlays.svelte (atomic swap)
-
-### Phase 01.1: closePanels helper function (INSERTED)
-
-**Goal:** Consolidate the repeated panel-closing pattern in GridOverlays into a single closePanels() helper function
-**Requirements**: None (inserted polish phase, no formal requirements)
-**Depends on:** Phase 1
-**Plans:** 1 plan
-
-Plans:
-- [x] 01.1-01-PLAN.md — Create setOpenPanel() helper and replace all 5 inline panel-closing patterns in GridOverlays
-
-### Phase 2: Validation
-**Goal**: Cell saves check real constraints and the commit workflow reflects actual validity
+### Phase 2: Keyboard Handler Extraction
+**Goal**: All keyboard interaction is handled by a pure TypeScript module with no DOM dependencies, wired into the grid through EventListener's container div
 **Depends on**: Phase 1
-**Requirements**: VALID-01, VALID-02, VALID-03
+**Requirements**: KEY-01, KEY-02, KEY-03, KEY-04, KEY-05, KEY-06, KEY-07, KEY-08, KEY-09, SEL-09
 **Success Criteria** (what must be TRUE):
-  1. Saving a cell with a dropdown column rejects any value not in the allowed options list
-  2. Saving a required field with an empty value marks that cell as invalid
-  3. A pending edit's isValid flag reflects the actual constraint check result — never hardcoded true
-  4. The commit button is disabled when any pending edit has isValid=false, and a message tells the user why
+  1. User can press arrow keys to navigate selection, F2 to edit, Escape to cancel edit or clear selection -- all handled by keyboardHandler.ts
+  2. User can Ctrl+C to copy and Ctrl+V to paste, with signals routed through clipboard/editing contexts
+  3. User can Ctrl+Shift+Arrow to jump selection to grid edge (Excel-style)
+  4. Keyboard shortcuts do not fire when typing in toolbar search, filter panel, or other input elements
 **Plans**: TBD
 
-### Phase 3: New Row
-**Goal**: Users can add new rows that use the exact same editing path as existing rows
+Plans:
+- [ ] 02-01: TBD
+- [ ] 02-02: TBD
+
+### Phase 3: GridOverlays Cleanup
+**Goal**: GridOverlays is a purely visual component -- zero event handlers, zero local state, reads contexts and renders positioned overlay divs
 **Depends on**: Phase 2
-**Requirements**: NROW-01, NROW-02, NROW-03, NROW-04, NROW-05
+**Requirements**: OVER-01, OVER-02, OVER-03, OVER-04, OVER-05
 **Success Criteria** (what must be TRUE):
-  1. Clicking "New Row" in the Toolbar inserts a blank row at the bottom of the grid, immediately visible without a page reload
-  2. A new row cell can be edited, validated, and shows dirty-state overlays identically to an existing row cell
-  3. An uncommitted new row can be deleted individually via a row-level delete action
-  4. Clicking Discard removes all new rows from the grid and resets the new-row counter
+  1. GridOverlays has zero `on*` event handler attributes and zero `$state` declarations in its code
+  2. Selection border, copy border, dirty cell indicators, and other-user cursors all render correctly by reading from contexts
+  3. All existing grid functionality works end-to-end: edit, sort, filter, context menu, header menu, column resize, commit, discard, search, new row, view selector
 **Plans**: TBD
 
-### Phase 4: Undo/Redo
-**Goal**: Users can reverse and replay cell edits, including multi-cell paste operations, even after committing
-**Depends on**: Phase 2
-**Requirements**: UNDO-01, UNDO-02, UNDO-03, UNDO-04
-**Success Criteria** (what must be TRUE):
-  1. Pressing Ctrl+Z while the grid is focused restores the previous cell value in pending edits
-  2. Pressing Ctrl+Y re-applies an undone edit
-  3. A multi-cell paste undoes as a single step — Ctrl+Z restores all pasted cells at once
-  4. Pressing Ctrl+Z after a successful commit creates new pending edits against the committed baseline (not the pre-commit values)
-**Plans**: TBD
-
-### Phase 5: Custom Scrollbar
-**Goal**: The grid scrollbar is styled consistently and integrated with the virtual scroll manager
-**Depends on**: Phase 4
-**Requirements**: SCRL-01, SCRL-02, SCRL-03
-**Success Criteria** (what must be TRUE):
-  1. The grid no longer shows the browser's native scrollbar
-  2. The custom scrollbar thumb size reflects the ratio of visible rows to total rows (shorter thumb = more content)
-  3. Dragging the scrollbar thumb scrolls the grid content at the correct proportional position
-  4. The scrollbar appearance is visually consistent in Chrome, Firefox, and Edge
-**Plans**: TBD
+Plans:
+- [ ] 03-01: TBD
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 01.1 → 01.2 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Grid Fixes | 1/1 | Complete    | 2026-03-04 |
-| 01.1. closePanels helper | 1/1 | Complete    | 2026-03-04 |
-| 01.2. Interaction Grid Layer | 0/2 | Not started | - |
-| 2. Validation | 0/TBD | Not started | - |
-| 3. New Row | 0/TBD | Not started | - |
-| 4. Undo/Redo | 0/TBD | Not started | - |
-| 5. Custom Scrollbar | 0/TBD | Not started | - |
+| 1. Cell-Based Selection Model | 0/3 | Not started | - |
+| 2. Keyboard Handler Extraction | 0/2 | Not started | - |
+| 3. GridOverlays Cleanup | 0/1 | Not started | - |
