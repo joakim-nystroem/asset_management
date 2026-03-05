@@ -28,12 +28,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can arrow-key navigate between cells and shift+arrow to extend selection
   4. User can double-click a cell to start editing it, and right-click to open the context menu with that cell's data
   5. No `closest()`, `dataset`, `data-row`, or `data-col` lookups exist anywhere in the interaction code paths
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md — Atomic col:number to col:string migration across all consumers
+- [ ] 01-02-PLAN.md — Per-cell buttons in GridRow + callback-based selection mechanics
 
 ### Phase 2: Keyboard Handler Extraction
 **Goal**: All keyboard interaction is handled by a pure TypeScript module with no DOM dependencies, wired into the grid through EventListener's container div
@@ -70,6 +69,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Cell-Based Selection Model | 0/3 | Not started | - |
+| 1. Cell-Based Selection Model | 0/2 | Planning complete | - |
 | 2. Keyboard Handler Extraction | 0/2 | Not started | - |
 | 3. GridOverlays Cleanup | 0/1 | Not started | - |
