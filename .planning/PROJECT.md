@@ -1,86 +1,63 @@
-# Asset Management System
+# GridOverlays Decomposition — Asset Management Refactor
 
 ## What This Is
 
-An inventory management system built around a high-performance, Excel-like data grid. Users view, edit, sort, filter, and search asset data in a reactive grid with virtual scrolling, real-time multi-user presence, and a serial event queue for network operations. The system also includes admin panels and mobile views for audit workflows.
+A focused architectural refactor of the Asset Management grid's interaction layer. GridOverlays.svelte has become a god component — intercepting all keyboard and mouse events, reverse-engineering cell identity via DOM crawling, managing selection/resize/context-menu state, and rendering four overlay layers. This refactor distributes event ownership to source components, introduces a cell-based selection model, and extracts keyboard handling to pure TypeScript — leaving GridOverlays as a purely visual overlay renderer.
 
 ## Core Value
 
-The grid must feel like a native spreadsheet — fast cell editing, keyboard navigation, multi-cell selection, copy/paste, and instant visual feedback for dirty state. Everything else serves this.
+Events belong to their source. Each cell, header, and button owns its interactions and knows its own data (row, col, value) without DOM inspection.
 
 ## Requirements
 
 ### Validated
 
-<!-- Shipped and confirmed working in current codebase. -->
-
-- ✓ Virtual-scrolled grid rendering with visible-row-only DOM — existing
-- ✓ Cell selection (click, shift-click, keyboard arrows, shift-extend) with overlay rendering — existing
-- ✓ Inline cell editing (textarea, constrained dropdowns, free-text autocomplete) — existing
-- ✓ Dirty cell tracking via PendingContext with overlay indicators — existing
-- ✓ Multi-cell copy/paste via clipboard API — existing
-- ✓ Column sorting via HeaderMenu with SortContext — existing
-- ✓ Column filtering via HeaderMenu + FilterPanel + QueryContext — existing
-- ✓ Search via Toolbar → QueryContext — existing
-- ✓ Context menu (edit, copy, paste, filter-by-value) — existing
-- ✓ Column width management via ColumnWidthContext — existing
-- ✓ View selector (Default, Audit, PED, Galaxy, Network) — existing
-- ✓ Serial event queue (EventListener → eventQueue → eventHandler) — existing
-- ✓ Commit/discard workflow (pending edits → API → clear) — existing
-- ✓ Real-time WebSocket presence and cell locking — existing
-- ✓ Session-based authentication with server hooks — existing
-- ✓ Toast notification system — existing
-- ✓ API layer for asset CRUD with change logging — existing
-- ✓ Admin panel (locations, statuses, conditions, departments, audit management) — existing
-- ✓ Mobile views (audit completion, asset management with barcode scanning) — existing
+- Event queue pipeline (EventListener → eventQueue → eventHandler) — existing, proven for commits/creates/discards/queries
+- Data immutability — filteredAssets/baseAssets are never mutated during editing, pending changes rendered as overlays
+- Context signal pattern — components write to shared context, EventListener picks up changes via $effect
 
 ### Active
 
-<!-- Current scope. Building toward these. -->
-
-- [ ] Undo/redo system (HistoryContext populated, Ctrl+Z/Y forwarding, batch support for multi-cell ops)
-- [ ] Cell validation (constraint checking on save, isValid flag in pending edits, invalid cell indicators)
-- [ ] New row component set (NewRow manager, rows pushed into filteredAssets, same editing as existing rows)
-- [ ] Custom scrollbar for virtual scroller (cross-browser consistent, styled, integrated with virtual scroll)
-- [ ] Code cleanup (remove refactor bloat, dead code, unused helpers like startCellEdit())
+- [ ] Decompose GridOverlays from god component to purely visual overlay renderer (selection borders, copy borders, dirty cell indicators, other-user cursors)
+- [ ] Implement cell-based selection model — cells report {row, col, value} into a selection set, selection border derives from min/max bounds
+- [ ] Per-cell interactive elements in GridRow — each cell owns its click handler and knows its own data without DOM crawling (no data-row/data-col attributes)
+- [ ] Extract keyboard handling to pure TypeScript (keyboardHandler.ts) — arrow navigation, escape, F2, copy/paste signals. No DOM dependencies.
+- [ ] Wire keyboard handler into the event system — investigate svelte:window viability vs alternative approaches
+- [ ] Remove all DOM crawling (closest('[data-row]'), dataset lookups) from interaction paths
+- [ ] Maintain all existing grid functionality through the refactor (edit, sort, filter, context menu, header menu, resize)
 
 ### Out of Scope
 
-<!-- Explicit boundaries. -->
-
-- Admin panel refactor — deferred until main grid refactor complete
-- Mobile page refactor — deferred until main grid refactor complete
-- Test suite — important but separate initiative from the architecture refactor
-- Pagination/lazy-loading — virtual scroll handles current dataset sizes
-- Conflict resolution (CRDT/OT) — WebSocket locking sufficient for current user count
+- Undo/redo implementation — HistoryContext exists but wiring deferred to later
+- NewRow component set — currently handled by rowGeneration.svelte.ts, refactor later
+- Validation system — all edits currently isValid: true, constraint checking deferred
+- Overlay hover problem — dirty cell overlays occluding hover on real cells is cosmetic, deferred
+- Data immutability changes — already implemented, not part of this refactor
 
 ## Context
 
-The application is mid-refactor on the `arch-rehaul` branch. The original codebase used singleton manager patterns (editManager, columnManager, sortManager, etc.) which have been replaced with a context-based architecture using Svelte 5's `createContext()`. All former controllers are eliminated — state lives in 12 typed contexts, logic lives in owning components.
-
-The architecture rules are codified in `CLAUDE.md` at the project root. This is the source of truth for file responsibilities, context shapes, and design principles.
-
-The refactor is 80-90% complete. The grid renders, edits, sorts, filters, copies, pastes, and commits. The remaining work (undo/redo, validation, new rows, custom scrollbar, cleanup) builds on a stable foundation.
+- **Current branch:** `arch-rehaul` — significant prior refactoring already done (controller deletion, context creation, event queue pipeline)
+- **Working branch:** New branch off `arch-rehaul`, merge back if successful
+- **Prior work:** Phase 01.3 context gathered with user-confirmed decisions on cell-based selection, per-cell buttons, keyboard extraction
+- **Existing pattern:** The EventListener → queue → handler pipeline already handles commits, creates, discards, and queries. This refactor extends that pattern to cover selection and keyboard events.
+- **GridOverlays today:** ~800+ lines, handles keyboard events (arrow, escape, F2, copy, paste, undo, redo), mouse events (click, drag for selection, context menu), renders selection overlay, copy overlay, dirty cells overlay, user cursor overlay. All via top-level event interception and DOM crawling.
 
 ## Constraints
 
-- **Tech stack**: SvelteKit + Svelte 5 runes, Kysely ORM, MariaDB — no changes
-- **Architecture**: Context-based state, component-owned logic, no controllers — per CLAUDE.md
-- **No optimistic mutation**: `filteredAssets` stays clean during editing; pending edits render as overlays
-- **Branch**: All work on `arch-rehaul` branch
+- **Tech stack**: SvelteKit with Svelte 5 runes ($state, $derived, $effect, $props), createContext API
+- **No breaking changes**: All existing grid functionality must continue working through the refactor
+- **Incremental delivery**: Each phase should leave the grid in a working state
+- **~800 buttons in DOM**: Per-cell buttons are acceptable — modern browsers handle this routinely for a static grid
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Contexts over controllers | Controllers mixed state + logic + context access; contexts separate concerns cleanly | ✓ Good |
-| 12 typed contexts | Each context has a single responsibility; no god-context | ✓ Good |
-| Panel system (uiCtx + onWindowClick) | Unified open/close pattern for all dropdowns and panels | ✓ Good |
-| No optimistic mutation | Simplifies rollback (discard = clear pending), avoids data corruption edge cases | ✓ Good |
-| Copy/paste in EditHandler | Single owner for clipboard operations, triggered via context flags | ✓ Good |
-| Sort owned by HeaderMenu | Sort is a header action, not a grid-wide concern | ✓ Good |
-| New rows as regular GridRows | Same editing path, no parallel logic — `NEW-N` string IDs distinguish from server rows | — Pending |
-| Custom scrollbar | Browser defaults inconsistent and clash with virtual scroll UX | — Pending |
+| Cell-based selection model with {row, col, value} | Eliminates DOM crawling, selection/pending share same shape | -- Pending |
+| Per-cell `<button>` elements in GridRow | Each cell owns its click, no data-* attribute crawling needed | -- Pending |
+| Col is column key string, not numeric index | Column index derived via keys.indexOf(col) when needed for overlay math | -- Pending |
+| svelte:window for keyboard handling | Under investigation — may not be viable, alternatives to be explored | -- Pending |
+| GridOverlays becomes read-only visual layer | Zero event handling, zero state management, just renders positioned divs | -- Pending |
 
 ---
-*Last updated: 2026-03-04 after project reinitialization*
+*Last updated: 2026-03-05 after initialization*
