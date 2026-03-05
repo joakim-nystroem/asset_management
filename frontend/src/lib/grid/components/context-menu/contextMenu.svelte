@@ -16,7 +16,7 @@
     x: number;
     y: number;
     row: number;
-    col: number;
+    col: string;
     value: string;
     cellKey: string;
     onclose: () => void;

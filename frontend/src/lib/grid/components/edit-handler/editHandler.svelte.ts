@@ -14,8 +14,7 @@ import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
  */
 export function computeEditorPosition(
   editRowId: number,
-  editCol: number,
-  editKey: string,
+  editCol: string,
   columnWidths: SvelteMap<string, number>,
   keys: string[],
   assets: Record<string, any>[],
@@ -24,6 +23,9 @@ export function computeEditorPosition(
   const rowIndex = assets.findIndex((a) => a.id === editRowId);
   if (rowIndex === -1) return null;
 
+  const colIdx = keys.indexOf(editCol);
+  if (colIdx === -1) return null;
+
   const rowHeight = virtualScroll.rowHeight;
 
   // Y: header (32px) + row position
@@ -31,11 +33,11 @@ export function computeEditorPosition(
 
   // X: sum of widths of all columns before editCol
   let left = 0;
-  for (let i = 0; i < editCol; i++) {
+  for (let i = 0; i < colIdx; i++) {
     left += columnWidths.get(keys[i]) ?? DEFAULT_WIDTH;
   }
 
-  const width = columnWidths.get(editKey) ?? DEFAULT_WIDTH;
+  const width = columnWidths.get(editCol) ?? DEFAULT_WIDTH;
   const height = rowHeight;
 
   return { top, left, width, height };

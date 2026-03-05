@@ -17,8 +17,8 @@
   const assets = $derived(assetStore.filteredAssets);
   const keys = $derived(Object.keys(assets[0] ?? {}));
 
-  // Derive edit properties — editRow is asset ID, editCol is column index
-  const editKey = $derived(editingCtx.editCol >= 0 ? keys[editingCtx.editCol] ?? null : null);
+  // Derive edit properties — editRow is asset ID, editCol is column key string
+  const editKey = $derived(editingCtx.editCol !== '' ? editingCtx.editCol : null);
   const editAsset = $derived(
     editingCtx.editRow >= 0 ? assets.find((a: Record<string, any>) => a.id === editingCtx.editRow) : null
   );
@@ -34,13 +34,12 @@
 
   // Compute absolute position within GridOverlays
   const editorStyle = $derived.by(() => {
-    if (!editingCtx.isEditing || !editKey || editingCtx.editRow < 0 || editingCtx.editCol < 0) {
+    if (!editingCtx.isEditing || !editKey || editingCtx.editRow < 0 || editingCtx.editCol === '') {
       return 'display: none;';
     }
     const pos = computeEditorPosition(
       editingCtx.editRow,
       editingCtx.editCol,
-      editKey,
       colWidthCtx.widths,
       keys,
       assets,
@@ -92,11 +91,16 @@
   function handleCopy() {
     const startIdx = assetIndex(selCtx.selectionStart.row);
     const endIdx = assetIndex(selCtx.selectionEnd.row);
-    const startCol = selCtx.selectionStart.col;
-    const endCol = selCtx.selectionEnd.col;
-    const colKeys = keys.slice(startCol, endCol + 1);
+    const startColIdx = keys.indexOf(selCtx.selectionStart.col);
+    const endColIdx = keys.indexOf(selCtx.selectionEnd.col);
+    if (startColIdx === -1 || endColIdx === -1) return;
+    const minRow = Math.min(startIdx, endIdx);
+    const maxRow = Math.max(startIdx, endIdx);
+    const minCol = Math.min(startColIdx, endColIdx);
+    const maxCol = Math.max(startColIdx, endColIdx);
+    const colKeys = keys.slice(minCol, maxCol + 1);
 
-    const externalRows = assets.slice(startIdx, endIdx + 1).map((asset: Record<string, any>) =>
+    const externalRows = assets.slice(minRow, maxRow + 1).map((asset: Record<string, any>) =>
       colKeys.map((key) => cellValue(asset.id, key)).join('\t')
     );
 
@@ -127,23 +131,28 @@
       const clipWidth = clipRows[0].length;
 
       const startRow = assetIndex(selCtx.selectionStart.row);
-      const startCol = selCtx.selectionStart.col;
-      const selHeight = assetIndex(selCtx.selectionEnd.row) - startRow + 1;
-      const selWidth = selCtx.selectionEnd.col - startCol + 1;
+      const endRow = assetIndex(selCtx.selectionEnd.row);
+      const startCol = keys.indexOf(selCtx.selectionStart.col);
+      const endCol = keys.indexOf(selCtx.selectionEnd.col);
+      if (startCol === -1 || endCol === -1) return;
+      const minStartRow = Math.min(startRow, endRow);
+      const minStartCol = Math.min(startCol, endCol);
+      const selHeight = Math.abs(endRow - startRow) + 1;
+      const selWidth = Math.abs(endCol - startCol) + 1;
 
       const canTile = selHeight % clipHeight === 0 && selWidth % clipWidth === 0;
-      const maxRow = Math.min(canTile ? selHeight : clipHeight, assets.length - startRow);
-      const maxCol = Math.min(canTile ? selWidth : clipWidth, keys.length - startCol);
+      const maxRow = Math.min(canTile ? selHeight : clipHeight, assets.length - minStartRow);
+      const maxCol = Math.min(canTile ? selWidth : clipWidth, keys.length - minStartCol);
 
       const pastedKeys = new Set<string>();
       const newEdits: typeof pendingCtx.edits = [];
 
       for (let r = 0; r < maxRow; r++) {
-        const asset = assets[startRow + r];
+        const asset = assets[minStartRow + r];
         const clipRow = clipRows[r % clipHeight];
 
         for (let c = 0; c < maxCol; c++) {
-          const key = keys[startCol + c];
+          const key = keys[minStartCol + c];
           if (key === 'id') continue;
 
           const value = clipRow[c % clipWidth];
@@ -190,7 +199,7 @@
   function cancelEdit() {
     editingCtx.isEditing = false;
     editingCtx.editRow = -1;
-    editingCtx.editCol = -1;
+    editingCtx.editCol = '';
     inputValue = '';
     autocomplete.clear();
     editDropdown.hide();
