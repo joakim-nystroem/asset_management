@@ -38,16 +38,10 @@ created: 2026-03-05
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 01-01-01 | 01 | 1 | CONT-03, SEL-01 | type-check | `cd frontend && npx svelte-check` | N/A (type system) | pending |
-| 01-02-01 | 02 | 1 | CELL-01, CELL-02 | type-check + inspect | `cd frontend && npx svelte-check` | N/A | pending |
-| 01-02-02 | 02 | 1 | SEL-03, SEL-05, CELL-03 | manual | Dev server click/drag test | N/A | pending |
-| 01-02-03 | 02 | 1 | SEL-06 | manual | Drag then release outside grid | N/A | pending |
-| 01-03-01 | 03 | 2 | SEL-02 | type-check | `cd frontend && npx svelte-check` | N/A | pending |
-| 01-03-02 | 03 | 2 | SEL-04 | manual | Dev server shift+click test | N/A | pending |
-| 01-03-03 | 03 | 2 | SEL-07, SEL-08 | manual | Dev server arrow key test | N/A | pending |
-| 01-03-04 | 03 | 2 | SEL-10 | manual | Dev server escape test | N/A | pending |
-| 01-03-05 | 03 | 2 | SEL-11 | manual | Select, scroll away, scroll back | N/A | pending |
-| 01-03-06 | 03 | 2 | CELL-04, CELL-05 | manual | Dev server dblclick + right-click test | N/A | pending |
+| 01-01-T1 | 01 | 1 | CONT-03, SEL-01, SEL-10, SEL-11 | type-check | `cd frontend && npx svelte-check` | N/A (type system) | pending |
+| 01-01-T2 | 01 | 1 | SEL-07, SEL-08 | type-check | `cd frontend && npx svelte-check` | N/A (type system) | pending |
+| 01-02-T1 | 02 | 2 | CELL-01, CELL-02 | type-check + inspect | `cd frontend && npx svelte-check` | N/A | pending |
+| 01-02-T2 | 02 | 2 | SEL-02, SEL-03, SEL-04, SEL-05, SEL-06, CELL-03, CELL-04, CELL-05 | type-check + manual | `cd frontend && npx svelte-check` | N/A | pending |
 
 *Status: pending / green / red / flaky*
 
