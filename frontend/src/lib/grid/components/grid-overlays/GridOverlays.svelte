@@ -34,9 +34,9 @@
   let resizeDrag = $state<{ key: string; startX: number; startWidth: number } | null>(null);
 
   // --- Context menu (local, passed as props) ---
-  let ctxMenu = $state({ x: 0, y: 0, row: -1, col: -1, value: '', key: '' });
+  let ctxMenu = $state({ x: 0, y: 0, row: -1, col: '', value: '', key: '' });
 
-  function openContextMenu(e: MouseEvent, row: number, col: number, value: string, key: string) {
+  function openContextMenu(e: MouseEvent, row: number, col: string, value: string, key: string) {
     const estimatedWidth = 150;
     const estimatedHeight = 200;
     const winW = window.innerWidth;
@@ -66,10 +66,12 @@
   }
 
   // --- Column pixel bounds helper ---
-  function colBounds(col: number): { left: number; right: number } {
+  function colBounds(col: string): { left: number; right: number } {
+    const colIdx = keys.indexOf(col);
+    if (colIdx === -1) return { left: 0, right: 0 };
     let left = 0;
-    for (let c = 0; c < col; c++) left += getWidth(keys[c]);
-    return { left, right: left + getWidth(keys[col]) };
+    for (let c = 0; c < colIdx; c++) left += getWidth(keys[c]);
+    return { left, right: left + getWidth(col) };
   }
 
   // --- Panel management helper ---
@@ -82,14 +84,14 @@
   // --- Selection helpers (inlined from selCtx) ---
   let isDragging = false;
 
-  function selectCell(row: number, col: number) {
+  function selectCell(row: number, col: string) {
     selCtx.selectionStart = { row, col };
     selCtx.selectionEnd = { row, col };
     selCtx.isSelecting = true;
     selCtx.hideSelection = false;
   }
 
-  function startSelection(row: number, col: number, e: MouseEvent) {
+  function startSelection(row: number, col: string, e: MouseEvent) {
     if (e.shiftKey) {
       selCtx.selectionEnd = { row, col };
     } else {
@@ -101,7 +103,7 @@
     }
   }
 
-  function extendSelection(row: number, col: number) {
+  function extendSelection(row: number, col: string) {
     if (isDragging) {
       selCtx.selectionEnd = { row, col };
     }
@@ -109,27 +111,18 @@
 
   function endSelection() {
     isDragging = false;
-    // Normalize: start = top-left, end = bottom-right
-    const s = selCtx.selectionStart;
-    const e = selCtx.selectionEnd;
-    const minRow = Math.min(s.row, e.row);
-    const maxRow = Math.max(s.row, e.row);
-    const minCol = Math.min(s.col, e.col);
-    const maxCol = Math.max(s.col, e.col);
-    selCtx.selectionStart = { row: minRow, col: minCol };
-    selCtx.selectionEnd = { row: maxRow, col: maxCol };
   }
 
   function resetSelection() {
-    selCtx.selectionStart = { row: -1, col: -1 };
-    selCtx.selectionEnd = { row: -1, col: -1 };
+    selCtx.selectionStart = { row: -1, col: '' };
+    selCtx.selectionEnd = { row: -1, col: '' };
     selCtx.isSelecting = false;
     isDragging = false;
     selCtx.hideSelection = false;
   }
 
   // --- Start cell editing helper ---
-  function startCellEdit(row: number, col: number) {
+  function startCellEdit(row: number, col: string) {
     editingCtx.isEditing = true;
     editingCtx.editRow = row;
     editingCtx.editCol = col;
@@ -137,8 +130,8 @@
 
   // --- Overlay computation ---
   function computeVisualOverlay(
-    start: { row: number; col: number },
-    end: { row: number; col: number },
+    start: { row: number; col: string },
+    end: { row: number; col: string },
   ) {
     const { startIndex, endIndex } = viewCtx.virtualScroll.visibleRange;
     const rowHeight = viewCtx.virtualScroll.rowHeight;
@@ -147,10 +140,14 @@
     const endRowIdx = assetIndex(end.row);
     if (startRowIdx === -1 || endRowIdx === -1) return null;
 
+    const startColIdx = keys.indexOf(start.col);
+    const endColIdx = keys.indexOf(end.col);
+    if (startColIdx === -1 || endColIdx === -1) return null;
+
     const minRow = Math.min(startRowIdx, endRowIdx);
     const maxRow = Math.max(startRowIdx, endRowIdx);
-    const minCol = Math.min(start.col, end.col);
-    const maxCol = Math.max(start.col, end.col);
+    const minCol = Math.min(startColIdx, endColIdx);
+    const maxCol = Math.max(startColIdx, endColIdx);
 
     const clampedMinRow = Math.max(minRow, startIndex);
     const clampedMaxRow = Math.min(maxRow, endIndex - 1);
@@ -175,8 +172,8 @@
 
   // --- Clipboard visual helpers (data ops live in EditHandler) ---
   function clearClipboard() {
-    clipCtx.copyStart = { row: -1, col: -1 };
-    clipCtx.copyEnd = { row: -1, col: -1 };
+    clipCtx.copyStart = { row: -1, col: '' };
+    clipCtx.copyEnd = { row: -1, col: '' };
   }
 
   // --- Keyboard handler ---
@@ -203,8 +200,7 @@
       if (selCtx.selectionStart.row === -1) return;
       const row = selCtx.selectionStart.row;
       const col = selCtx.selectionStart.col;
-      const key = keys[col];
-      if (!key || key === 'id') return;
+      if (col === '' || col === 'id') return;
       startCellEdit(row, col);
       return;
     }
@@ -233,7 +229,6 @@
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       e.preventDefault();
       if (selCtx.hideSelection) selCtx.hideSelection = false;
-      const colCount = keys.length;
       const anchor = selCtx.selectionStart;
       if (anchor.row === -1) return;
 
@@ -243,8 +238,8 @@
         switch (e.key) {
           case 'ArrowUp':    targetRow = assets[0]?.id ?? targetRow; break;
           case 'ArrowDown':  targetRow = assets[assets.length - 1]?.id ?? targetRow; break;
-          case 'ArrowLeft':  targetCol = 0; break;
-          case 'ArrowRight': targetCol = colCount - 1; break;
+          case 'ArrowLeft':  targetCol = keys[0]; break;
+          case 'ArrowRight': targetCol = keys[keys.length - 1]; break;
         }
         if (e.shiftKey) {
           selCtx.selectionEnd = { row: targetRow, col: targetCol };
@@ -258,7 +253,7 @@
       }
 
       if (e.shiftKey) {
-        const next = getArrowTarget(e.key, selCtx.selectionEnd, colCount);
+        const next = getArrowTarget(e.key, selCtx.selectionEnd, keys);
         if (next) {
           selCtx.selectionEnd = next;
           const idx = assetIndex(next.row);
@@ -266,7 +261,7 @@
           viewCtx.scrollToCol = colBounds(next.col);
         }
       } else {
-        const next = getArrowTarget(e.key, anchor, colCount);
+        const next = getArrowTarget(e.key, anchor, keys);
         if (next) {
           selectCell(next.row, next.col);
           const idx = assetIndex(next.row);
@@ -279,17 +274,18 @@
 
   function getArrowTarget(
     key: string,
-    current: { row: number; col: number },
-    colCount: number,
-  ): { row: number; col: number } | null {
+    current: { row: number; col: string },
+    keys: string[],
+  ): { row: number; col: string } | null {
     const idx = assetIndex(current.row);
     if (idx === -1) return null;
-    const { col } = current;
+    const colIdx = keys.indexOf(current.col);
+    if (colIdx === -1) return null;
     switch (key) {
-      case 'ArrowUp':    return idx > 0 ? { row: assets[idx - 1].id, col } : null;
-      case 'ArrowDown':  return idx < assets.length - 1 ? { row: assets[idx + 1].id, col } : null;
-      case 'ArrowLeft':  return col > 0 ? { row: current.row, col: col - 1 } : null;
-      case 'ArrowRight': return col < colCount - 1 ? { row: current.row, col: col + 1 } : null;
+      case 'ArrowUp':    return idx > 0 ? { row: assets[idx - 1].id, col: current.col } : null;
+      case 'ArrowDown':  return idx < assets.length - 1 ? { row: assets[idx + 1].id, col: current.col } : null;
+      case 'ArrowLeft':  return colIdx > 0 ? { row: current.row, col: keys[colIdx - 1] } : null;
+      case 'ArrowRight': return colIdx < keys.length - 1 ? { row: current.row, col: keys[colIdx + 1] } : null;
       default:           return null;
     }
   }
@@ -319,8 +315,10 @@
     if (!cell) return;
     setOpenPanel('contextMenu');
     const row = Number(cell.dataset.row);
-    const col = Number(cell.dataset.col);
-    if (isNaN(row) || isNaN(col)) return;
+    const colIdx = Number(cell.dataset.col);
+    if (isNaN(row) || isNaN(colIdx)) return;
+    const col = keys[colIdx];
+    if (!col) return;
     if (editingCtx.isEditing) {
       selectCell(row, col);
       return;
@@ -333,8 +331,10 @@
     const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
     const row = Number(cell.dataset.row);
-    const col = Number(cell.dataset.col);
-    if (isNaN(row) || isNaN(col)) return;
+    const colIdx = Number(cell.dataset.col);
+    if (isNaN(row) || isNaN(colIdx)) return;
+    const col = keys[colIdx];
+    if (!col) return;
     if (!editingCtx.isEditing) {
       extendSelection(row, col);
     }
@@ -344,10 +344,11 @@
     const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
     const row = Number(cell.dataset.row);
-    const col = Number(cell.dataset.col);
-    if (isNaN(row) || isNaN(col)) return;
-    const key = keys[col];
-    if (key === 'id') {
+    const colIdx = Number(cell.dataset.col);
+    if (isNaN(row) || isNaN(colIdx)) return;
+    const col = keys[colIdx];
+    if (!col) return;
+    if (col === 'id') {
       toastState.addToast('ID column cannot be edited.', 'warning');
       return;
     }
@@ -360,15 +361,16 @@
     const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
     if (!cell) return;
     const assetId = Number(cell.dataset.row);
-    const col = Number(cell.dataset.col);
-    if (isNaN(assetId) || isNaN(col)) return;
+    const colIdx = Number(cell.dataset.col);
+    if (isNaN(assetId) || isNaN(colIdx)) return;
+    const col = keys[colIdx];
+    if (!col) return;
     e.preventDefault();
     const asset = assets.find((a: Record<string, any>) => a.id === assetId);
-    const key = keys[col];
-    const value = String(asset?.[key] ?? '');
+    const value = String(asset?.[col] ?? '');
     selectCell(assetId, col);
     setOpenPanel('contextMenu');
-    openContextMenu(e, assetId, col, value, key);
+    openContextMenu(e, assetId, col, value, col);
   }
 
   // --- Window-level event listeners ---
@@ -492,6 +494,7 @@
         acc[clientId] = {
           ...position,
           row: rowIndex,
+          col: keys[position.col] ?? '',
           initials: (
             (position.firstname?.[0] || '') + (position.lastname?.[0] || '')
           ).toUpperCase(),

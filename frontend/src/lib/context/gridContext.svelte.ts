@@ -2,7 +2,7 @@ import { createContext } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 // ─── Shared primitive types ───────────────────────────────────────────────────
 
-export type GridCell = { row: number; col: number };
+export type GridCell = { row: number; col: string };
 
 // ─── Domain context types ─────────────────────────────────────────────────────
 
@@ -11,7 +11,7 @@ export type EditingContext = {
   isEditing: boolean;
   isPasting: boolean;
   editRow: number;
-  editCol: number;
+  editCol: string;
 };
 
 // 2. Pending changes buffer (dirty edits between save and commit)

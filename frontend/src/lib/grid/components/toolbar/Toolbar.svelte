@@ -138,11 +138,11 @@
             <button
               onclick={() => {
                 uiCtx.discardRequested = true;
-                selCtx.selectionStart = { row: -1, col: -1 };
-                selCtx.selectionEnd = { row: -1, col: -1 };
+                selCtx.selectionStart = { row: -1, col: '' };
+                selCtx.selectionEnd = { row: -1, col: '' };
                 selCtx.hideSelection = false;
-                clipCtx.copyStart = { row: -1, col: -1 };
-                clipCtx.copyEnd = { row: -1, col: -1 };
+                clipCtx.copyStart = { row: -1, col: '' };
+                clipCtx.copyEnd = { row: -1, col: '' };
               }}
               class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
             >
@@ -174,11 +174,11 @@
             <button
               onclick={() => {
                 uiCtx.discardRequested = true;
-                selCtx.selectionStart = { row: -1, col: -1 };
-                selCtx.selectionEnd = { row: -1, col: -1 };
+                selCtx.selectionStart = { row: -1, col: '' };
+                selCtx.selectionEnd = { row: -1, col: '' };
                 selCtx.hideSelection = false;
-                clipCtx.copyStart = { row: -1, col: -1 };
-                clipCtx.copyEnd = { row: -1, col: -1 };
+                clipCtx.copyStart = { row: -1, col: '' };
+                clipCtx.copyEnd = { row: -1, col: '' };
               }}
               class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
             >

@@ -28,7 +28,7 @@
     isEditing: false,
     isPasting: false,
     editRow: -1,
-    editCol: -1,
+    editCol: '',
   });
   setEditingContext(editingCtx);
 
@@ -53,8 +53,8 @@
   setNewRowContext(newRowCtx);
 
   let selectionCtx = $state({
-    selectionStart: { row: -1, col: -1 },
-    selectionEnd: { row: -1, col: -1 },
+    selectionStart: { row: -1, col: '' },
+    selectionEnd: { row: -1, col: '' },
     isSelecting: false,
     hideSelection: false,
     dirtyCells: new Set<string>(),
@@ -62,8 +62,8 @@
   setSelectionContext(selectionCtx);
 
   let clipboardCtx = $state({
-    copyStart: { row: -1, col: -1 },
-    copyEnd: { row: -1, col: -1 },
+    copyStart: { row: -1, col: '' },
+    copyEnd: { row: -1, col: '' },
     isCopying: false,
   });
   setClipboardContext(clipboardCtx);
