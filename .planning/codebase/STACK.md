@@ -1,99 +1,130 @@
 # Technology Stack
 
-**Analysis Date:** 2025-02-25
+**Analysis Date:** 2026-03-05
 
 ## Languages
 
 **Primary:**
-- JavaScript/TypeScript 5.9.2 - SvelteKit frontend and Node.js server-side code
-- Go 1.23 - WebSocket/realtime API backend
+- TypeScript (strict mode) - SvelteKit frontend, all server and client code (`frontend/tsconfig.json`: `"strict": true`)
+- Svelte 5 - Component templates with runes syntax (`$state`, `$derived`, `$effect`, `$props`)
 
 **Secondary:**
-- SQL - MariaDB database queries
+- Go 1.23 - WebSocket realtime server (`api/`)
+- CSS (Tailwind v4) - Styling via `@tailwindcss/vite` plugin
 
 ## Runtime
 
 **Environment:**
-- Node.js 20 (Alpine) - Production via Docker
-- Go 1.23 - API server runtime
+- Node.js v22.21.0 (detected on host)
+- Go 1.23 (for WebSocket API server, containerized via `api/Dockerfile`)
 
 **Package Manager:**
-- npm 10.9.4 - Node.js packages
-- Lockfile: `package-lock.json` present
+- npm 10.9.4
+- Lockfile: `frontend/package-lock.json` (present)
 
 ## Frameworks
 
 **Core:**
-- SvelteKit 2.43.2 - Full-stack meta-framework with SSR and API routes
-- Svelte 5.39.5 - Reactive UI components with runes ($state, $derived, $effect, $props)
-
-**Build/Dev:**
-- Vite 7.1.7 - Lightning-fast build tool and dev server
-- TypeScript 5.9.2 - Type checking and transpilation
-- @sveltejs/vite-plugin-svelte 6.2.0 - Svelte integration with Vite
+- SvelteKit `^2.43.2` - Full-stack framework (SSR, routing, server endpoints)
+- Svelte `^5.39.5` - UI component framework with runes reactivity
+- `@sveltejs/adapter-node` `^5.4.0` - Node.js production adapter (not auto/static)
 
 **Styling:**
-- Tailwind CSS 4.1.13 - Utility-first CSS framework
-- @tailwindcss/vite 4.1.13 - Vite plugin for Tailwind
+- Tailwind CSS `^4.1.13` - Utility-first CSS via Vite plugin (`@tailwindcss/vite ^4.1.13`)
 
-**Testing:**
-- svelte-check 4.3.2 - Static type checking for Svelte files
+**Database:**
+- Kysely `^0.28.8` - Type-safe SQL query builder (ORM)
+- mysql2 `^3.15.3` - MariaDB driver (connection pool via `MysqlDialect`)
+
+**Build/Dev:**
+- Vite `^7.1.7` - Dev server and bundler
+- `@sveltejs/vite-plugin-svelte` `^6.2.0` - Svelte compiler integration
+- svelte-check `^4.3.2` - TypeScript type checking for Svelte files
+- TypeScript `^5.9.2` - Type system
 
 ## Key Dependencies
 
-**Critical:**
-- Kysely 0.28.8 - Type-safe SQL query builder (used in `frontend/src/lib/db/conn.ts`)
-- mysql2 3.15.3 - MySQL driver for Node.js
-- bcrypt 6.0.0 - Password hashing for authentication
-- uuid 13.0.0 - Session ID generation
+**Critical (runtime):**
+- `kysely` `^0.28.8` - All database queries go through this. Defines table types in `frontend/src/lib/db/conn.ts`
+- `bcrypt` `^6.0.0` - Password hashing for authentication (`frontend/src/lib/db/auth/`)
+- `uuid` `^13.0.0` - Session ID generation
+- `html5-qrcode` `^2.3.8` - Barcode/QR scanning for mobile audit pages (dynamic import)
 
-**Infrastructure:**
-- html5-qrcode 2.3.8 - QR code scanning for mobile audits (dynamic import in audit routes)
-- @sveltejs/adapter-node 5.4.0 - Node.js production adapter
+**Go API dependencies:**
+- `github.com/gorilla/websocket` `v1.5.3` - WebSocket protocol handling
+- `github.com/go-sql-driver/mysql` `v1.8.1` - MariaDB driver for session validation
+- `github.com/rs/cors` `v1.11.1` - CORS middleware
+- `github.com/joho/godotenv` `v1.5.1` - Environment variable loading
 
-**API Backend (Go):**
-- github.com/go-sql-driver/mysql v1.8.1 - MySQL driver for Go
-- github.com/gorilla/websocket v1.5.3 - WebSocket implementation
-- github.com/joho/godotenv v1.5.1 - Environment variable loading
-- github.com/rs/cors v1.11.1 - CORS middleware
+**Dev-only:**
+- `@types/bcrypt` `^6.0.0` - TypeScript types for bcrypt
+- `@types/node` `^24.10.0` - Node.js type definitions
 
 ## Configuration
 
+**TypeScript:**
+- `frontend/tsconfig.json` - Extends `.svelte-kit/tsconfig.json`, strict mode, bundler module resolution, `allowImportingTsExtensions`
+
+**SvelteKit:**
+- `frontend/svelte.config.js` - Uses `adapter-node`, `vitePreprocess()`
+- No explicit `paths.base` in config (base path `/asset` configured elsewhere)
+
+**Vite:**
+- `frontend/vite.config.ts` - Tailwind CSS plugin, SvelteKit plugin, WebSocket proxy (`/api/ws` -> `ws://localhost:8080`)
+
 **Environment:**
-- Configuration via environment variables (`.env` files)
-- Development: `frontend/.env.development` - Points to localhost:8080 for API, ws:// protocol
-- Production: `frontend/.env.production` - Points to asset-api:8080 for API, wss:// protocol
-- API env: `api/.env` - Database credentials and CORS origins
+- `frontend/.env.development` - Development environment variables (exists, not read)
+- `frontend/.env.production` - Production environment variables (exists, not read)
+- Variables loaded via SvelteKit's `$env/static/private` and `$env/static/public`
+
+**Required environment variables (private):**
+- `DB_HOST` - MariaDB host
+- `DB_PORT` - MariaDB port
+- `DB_USER` - Database username
+- `DB_PASSWORD` - Database password
+- `DB_NAME` - Database name
+
+**Required environment variables (public):**
+- `PUBLIC_WS_URL` - WebSocket server URL (used by `realtimeManager.svelte.ts`)
+- `PUBLIC_WS_PROTOCOL` - WebSocket protocol (`ws` or `wss`)
 
 **Build:**
-- `vite.config.ts` - Vite configuration with Tailwind plugin and WebSocket proxy to Go backend
-- `svelte.config.js` - SvelteKit adapter configuration (Node.js adapter)
-- `tsconfig.json` - TypeScript compiler options (strict mode enabled, bundler resolution)
+- `frontend/svelte.config.js` - SvelteKit config
+- `frontend/vite.config.ts` - Vite config with Tailwind and WS proxy
+
+## Build & Check Commands
+
+```bash
+# Type checking (MUST run from frontend/ directory)
+cd frontend && npx svelte-check --tsconfig ./tsconfig.json
+
+# Development server
+cd frontend && npm run dev
+
+# Production build
+cd frontend && npm run build
+
+# Preview production build
+cd frontend && npm run preview
+
+# Prepare (sync SvelteKit types)
+cd frontend && npm run prepare
+```
 
 ## Platform Requirements
 
 **Development:**
-- Node.js 20+ (Alpine for Docker)
-- Go 1.23 (for API backend)
-- MariaDB 10.x (external database host)
+- Node.js >= 22.x
+- Go 1.23 (for WebSocket server)
+- MariaDB instance (host: 10.236.133.207, port: 3101, db: asset_db)
+- npm for package management
 
 **Production:**
-- Docker with Node.js 20-alpine image (multi-stage build)
-- Go binary for WebSocket API on port 8080
-- MariaDB connection to 10.236.133.207:3101
-
-## Adapter & Deployment
-
-**Frontend Adapter:**
-- Node.js adapter via `@sveltejs/adapter-node` - runs as Node server on port 3000
-- Multi-stage Docker build: build in Node 20, run with minimal production image
-- Environment variables: `HOST=0.0.0.0, PORT=3000`
-
-**API Adapter:**
-- Native Go HTTP server on port 8080
-- CORS enabled for frontend origins
-- WebSocket endpoint at `/api/ws`
+- Node.js runtime (adapter-node output)
+- Go binary in Docker container (`api/Dockerfile` - multi-stage Alpine build)
+- MariaDB database
+- WebSocket connectivity between frontend and Go API
 
 ---
 
-*Stack analysis: 2025-02-25*
+*Stack analysis: 2026-03-05*

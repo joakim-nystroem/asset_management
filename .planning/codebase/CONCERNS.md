@@ -1,233 +1,166 @@
 # Codebase Concerns
 
-**Analysis Date:** 2026-02-25
+**Analysis Date:** 2026-03-05
 
 ## Tech Debt
 
-**Type Casting with `as any` — Widespread Issue:**
-- Issue: Heavy use of `as any` bypasses TypeScript type safety throughout the codebase, particularly in database operations
-- Files: `frontend/src/lib/db/update/updateAsset.ts` (lines 37, 46, 55, 64, 72, 80, 81, 86), `frontend/src/lib/db/select/searchAssets.ts` (lines 14, 79), `frontend/src/lib/utils/data/sortManager.svelte.ts` (lines 86, 115), `frontend/src/routes/+page.svelte`
-- Impact: Hides type errors at compile time, allows invalid data to reach database, makes refactoring dangerous, reduces IDE support for autocomplete
-- Fix approach: Define proper Kysely type mappings for dynamic table/column operations. Use discriminated unions instead of `Record<string, any>`. Gradually remove `as any` casts by improving type definitions
+**Pervasive `any` types across event system and data layer:**
+- Issue: The event queue, event handler, context types, asset store, and query layer all use `Record<string, any>`, `any[]`, or untyped casts extensively. This defeats TypeScript's type safety and makes refactoring risky.
+- Files:
+  - `frontend/src/lib/grid/eventQueue/eventQueue.ts` (lines 8-9, 16-17)
+  - `frontend/src/lib/grid/eventQueue/eventHandler.ts` (lines 10, 25, 44-45, 78-79, 94, 109, 111, 120-121, 132, 145, 150-151, 181-182, 199-200, 203, 206)
+  - `frontend/src/lib/context/gridContext.svelte.ts` (lines 24-25, 32, 60)
+  - `frontend/src/lib/data/assetStore.svelte.ts` (lines 7-8)
+  - `frontend/src/lib/db/update/updateAsset.ts` (lines 28, 37, 46, 55, 64, 72, 80-81)
+  - `frontend/src/lib/db/select/queryAssets.ts` (lines 14, 57, 80)
+  - `frontend/src/lib/db/create/createAsset.ts` (lines 3, 5)
+  - `frontend/src/routes/+page.server.ts` (lines 34-39)
+- Impact: No compile-time safety for asset data shapes. A typo in a column key silently passes. Refactoring column names requires grep-and-pray.
+- Fix approach: Define a typed `Asset` interface matching the query output shape. Replace `Record<string, any>[]` with `Asset[]` in `assetStore`, event payloads, and handler signatures. Use Kysely's built-in type inference for query results. Define typed event discriminated unions instead of `{ type: string; payload: Record<string, any> }`.
 
-**SQL Template Literals Without Parameterization:**
-- Issue: Raw SQL strings used in `sql` template literals without consistent input validation
-- Files: `frontend/src/routes/api/audit/start/+server.ts` (line 27-31), `frontend/src/routes/api/audit/close/+server.ts`, `frontend/src/lib/db/migrations/createChangeLog.ts`
-- Impact: While template literals are safer than string concatenation, complex queries should use Kysely's query builder for consistency and audit trails
-- Fix approach: Migrate all raw SQL to Kysely query builder API. Reserve SQL template literals for schema DDL only
+**GridOverlays.svelte is a 630-line monolith:**
+- Issue: `GridOverlays.svelte` owns keyboard handling, mouse handling, selection logic, resize drag, context menu management, overlay computation, dirty cell rendering, copy overlay, and other-user cursor rendering. This is the single largest non-generated source file.
+- Files: `frontend/src/lib/grid/components/grid-overlays/GridOverlays.svelte` (630 lines)
+- Impact: Any change to selection, keyboard, overlays, or resize risks breaking unrelated functionality. Hard to reason about interactions between the many concerns.
+- Fix approach: Extract keyboard handler into `frontend/src/lib/grid/keyboardHandler.ts`. Extract overlay computation into a utility. Move resize drag to GridHeader (per CLAUDE.md target architecture). Move selection logic to a dedicated module.
 
-**Missing Test Coverage:**
-- Issue: No unit tests, integration tests, or E2E tests detected in codebase
-- Files: No `.test.ts`, `.spec.ts`, or test directory found
-- Impact: Regressions undetected, refactoring risky, critical paths (auth, data persistence) untested, code quality unknown
-- Fix approach: Establish Jest/Vitest test suite. Priority: auth flow, database operations, data validation, realtime WebSocket handling
+**Undo/redo not implemented:**
+- Issue: `HistoryContext` is defined with `undoStack: any[]` and `redoStack: any[]` but no implementation exists. The keyboard handler has a TODO comment for Ctrl+Z/Ctrl+Y.
+- Files:
+  - `frontend/src/lib/context/gridContext.svelte.ts` (lines 22-28)
+  - `frontend/src/lib/grid/components/grid-overlays/GridOverlays.svelte` (line 229)
+- Impact: Users cannot undo edits. Data entry errors require manual correction or discard-all.
+- Fix approach: Implement history recording in EditHandler's save flow (push `{ id, key, oldValue, newValue }` batches to `historyCtx.undoStack`). Implement undo/redo target functions that pop from one stack, apply reverse values through the edit flow, and push to the other stack.
 
-## Known Bugs
+**Validation is a stub:**
+- Issue: All edits are marked `isValid: true`. No constraint checking exists. The `isValid` field on `PendingContext.edits` is always true.
+- Files:
+  - `frontend/src/lib/context/gridContext.svelte.ts` (line 19 -- `isValid` field definition)
+  - `frontend/src/lib/grid/components/edit-handler/EditHandler.svelte` (save flow sets `isValid: true`)
+- Impact: Invalid data (empty required fields, non-existent FK values) can be committed to the database. The yellow "invalid" overlay styling exists but is never triggered.
+- Fix approach: Add validation rules per column (required check, FK existence against `assetStore` constraint lists). Run validation in EditHandler's save flow before upsert to pending edits.
 
-**Audit Cycle Status Filtering Missing:**
-- Symptoms: Audit cycle snapshots include retired/broken assets that should be excluded
-- Files: `frontend/src/routes/api/audit/start/+server.ts` (lines 25-26, TODO comment)
-- Trigger: Starting a new audit cycle creates records for all assets including inactive ones
-- Impact: Audit scope inflated, cleanup/filtering burden on auditors
-- Workaround: Manual removal of inactive asset records from asset_audit table
-- Fix: Implement status exclusion in INSERT query (filter on status_id NOT IN retired/broken)
-
-**Date Formatting Inconsistency — Residual Risk:**
-- Symptoms: Some code paths still use `.toISOString()` directly or inconsistent slicing patterns
-- Files: Multiple date formatting patterns observed: `.toISOString().slice(0, 19).replace('T', ' ')` vs `.toISOString().split('T')[0]` vs `sql\`NOW()\``
-- Trigger: Any date comparison or display could fail if format mismatches
-- Impact: Date logic fragile, hard to maintain, edge cases around timezone handling
-- Context: Project memory notes this was a critical bug (commit f2b4dd4 → ba5c364). Pattern now standardized in updateAsset, but inconsistency remains
-- Fix: Centralize date formatting in utility function (`lib/utils/date/format.ts`) that always returns `YYYY-MM-DD HH:MM:SS`, use consistently everywhere
+**NewRow component not extracted:**
+- Issue: CLAUDE.md defines a `new-row/` component set, but the directory does not exist. New row logic lives in Toolbar and eventHandler.
+- Files:
+  - `frontend/src/lib/grid/components/toolbar/Toolbar.svelte` (owns `addNewRow()`)
+  - `frontend/src/lib/grid/eventQueue/eventHandler.ts` (handles `COMMIT_CREATE`)
+- Impact: New row creation, editing, and lifecycle is spread across files rather than centralized.
+- Fix approach: Create `frontend/src/lib/grid/components/new-row/` with `.svelte` and `.svelte.ts` files per CLAUDE.md spec.
 
 ## Security Considerations
 
-**Raw `globalThis` Access for Singleton State:**
-- Risk: Using `Symbol.for('APP_REALTIME_MANAGER')` on globalThis to store singleton instance bypasses normal module scoping
-- Files: `frontend/src/lib/utils/interaction/realtimeManager.svelte.ts` (lines 19, 24, 346)
-- Current mitigation: Symbol isolation prevents accidental collision, "ghost killer" pattern cleans up stale instances
-- Recommendations: Consider SvelteKit's context API or module-level singletons instead. Ensure WebSocket message handlers cannot be manipulated by external code
+**No role-based access control:**
+- Risk: Any authenticated user can access admin pages (user registration, metadata management, audit management). The admin layout only checks `if (!locals.user)` -- there is no role or permission check.
+- Files:
+  - `frontend/src/routes/admin/+layout.server.ts` (lines 7-8 -- only checks login, not role)
+  - `frontend/src/routes/admin/register/+page.server.ts` (line 12 -- no auth check at all on the register action)
+  - `frontend/src/lib/db/conn.ts` (users table has no role column)
+- Current mitigation: The application appears to be on an internal network (DB host `10.236.133.207`).
+- Recommendations: Add a `role` column to the `users` table. Add role checks in the admin layout server load. Protect the registration endpoint with admin-only access.
 
-**Session Cookie Secure Flag Logic:**
-- Risk: Secure cookie flag depends on `process.env.NODE_ENV === 'production'` check
-- Files: `frontend/src/routes/login/+page.server.ts` (lines 78, 88)
-- Current mitigation: httpOnly flag always set, sameSite: lax prevents CSRF
-- Recommendations: Always set `secure: true` in production. Verify HTTPS enforcement at deployment level. Consider environment variable override for testing
+**Registration endpoint has no authentication:**
+- Risk: The `/admin/register` form action has zero auth checks. Anyone who can reach the server can create user accounts.
+- Files: `frontend/src/routes/admin/register/+page.server.ts` (line 12 -- `register` action has no `locals.user` check)
+- Current mitigation: The admin layout redirects unauthenticated users away from the page UI, but the form action itself accepts unauthenticated POST requests directly.
+- Recommendations: Add `if (!locals.user) return fail(401, ...)` at the top of the register action.
 
-**Filter Input String Parsing (SQL Injection Mitigation):**
-- Risk: Query filters parse user input with `colonIndex` string slicing
-- Files: `frontend/src/routes/+page.server.ts`, `frontend/src/routes/api/search/+server.ts`
-- Current mitigation: Filters are mapped to column whitelist, values go to parameterized `in` clause
-- Recommendations: Add explicit validation that filter format matches expected pattern (key:value). Log unexpected filter formats
+**Assets API endpoint has no authentication:**
+- Risk: The `GET /api/assets` endpoint does not check `locals.user`. Any unauthenticated request can read the full asset inventory.
+- Files: `frontend/src/routes/api/assets/+server.ts` (line 6 -- no auth check)
+- Current mitigation: Internal network deployment.
+- Recommendations: Add auth check or accept that this is intentional for the deployment context.
 
-**Password Hash Comparison Timing:**
-- Risk: bcrypt comparison timing could theoretically leak information
-- Files: `frontend/src/routes/login/+page.server.ts` (line 37)
-- Current mitigation: bcrypt library handles constant-time comparison internally
-- Recommendations: Ensure bcrypt version is kept up to date (currently ^6.0.0). Monitor for timing attacks in bcrypt library advisories
+**No rate limiting on login:**
+- Risk: The login endpoint has no rate limiting or account lockout mechanism. Brute-force attacks are possible.
+- Files: `frontend/src/routes/login/+page.server.ts` (lines 14-104)
+- Current mitigation: None.
+- Recommendations: Add rate limiting per IP or per username (e.g., max 5 attempts per minute).
+
+**No CSRF protection on API endpoints:**
+- Risk: API endpoints use `POST`/`DELETE` without CSRF tokens. SvelteKit form actions have built-in CSRF protection, but the `/api/*` JSON endpoints do not.
+- Files: All files under `frontend/src/routes/api/`
+- Current mitigation: `sameSite: 'lax'` on cookies provides partial protection. Internal network deployment.
+- Recommendations: For an internal tool this is likely acceptable. If exposed externally, add CSRF tokens or use SvelteKit form actions instead of raw fetch endpoints.
 
 ## Performance Bottlenecks
 
-**Large Grid Rendering Without Virtualization Limits:**
-- Problem: Main page loads all assets into memory and renders them
-- Files: `frontend/src/routes/+page.svelte` (lines 1313, virtualScroll implementation), `frontend/src/lib/utils/core/virtualScrollManager.svelte`
-- Cause: Virtual scroll implemented but grid may render thousands of rows if dataset large
-- Improvement path: Add pagination to API, configurable page size, lazy-load rows on scroll. Monitor `filteredAssets` size
+**O(n) asset lookups by ID throughout the codebase:**
+- Problem: `assetStore.filteredAssets.find(a => a.id === id)` is called repeatedly in hot paths -- event handler commit loops, dirty cell overlay computation, selection arrow navigation, overlay rendering.
+- Files:
+  - `frontend/src/lib/grid/eventQueue/eventHandler.ts` (lines 109, 111, 203, 206)
+  - `frontend/src/lib/grid/components/grid-overlays/GridOverlays.svelte` (lines 65, 442, 487)
+- Cause: Assets are stored as flat arrays. Each lookup is O(n) where n is the number of assets.
+- Improvement path: Maintain a `Map<number, Asset>` index alongside the array in `assetStore`. Update the map when assets change. Replace `.find()` calls with `.get()` for O(1) lookups.
 
-**Realtime WebSocket Message Queue Unbounded Growth:**
-- Problem: Message queue caps at 50 items but can still accumulate if reconnections frequent
-- Files: `frontend/src/lib/utils/interaction/realtimeManager.svelte.ts` (lines 20, 93-108)
-- Cause: Queue manages offline messages but doesn't expire old messages
-- Improvement path: Add TTL to queued messages, discard stale position updates aggressively
+**Non-transactional bulk updates:**
+- Problem: The `/api/update` endpoint processes changes in a sequential loop with individual `updateAsset()` and `logChange()` calls. If the 5th update fails, the first 4 are already committed.
+- Files:
+  - `frontend/src/routes/api/update/+server.ts` (lines 85-98)
+  - `frontend/src/routes/api/create/asset/+server.ts` (lines 26-48)
+- Cause: No database transaction wrapping the loop.
+- Improvement path: Wrap the loop in `db.transaction()` so all changes commit or rollback atomically.
 
-**Database Query Performance Unknown:**
-- Problem: No query logging, explain plan analysis, or index verification documented
-- Files: All `frontend/src/routes/api/**` endpoints
-- Cause: Direct database access without monitoring
-- Improvement path: Add query logging (Kysely event listeners), profile slow queries, verify indexes on frequently queried columns (id, status_id, department_id, location_id)
-
-**Synchronous Session Cleanup:**
-- Problem: Session cleanup runs synchronously in request handler every hour
-- Files: `frontend/src/hooks.server.ts` (lines 28-32)
-- Cause: Called with `.catch()` but blocks request if slow
-- Improvement path: Move cleanup to background job or cron task. Implement indexed query on expires_at for fast deletion
+**Dirty cell overlay recomputes on every edit:**
+- Problem: `dirtyCellOverlays` is a `$derived.by()` that iterates all pending edits, does `findIndex` on assets for each, and builds overlay geometry. This runs on every scroll and every edit.
+- Files: `frontend/src/lib/grid/components/grid-overlays/GridOverlays.svelte` (lines 434-474)
+- Cause: The derivation depends on `pendingCtx.edits`, `viewCtx.virtualScroll.visibleRange`, and `assets`, so it recalculates frequently.
+- Improvement path: Pre-build a `Map<number, Map<string, Edit>>` index for pending edits. Only compute overlays for edits in the visible range using the index.
 
 ## Fragile Areas
 
-**Realtime Manager State Management:**
-- Files: `frontend/src/lib/utils/interaction/realtimeManager.svelte.ts` (full file, 349 lines)
-- Why fragile:
-  - Complex state machine for WebSocket lifecycle (connecting → open → closed → reconnecting)
-  - Message queue survival logic depends on careful ordering (restore position, then flush queue)
-  - Queue prioritization logic (line 95-108) parses JSON to find position updates — could fail on malformed messages
-  - Ghost killer pattern (line 24) cleans previous instance but assumes only one should exist
-- Safe modification:
-  - Add unit tests for all state transitions before touching lifecycle code
-  - Extract message queue logic into separate module with clear contract
-  - Add invariant checks (e.g., assert socket !== null before certain operations)
-  - Document exact ordering expectations in comments
-- Test coverage: None detected. High priority: test reconnection after network drop, message ordering, duplicate session cleanup
+**Selection model uses asset IDs as row identifiers but numeric indices for columns:**
+- Files: `frontend/src/lib/grid/components/grid-overlays/GridOverlays.svelte` (lines 85-129, 280-295)
+- Why fragile: `selectionStart.row` is an asset ID (e.g., 42) while `selectionStart.col` is a numeric index (e.g., 3). Arrow key navigation does `assets[idx - 1].id` to get the next row ID but `col - 1` for the next column. This asymmetry means any code touching selection must know which dimension uses IDs vs indices.
+- Safe modification: When modifying selection, always use `assetIndex()` to convert IDs to array positions. Never assume `row` is an array index.
+- Test coverage: Zero automated tests.
 
-**Audit Cycle Lifecycle:**
-- Files: `frontend/src/routes/api/audit/start/+server.ts`, `frontend/src/routes/api/audit/close/+server.ts`, `frontend/src/routes/api/audit/assign/+server.ts`, `frontend/src/routes/api/audit/complete/+server.ts`, `frontend/src/routes/admin/audit/+page.svelte` (696 lines)
-- Why fragile:
-  - Multiple endpoints coordinate state (start → assign → complete → close) but no transaction coordination
-  - Asset snapshot created in start but can be modified by normal updates during cycle
-  - No explicit locking prevents concurrent audit cycles
-  - Close endpoint logic unclear (missing in file review)
-- Safe modification:
-  - Add explicit audit cycle status tracking (ACTIVE, CLOSED)
-  - Wrap multi-step operations in database transactions
-  - Prevent new audit starts if one already active (guard in start endpoint appears present)
-  - Document state machine clearly
-- Test coverage: None detected. High priority: concurrent cycle prevention, asset modification during cycle, partial completion recovery
+**Panel toggle system via onWindowClick:**
+- Files: `frontend/src/lib/grid/components/grid-overlays/GridOverlays.svelte` (lines 391-416)
+- Why fragile: The `onWindowClick` handler snapshots panel state, closes everything, then re-opens the clicked panel. This "close-then-reopen" pattern depends on exact DOM structure (`.closest('[data-header-col]')`, `.closest('[data-filter-trigger]')`). Adding a new panel requires modifying `setOpenPanel()` and adding a new `closest()` check.
+- Safe modification: When adding panels, update `setOpenPanel()` first, then add the trigger detection in `onWindowClick`. Test all panels open/close after any change.
+- Test coverage: Zero automated tests.
 
-**Dynamic Column Update Handler:**
-- Files: `frontend/src/lib/db/update/updateAsset.ts` (full file, 92 lines)
-- Why fragile:
-  - Maps from column name to table/update logic via switch statement and lookup table
-  - Heavy use of `as any` hides type errors
-  - Function signature accepts `value: any` — no validation
-  - Extension table updates are fire-and-forget (line 89 returns early without error propagation)
-  - No rollback if modified_tracking update fails after extension table update
-- Safe modification:
-  - Refactor switch into dispatch table with per-column validators
-  - Add proper error handling and rollback for multi-table updates
-  - Validate value type before update (use validationManager)
-  - Return structured result with update success/failure details
-- Test coverage: None. High priority: invalid column names, missing values, concurrent updates to same asset
+**Discard resets pending edits but does not re-fetch assets:**
+- Files: `frontend/src/lib/grid/eventQueue/eventHandler.ts` (lines 180-196)
+- Why fragile: `handleDiscard` clears `pendingCtx.edits` and `newRowCtx.newRows`, but the displayed cell values in the overlay are the pending values. Since there is no optimistic mutation of `filteredAssets`, discard works correctly today. But if the architecture changes to optimistic mutation, discard would need to restore original values from `baseAssets`.
+- Safe modification: Keep the no-optimistic-mutation pattern. If changing to optimistic mutation, also restore `filteredAssets` from `baseAssets` on discard.
 
-## Scaling Limits
-
-**Realtime WebSocket Connections Per Server:**
-- Current capacity: Unknown (no metrics/limits documented)
-- Limit: WebSocket server likely bottlenecks at 1k-10k concurrent connections depending on message frequency and server resources
-- Scaling path: Monitor active connections, implement connection pooling, consider load balancing across WebSocket servers if >1k users
-
-**Asset Database Row Limits:**
-- Current capacity: Likely supports 100k-1M rows efficiently depending on index quality
-- Limit: Grid rendering may slow at 10k+ rows, virtual scroll can only partially mitigate
-- Scaling path: Implement pagination (50-100 rows per page), archive old assets, add database partitioning if >1M rows expected
-
-**Session Cleanup at Scale:**
-- Current capacity: Cleanup query likely efficient with proper index, but synchronous blocking
-- Limit: If 10k+ sessions created daily, cleanup might impact request latency
-- Scaling path: Move cleanup to dedicated background job, add job queue (Bull, Bee-Queue)
-
-## Dependencies at Risk
-
-**Svelte 5.39.5 Rune Stability:**
-- Risk: Project relies on Svelte 5 runes ($state, $derived, $effect) which are relatively new (5.40+)
-- Files: All `.svelte` files, particularly `frontend/src/routes/+page.svelte`, manager classes
-- Impact: If runes API changes, extensive refactoring required
-- Migration plan: Keep Svelte updated, use minor version constraints (^5.39.5 is good), monitor Svelte changelog
-
-**Kysely 0.28.8 Limited Type Support:**
-- Risk: Kysely type safety degrades with dynamic table/column names, forcing `as any` throughout
-- Files: All database query files
-- Impact: TypeScript protection lost, runtime errors possible
-- Migration plan: Consider upgrade to Kysely 1.x when stable, implement helper types for common queries, evaluate alternatives (Drizzle, TypeORM) if dynamic queries remain problematic
-
-**Custom WebSocket Protocol Fragility:**
-- Risk: WebSocket protocol (message types, payload formats) custom-built and undocumented
-- Files: `frontend/src/lib/utils/interaction/realtimeManager.svelte.ts` (message handling)
-- Impact: Client/server desync if protocol changes, hard to add new message types
-- Migration plan: Document protocol formally, consider protocol versioning, add schema validation (Zod/io-ts) for incoming messages
-
-## Missing Critical Features
-
-**Audit Trail Completeness:**
-- Problem: Change logging exists but no comprehensive audit trail for audit cycle lifecycle or administrative actions
-- Blocks: Compliance requirements, forensic investigation of data changes, admin action accountability
-- Solution: Extend change logging to audit cycle operations, user logins, permission changes, administrative actions
-
-**Concurrent Edit Conflict Resolution:**
-- Problem: Realtime locks prevent simultaneous cell edits but no conflict resolution if two users commit changes to same asset
-- Blocks: Collaborative workflows, handling network partitions cleanly
-- Solution: Implement operational transformation or CRDT-based conflict resolution, or pessimistic locking with forced refresh
-
-**Data Validation Rules Engine:**
-- Problem: Validation hardcoded in client (validationManager) and scatteredin API endpoints
-- Blocks: Enforcing consistent validation, adding complex rules (e.g., cross-field validation, business logic)
-- Solution: Centralize validation rules in database or shared schema, implement server-side validation enforcer
-
-**Admin Audit Log Visibility:**
-- Problem: Admin pages allow editing all tables but no audit trail visible in UI
-- Blocks: Tracking who changed what and when, audit compliance
-- Solution: Add audit log viewer to admin panel, surface change history in table UIs
+**Realtime manager uses globalThis singleton pattern:**
+- Files: `frontend/src/lib/utils/interaction/realtimeManager.svelte.ts` (lines 24, 346)
+- Why fragile: Uses `(globalThis as any)[INSTANCE_KEY]` to prevent duplicate instances during HMR. If the key collides or the cleanup logic fails, duplicate WebSocket connections occur.
+- Safe modification: Do not rename the instance key. Verify reconnect behavior after code changes during dev.
 
 ## Test Coverage Gaps
 
-**Authentication & Session Management Untested:**
-- What's not tested: Login flow, session creation/expiration, password hashing, cookie handling, concurrent logins
-- Files: `frontend/src/routes/login/+page.server.ts`, `frontend/src/hooks.server.ts`, `frontend/src/lib/db/auth/**`
-- Risk: Session hijacking, credential leaks, race conditions in session cleanup
-- Priority: HIGH — authentication is critical path
+**Zero automated tests exist:**
+- What's not tested: The entire application. No test files exist outside of `node_modules/`.
+- Files: Every file under `frontend/src/`
+- Risk: Any refactoring, especially the ongoing architecture rehaul, can introduce regressions with no safety net. The event queue, event handler, selection logic, overlay computation, and API endpoints are all untested.
+- Priority: **High** -- The event handler target functions (`handleCommitUpdate`, `handleCommitCreate`, `handleQuery`, `handleDiscard`) and the `updateAsset`/`createAsset` database functions are the highest-value targets for unit tests, as they handle data mutations.
 
-**Database Operations Untested:**
-- What's not tested: Asset CRUD, query result shape, null handling, transaction semantics, concurrent updates
-- Files: `frontend/src/lib/db/**`, `frontend/src/routes/api/**`
-- Risk: Data corruption, silent failures, performance degradation
-- Priority: HIGH — data integrity is foundational
+## Dependencies at Risk
 
-**Realtime WebSocket Protocol Untested:**
-- What's not tested: Message ordering, reconnection behavior, message loss recovery, queue management, concurrent clients
-- Files: `frontend/src/lib/utils/interaction/realtimeManager.svelte.ts`
-- Risk: Silent data loss, UI desync, race conditions in shared state
-- Priority: HIGH — realtime is core feature
+**No lockfile detected (or lockfile not committed):**
+- Risk: Without a committed lockfile, `npm install` on different machines can produce different dependency versions.
+- Impact: Inconsistent builds between developers and deployment.
+- Migration plan: Verify `package-lock.json` exists and is committed. Run `npm ci` in CI/CD instead of `npm install`.
 
-**Input Validation & Error Handling Untested:**
-- What's not tested: Invalid API payloads, SQL injection attempts, edge cases in date parsing, concurrent writes
-- Files: All API routes, data validation functions
-- Risk: Unhandled exceptions, data corruption, security vulnerabilities
-- Priority: HIGH — foundational security
+## Missing Critical Features
 
-**UI Component Interactions Untested:**
-- What's not tested: Grid interactions (copy/paste, selection, editing), filter/search behavior, virtual scroll edge cases
-- Files: `frontend/src/routes/+page.svelte`, grid components, interaction managers
-- Risk: UI bugs on production, lost user work, broken workflows
-- Priority: MEDIUM — impacts user experience
+**No data export:**
+- Problem: Users cannot export asset data to CSV or Excel.
+- Blocks: Reporting workflows, data backup, auditor handoff.
+
+**No audit trail UI:**
+- Problem: The `change_log` table records all changes, but there is no UI to view the change history for a specific asset.
+- Blocks: Accountability and debugging data issues.
+
+**No pagination on asset queries:**
+- Problem: `queryAssets` returns all matching rows with no LIMIT/OFFSET. For large inventories, this loads the entire dataset into memory.
+- Files: `frontend/src/lib/db/select/queryAssets.ts` (line 84 -- no pagination)
+- Blocks: Scaling beyond a few thousand assets.
 
 ---
 
-*Concerns audit: 2026-02-25*
+*Concerns audit: 2026-03-05*

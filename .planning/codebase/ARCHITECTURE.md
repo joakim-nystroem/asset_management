@@ -1,179 +1,188 @@
 # Architecture
 
-**Analysis Date:** 2025-02-25
+**Analysis Date:** 2026-03-05
 
 ## Pattern Overview
 
-**Overall:** SvelteKit fullstack application with server-side session management, layered database operations, and reactive client-side UI state management using Svelte 5 runes.
+**Overall:** Component-driven monolith with event-sourced mutation pipeline
 
 **Key Characteristics:**
-- Server-rendered authentication with session-based access control via `hooks.server.ts`
-- RESTful API routes (`/api/*`) for CRUD operations on asset inventory and audit workflows
-- Centralized Kysely ORM layer for type-safe database queries
-- Reactive state management using Svelte 5 `$state` and `$derived` for UI interactions
-- Singleton manager pattern for grid interaction (column widths, row heights, editing, selection)
-- View-based filtering system allowing multiple curated perspectives on asset data
+- SvelteKit full-stack app with Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`)
+- Separate Go WebSocket server for realtime multi-user presence
+- Serial event queue decouples UI triggers from side-effectful mutations (API calls, store updates)
+- 12 typed Svelte contexts for ephemeral UI state; module-level `$state` singleton for bulk data
+- Virtual scrolling grid as the primary UI — spreadsheet-like asset editor
 
 ## Layers
 
-**Presentation Layer:**
-- Purpose: Render UI components and handle user interactions
-- Location: `frontend/src/routes/` (page components) and `frontend/src/lib/components/grid/` (grid components)
-- Contains: `.svelte` files with forms, grids, filters, modals
-- Depends on: Route handlers (`+page.server.ts`), UI utilities, state managers
-- Used by: Browser clients
+**Page Layer (Server + Client Entry):**
+- Purpose: Load data from MariaDB, seed client stores, render component tree
+- Location: `frontend/src/routes/+page.server.ts`, `frontend/src/routes/+page.svelte`
+- Contains: Server load function (Kysely queries), client `$props()` destructuring, store seeding
+- Depends on: `$lib/db/select/*`, `$lib/data/assetStore.svelte.ts`
+- Used by: Nothing (top-level entry)
 
-**API Layer:**
-- Purpose: Handle HTTP requests/responses for asset, audit, and metadata CRUD operations
-- Location: `frontend/src/routes/api/*/`
-- Contains: `+server.ts` files implementing GET/POST/PUT/DELETE handlers
-- Depends on: Database layer (`$lib/db/*`), auth layer
-- Used by: Presentation layer via fetch(), mobile apps
+**Context Layer (Ephemeral UI State):**
+- Purpose: Provide typed reactive state shells for transient UI concerns (editing position, selection, panel visibility, pending changes)
+- Location: `frontend/src/lib/context/gridContext.svelte.ts` (types + getter/setter pairs), `frontend/src/lib/context/GridContextProvider.svelte` (initialization)
+- Contains: 12 context types (`EditingContext`, `PendingContext`, `HistoryContext`, `NewRowContext`, `SelectionContext`, `ClipboardContext`, `RowContext`, `ViewContext`, `UiContext`, `QueryContext`, `ColumnWidthContext`, `SortContext`), each with `[getXContext, setXContext]` via Svelte `createContext()`
+- Depends on: `svelte` (`createContext`), `svelte/reactivity` (`SvelteMap`), `$lib/grid/utils/virtualScrollManager.svelte.ts`
+- Used by: All grid components that need shared ephemeral state
 
-**Database Access Layer:**
-- Purpose: Type-safe database queries using Kysely ORM
-- Location: `frontend/src/lib/db/` (organized by operation: `select/`, `create/`, `update/`, `delete/`, `auth/`, `migrations/`)
-- Contains: Query builders, migrations, authentication functions
-- Depends on: Kysely dialect, MariaDB connection pool
-- Used by: API routes
+**Data Layer (Bulk Data Store):**
+- Purpose: Single source of truth for server-loaded asset data and metadata
+- Location: `frontend/src/lib/data/assetStore.svelte.ts`
+- Contains: Module-level `$state` singleton with `baseAssets`, `filteredAssets`, `locations`, `statuses`, `conditions`, `departments`
+- Depends on: Nothing (pure state container)
+- Used by: `+page.svelte` (seeding), `eventHandler.ts` (mutation after API), grid components (reading)
 
-**State Management Layer:**
-- Purpose: Manage reactive UI state (editing, selection, column widths, sorting, filtering)
-- Location: `frontend/src/lib/utils/` (organized by domain: `core/`, `interaction/`, `data/`, `ui/`)
-- Contains: Singleton managers exported as `.svelte.ts` files
-- Depends on: None (standalone utilities)
-- Used by: Presentation components via direct imports
+**Event Pipeline Layer (Mutation Bus):**
+- Purpose: Serialize all state-mutating operations (commits, queries, discards) through a FIFO queue
+- Location: `frontend/src/lib/grid/eventQueue/`
+- Contains: `EventListener.svelte` (watches context trigger flags, snapshots payloads, enqueues), `eventQueue.ts` (pure TS FIFO), `eventHandler.ts` (routes events to target functions that call APIs and mutate proxies)
+- Depends on: Contexts (via `getXContext()` in EventListener only), `assetStore`, `toastState`
+- Used by: EventListener is rendered in `+page.svelte`; target functions are the only path for data mutations
 
-**Authentication & Session Layer:**
-- Purpose: Manage user authentication, sessions, and access control
-- Location: `frontend/src/lib/db/auth/` (database operations) and `frontend/src/hooks.server.ts` (middleware)
-- Contains: User/session CRUD, bcrypt password hashing, session validation
-- Depends on: Database layer, bcrypt, uuid
-- Used by: Route handlers, middleware
+**Grid Component Layer (UI):**
+- Purpose: Render the spreadsheet grid with virtual scrolling, selection overlays, inline editing
+- Location: `frontend/src/lib/grid/components/`
+- Contains: `grid-container/` (scroll viewport), `grid-overlays/` (interaction + visual feedback), `grid-header/` (columns, sort, resize, header menu), `grid-row/` (cell rendering), `edit-handler/` (inline editor), `toolbar/` (search, filters, actions), menus (`context-menu/`, `header-menu/`, `edit-dropdown/`, `filter-panel/`, `suggestion-menu/`)
+- Depends on: Contexts, `assetStore`, `realtime` singleton
+- Used by: Composed inside `GridContainer` which is rendered by `+page.svelte`
+
+**Database Layer (Server-Only):**
+- Purpose: All MariaDB access via Kysely ORM
+- Location: `frontend/src/lib/db/`
+- Contains: `conn.ts` (connection pool + all table type definitions), `select/` (read queries), `create/` (inserts), `update/` (updates), `delete/` (deletes), `auth/` (session/user management), `migrations/` (schema migrations)
+- Depends on: `kysely`, `mysql2`, `$env/static/private`
+- Used by: `+page.server.ts`, `hooks.server.ts`, API route handlers (`frontend/src/routes/api/`)
+
+**API Route Layer (SvelteKit Endpoints):**
+- Purpose: REST endpoints consumed by the client event handler
+- Location: `frontend/src/routes/api/`
+- Contains: `assets/+server.ts` (query), `update/+server.ts` (bulk update), `create/asset/+server.ts` (create rows), `create/[category]/+server.ts`, `delete/[category]/+server.ts`, `meta/[category]/+server.ts`, `update/[category]/+server.ts` (admin CRUD), `audit/*` (audit operations)
+- Depends on: `$lib/db/*`
+- Used by: `eventHandler.ts` (via `fetch()`), admin pages, mobile pages
+
+**Realtime Layer (WebSocket):**
+- Purpose: Multi-user presence (cursor positions, cell locking) via WebSocket
+- Location: `frontend/src/lib/utils/interaction/realtimeManager.svelte.ts` (client), `api/main.go` + `api/internal/hub.go` (server)
+- Contains: Client singleton (`realtime`) with `$state` for `connectedUsers` and `lockedCells`. Go server with WebSocket hub, CORS, connection pooling.
+- Depends on: `$env/static/public` (WS URL), Go `database/sql` + `github.com/go-sql-driver/mysql`
+- Used by: `+layout.svelte` (connect/disconnect lifecycle), `GridOverlays.svelte` (other-user cursor rendering)
+
+**Toast Layer (Notifications):**
+- Purpose: User-facing toast notifications
+- Location: `frontend/src/lib/toast/toastState.svelte.ts` (state singleton), `frontend/src/lib/toast/ToastContainer.svelte` (renderer)
+- Contains: `toastState` module-level singleton with `addToast()`, auto-dismiss timers
+- Depends on: Nothing
+- Used by: `eventHandler.ts`, `GridOverlays.svelte`, any component needing user feedback
 
 ## Data Flow
 
-**Login Flow:**
+**Page Load (Server to Client):**
 
-1. User submits credentials on `/login`
-2. `+page.server.ts` action: `login` calls `findUserByUsername()` and verifies password with `bcrypt.compare()`
-3. On success: deletes old sessions, creates new session via `createSession()`, sets `sessionId` cookie
-4. Redirect to `/` (protected by middleware)
+1. `+page.server.ts` calls `queryAssets()` + metadata getters via Kysely
+2. Returns `{ assets, locations, statuses, conditions, departments, initialView }` to client
+3. `+page.svelte` receives via `$props()`, seeds `assetStore` fields
+4. `GridContextProvider` initializes 12 empty context shells
+5. Grid components read `assetStore` and contexts to render
 
-**Asset View Flow:**
+**Cell Edit (User Action to Persistence):**
 
-1. Page load: `+layout.server.ts` returns theme, user from `event.locals.user` (populated by `hooks.server.ts`)
-2. Presentation component fetches assets via `/api/assets` GET endpoint
-3. `getDefaultAssets()` executes Kysely query with left joins to status, condition, location, department tables
-4. JSON response hydrates `assets` state variable
-5. Component renders grid with asset data, managers track column widths, selection, editing state
-6. Double-click triggers edit mode → `editManager` expands column width, `rowManager` adjusts row height
-7. On save: POST to `/api/update`, `updateAsset()` updates DB and logs change to `change_log` table
+1. User double-clicks cell or presses F2 in `GridOverlays.svelte`
+2. `GridOverlays` writes to `editingCtx` (`isEditing=true`, `editRow`, `editCol`)
+3. `EditHandler.svelte` renders textarea at computed position
+4. User types, saves; `EditHandler` upserts into `pendingCtx.edits[]`
+5. `filteredAssets` stays CLEAN; pending values render as overlays in `GridOverlays`
+6. User clicks Commit in `Toolbar`; sets `uiCtx.commitRequested = true`
+7. `EventListener` `$effect` fires, snapshots `pendingCtx.edits`, enqueues `COMMIT_UPDATE`
+8. `eventQueue.ts` processes serially, calls `eventHandler.ts` `handleCommitUpdate()`
+9. Handler POSTs to `/api/update`, on success mutates `assetStore.filteredAssets` + `baseAssets`, clears `pendingCtx.edits`
 
-**Audit Workflow Flow:**
+**Query (Search/Filter/View Change):**
 
-1. Admin clicks "Start Audit" → POST `/api/audit/start`
-2. Server inserts rows into `asset_audit` table (snapshot of current inventory)
-3. Page component displays audit assignments with filtering/sorting (location, auditor, status)
-4. Admin bulk-assigns assets to auditors → PUT `/api/audit/bulk-assign`
-5. Auditor marks items complete → PUT `/api/audit/complete`
-6. Admin closes cycle → POST `/api/audit/close` (archives completed items to `asset_audit_history`)
+1. Component writes to `queryCtx` (view, q, or filters)
+2. `EventListener` `$effect` detects change (skips first run), resets sort, enqueues `QUERY`
+3. `handleQuery()` fetches `/api/assets` with params
+4. On success, updates `assetStore.filteredAssets` (and `baseAssets` if no filters active)
 
-**State Management Flow:**
-
-1. Managers initialized as singletons: `columnManager`, `editManager`, `selectionManager`, `sortManager`, `searchManager`
-2. Component imports managers and subscribes via `$effect()` or direct property access
-3. User interaction (e.g., column resize) calls manager methods → state updates → component re-renders reactively
-4. Changes persisted to localStorage (e.g., `columnManager.saveToStorage()`)
+**State Management:**
+- **Bulk data:** `assetStore` module-level `$state` singleton, imported directly
+- **Ephemeral UI:** 12 Svelte contexts via `createContext()`, initialized in `GridContextProvider`, accessed via `getXContext()` in components
+- **Singletons:** `realtime` (WebSocket), `toastState` (notifications) are module-level `$state` objects
+- **No optimistic mutation:** `filteredAssets` stays clean during editing; pending edits are rendered as overlays
 
 ## Key Abstractions
 
-**Database Connection (`db`):**
-- Purpose: Centralized Kysely instance for all queries
-- Examples: `frontend/src/lib/db/conn.ts`
-- Pattern: Singleton export; MariaDB dialect with connection pooling
+**Event Queue Pipeline:**
+- Purpose: Decouple UI triggers from async side effects (API calls, store mutations)
+- Examples: `frontend/src/lib/grid/eventQueue/EventListener.svelte`, `frontend/src/lib/grid/eventQueue/eventQueue.ts`, `frontend/src/lib/grid/eventQueue/eventHandler.ts`
+- Pattern: Smart Owner (EventListener grabs contexts) -> FIFO Queue (pure TS) -> Router (switches on event type, mutates context proxies directly)
 
-**Typed Database Tables:**
-- Purpose: TypeScript type safety for Kysely queries
-- Examples: `AssetTable`, `UserTable`, `SessionTable`, `AssetAuditTable`
-- Pattern: Kysely `ColumnType<SelectType, InsertType, UpdateType>` for precise type control
+**Context Shells:**
+- Purpose: Typed ephemeral state that multiple components share without prop drilling
+- Examples: `frontend/src/lib/context/gridContext.svelte.ts`, `frontend/src/lib/context/GridContextProvider.svelte`
+- Pattern: `createContext<T>()` returns `[getter, setter]` tuple. Provider initializes `$state({...})` and calls setter. Consumers call getter.
 
-**State Managers:**
-- Purpose: Encapsulate domain-specific state logic with reactive getters/setters
-- Examples: `editManager`, `columnManager`, `selectionManager`, `sortManager`, `searchManager`
-- Pattern: Factory function returning object with state properties and methods; exported as singleton
+**Virtual Scroll Manager:**
+- Purpose: Factory-created reactive object managing which rows are visible based on scroll position
+- Examples: `frontend/src/lib/grid/utils/virtualScrollManager.svelte.ts`
+- Pattern: Factory function returns object with `$state` + `$derived` internals, exposed as getter properties and methods. Instance stored in `ViewContext`.
 
-**View Configurations:**
-- Purpose: Define filtered/customized asset perspectives (default, audit, PED, network, galaxy)
-- Examples: `frontend/src/lib/utils/core/viewManager.svelte.ts`
-- Pattern: Static array of `ViewConfig` objects defining filters and extra columns
+**Component Sets (`.svelte` + `.svelte.ts`):**
+- Purpose: Separate rendering from state management within a single component
+- Examples: `edit-handler/EditHandler.svelte` + `editHandler.svelte.ts`, `context-menu/contextMenu.svelte` + `contextMenu.svelte.ts`, `header-menu/headerMenu.svelte` (has inline state management)
+- Pattern: `.svelte` handles rendering and event binding. `.svelte.ts` exports state classes/functions/helpers. Component imports from its companion `.svelte.ts`.
 
-**UI Component Helpers:**
-- Purpose: Reusable dropdown, autocomplete, context menu, toast utilities
-- Examples: `frontend/src/lib/utils/ui/editDropdown/`, `autocomplete.svelte.ts`
-- Pattern: Paired `.svelte` component and `.svelte.ts` manager for state
+**Panel System:**
+- Purpose: Mutually exclusive visibility for context menu, header menu, filter panel
+- Examples: `GridOverlays.svelte` `setOpenPanel()` function
+- Pattern: All panels use `uiCtx` visibility flags. `setOpenPanel(panel?)` closes all others. `onWindowClick` in `GridOverlays` handles the two-step toggle (close all, then check if click was on a trigger to re-open).
 
 ## Entry Points
 
-**Web Application Root:**
-- Location: `frontend/src/routes/+layout.svelte` (wraps all pages)
-- Triggers: Browser navigation to `/asset`
-- Responsibilities: Load theme, user, session info; render navigation UI; pass data to child pages
-
-**Page Routes:**
-- `/` - Dashboard redirect to `/asset/` (main grid view)
-- `/asset/` - Asset inventory grid (default view)
-- `/admin/` - Admin layout with sub-pages
-- `/admin/[adminpage]` - Metadata management (locations, statuses, departments, conditions)
-- `/admin/audit` - Audit cycle management and assignments
-- `/mobile/manage` - Mobile asset creation/editing
-- `/mobile/audit` - Mobile audit data capture
-
-**API Routes:**
-- `/api/assets` - GET all assets for grid
-- `/api/update` - PUT to update asset fields
-- `/api/audit/start` - POST to begin audit cycle
-- `/api/audit/close` - POST to complete audit cycle
-- `/api/audit/assign` - PUT to reassign auditor
-- `/api/audit/bulk-assign` - PUT to bulk assign multiple assets
-
-**Session Middleware:**
+**SvelteKit Server Hook:**
 - Location: `frontend/src/hooks.server.ts`
-- Triggers: Every incoming request
-- Responsibilities: Validate session cookie, fetch user from DB, populate `event.locals.user`, cleanup expired sessions hourly
+- Triggers: Every HTTP request
+- Responsibilities: Run DB migrations on first request. Periodic session cleanup (hourly). Authenticate requests by reading `sessionId` cookie, looking up session, attaching `user` to `event.locals`.
+
+**Main Page (Grid):**
+- Location: `frontend/src/routes/+page.server.ts` + `frontend/src/routes/+page.svelte`
+- Triggers: Navigation to `/` (or `/asset/` with base path)
+- Responsibilities: Load assets + metadata from DB, redirect mobile users, seed `assetStore`, render grid
+
+**Go WebSocket Server:**
+- Location: `api/main.go`
+- Triggers: Application startup (separate process, port 8080)
+- Responsibilities: WebSocket hub for realtime presence. Single endpoint: `/api/ws`. Manages user connections, position broadcasts, cell locking.
+
+**API Endpoints:**
+- Location: `frontend/src/routes/api/`
+- Triggers: Client-side `fetch()` from `eventHandler.ts` or form actions
+- Responsibilities: Asset CRUD, metadata CRUD, audit operations
 
 ## Error Handling
 
-**Strategy:** Layered try-catch with fallback error responses.
+**Strategy:** Toast notifications for user-facing errors; console.error for dev diagnostics; event queue catches errors to prevent queue death.
 
 **Patterns:**
-
-- **Database errors:** Caught in API routes, return JSON `{ error: string }` with HTTP status
-- **Authentication errors:** Invalid session → delete cookies, set `event.locals.user = null`, redirect to `/login`
-- **Validation errors:** API routes validate input (e.g., ALLOWED_COLUMNS whitelist in `/api/update`), return 400
-- **User-facing errors:** Displayed in toast notifications (success/warning/error) or message banners
-- **Logging:** Errors logged to console with context; no centralized error tracking configured
-
-**Example:** `frontend/src/routes/api/assets/+server.ts` wraps `getDefaultAssets()` in try-catch, returns `{ assets: [], dbError: string }`
+- `eventQueue.ts`: try/catch around `processEvent()` with `console.error` — queue always continues
+- `eventHandler.ts`: Check `ApiResult.success`, show `toastState.addToast('...', 'error')` on failure, return early
+- `+page.server.ts`: try/catch around DB queries, returns `dbError` string to client
+- `hooks.server.ts`: Catches migration errors silently (table likely exists), catches cleanup errors with `console.error`
+- `realtimeManager.svelte.ts`: WebSocket `onerror` forces close to trigger reconnect; exponential backoff with 10s cap
 
 ## Cross-Cutting Concerns
 
-**Logging:** Console-based; critical operations log errors to browser console and server logs.
+**Logging:** `console.error` / `console.warn` only. No structured logging framework.
 
-**Validation:**
-- Client-side: Prevented from editing ID column, datetime formatting (`.toISOString().slice(0,19).replace('T',' ')`)
-- Server-side: ALLOWED_COLUMNS whitelist prevents SQL injection, type checking via Kysely
+**Validation:** Part of the edit flow, not a separate system. When a cell is saved, the edit logic checks validity and marks the `isValid` flag in `pendingCtx.edits[]`. No separate validation context.
 
-**Authentication:**
-- Session validation on every request via `hooks.server.ts`
-- Protected pages redirect to `/login` if no user in `event.locals`
-- Session expiry: 7 days; cleanup runs hourly
+**Authentication:** Cookie-based sessions. `hooks.server.ts` reads `sessionId` cookie on every request, looks up session in DB, attaches `user` to `event.locals`. No client-side auth state beyond what `+layout.server.ts` passes down.
 
-**Reactive State:**
-- Svelte 5 `$state` for mutable state in components and managers
-- `$derived` for computed properties (e.g., `filteredAndSorted` in audit page)
-- `$effect` for side effects (e.g., refetching data when dependencies change)
+**Panel Exclusivity:** `setOpenPanel()` in `GridOverlays.svelte` ensures only one panel (context menu, header menu, filter panel) is visible at a time.
 
 ---
 
-*Architecture analysis: 2025-02-25*
+*Architecture analysis: 2026-03-05*

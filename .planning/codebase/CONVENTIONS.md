@@ -1,215 +1,221 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-02-25
+**Analysis Date:** 2026-03-05
 
 ## Naming Patterns
 
 **Files:**
-- Database functions: lowercase with underscores, verb-based naming
-  - `create*.ts` for insert operations: `createAsset.ts`, `createUser.ts`, `createSession.ts`
-  - `get*.ts` for read operations: `getAssets.ts`, `getLocations.ts`, `getDepartments.ts`
-  - `update*.ts` for update operations: `updateAsset.ts`, `updateAdmin.ts`
-  - `delete*.ts` for delete operations: `deleteAdmin.ts`
-  - `*Manager.svelte.ts` for manager/state utilities: `rowManager.svelte.ts`, `columnManager.svelte.ts`
-- Svelte components: PascalCase: `ToastContainer.svelte`, `FilterPanel.svelte`
-- API endpoints: `+server.ts` for route handlers, `+page.server.ts` for server-side page logic
+- Svelte components: PascalCase (e.g., `GridContainer.svelte`, `EditHandler.svelte`, `ToastContainer.svelte`)
+- Svelte companion logic: camelCase matching the component (e.g., `editHandler.svelte.ts`, `contextMenu.svelte.ts`, `filterPanel.svelte.ts`)
+- Pure TypeScript modules: camelCase (e.g., `eventHandler.ts`, `eventQueue.ts`, `gridConfig.ts`)
+- Svelte reactive singletons: camelCase with `.svelte.ts` extension (e.g., `assetStore.svelte.ts`, `toastState.svelte.ts`, `realtimeManager.svelte.ts`)
+- Database modules: camelCase verb+noun (e.g., `getAssets.ts`, `createSession.ts`, `updateAsset.ts`, `deleteAdmin.ts`)
+- SvelteKit route files: standard `+page.svelte`, `+page.server.ts`, `+server.ts`, `+layout.svelte`
+- Type definitions: camelCase (e.g., `types.ts`)
+- Config files: camelCase (e.g., `gridConfig.ts`)
+
+**Directories:**
+- Component directories: kebab-case (e.g., `grid-container/`, `edit-handler/`, `header-menu/`, `context-menu/`)
+- Feature directories: camelCase (e.g., `eventQueue/`)
+- Domain directories: lowercase single-word (e.g., `context/`, `data/`, `toast/`, `grid/`, `utils/`)
+- Database subdirectories: CRUD-verb grouping (`select/`, `create/`, `update/`, `delete/`, `auth/`, `migrations/`)
 
 **Functions:**
-- camelCase for all functions: `createAsset()`, `getHeight()`, `setWidth()`, `updateRowHeight()`
-- Factory functions named `create*`: `createToastState()`, `createViewManager()`, `createEditManager()`
-- Helper functions follow CRUD verbs: `add*()`, `remove*()`, `set*()`, `get*()`
-- Boolean getters: `is*()` or `has*()`: `isEditingCell()`, `hasCustomHeight()`
+- camelCase verbs: `handleSort()`, `selectCell()`, `startSelection()`, `computeEditorPosition()`
+- Event handlers: `handle` prefix (e.g., `handleKeyDown()`, `handleMouseDown()`, `handleScroll()`, `handleCommitUpdate()`)
+- Getters/factories: `get`/`create` prefix (e.g., `getEditingContext()`, `getDefaultAssets()`, `createToastState()`)
+- Boolean checks: `is`/`has` prefix (e.g., `isEditing`, `hasNewRows`, `isValid`)
 
 **Variables:**
-- camelCase for all variables: `editState`, `inputValue`, `customHeights`, `baseAssets`
-- State variables use `$state()`: `let isEditing = $state(false)`
-- Derived values use `$derived()`: `let isLoggedIn = $derived(!!data.user)`
-- Boolean flags: prefix with `is` or `has`: `isEditing`, `isVisible`, `hasCustomHeight`
-- Temporary/loop variables: single letters acceptable (`i`, `j`) only in loops
-- Constants: UPPER_SNAKE_CASE for constants: `CLEANUP_INTERVAL`, `DEFAULT_HEIGHT`, `charWidth`
-- Map/Set variables: descriptive names: `customHeights`, `timers`, `dirtyChanges`, `invalidChanges`
+- camelCase for all variables: `scrollContainer`, `filterSearchTerm`, `submenuDirection`
+- Context variables: abbreviated `Ctx` suffix (e.g., `editingCtx`, `pendingCtx`, `selCtx`, `clipCtx`, `uiCtx`, `queryCtx`, `colWidthCtx`, `sortCtx`)
+- State flags: boolean naming (`isEditing`, `isPasting`, `isDragging`, `isProcessing`)
+- Constants: UPPER_SNAKE_CASE (e.g., `DEFAULT_WIDTH`, `MIN_COLUMN_WIDTH`, `CLEANUP_INTERVAL`, `ALLOWED_COLUMNS`)
 
 **Types:**
-- Interfaces: PascalCase, describe data shape: `EditState`, `Toast`, `ValidationConstraints`, `ColumnManager`
-- Union types: PascalCase: `ToastType = 'success' | 'error' | 'info' | 'warning'`
-- Generic type exports: `*Manager = ReturnType<typeof create*>` pattern: `EditManager`, `RowHeightManager`
+- PascalCase for interfaces and type aliases: `EditingContext`, `PendingContext`, `GridCell`, `Toast`, `ToastType`, `SafeUser`
+- Context types: `XContext` suffix (e.g., `EditingContext`, `SelectionContext`, `QueryContext`)
+- Result types: descriptive (e.g., `ApiResult`, `QueueItem`)
+- Svelte generics: `PageProps` from `$types`
 
 ## Code Style
 
 **Formatting:**
-- Prettier config: tab width 2, spaces (not tabs)
-- Location: `.prettierrc` with `tabWidth: 2, useTabs: false`
-- Applied via `svelte-check` and build process
+- Prettier with `.prettierrc`: `{ "tabWidth": 2, "useTabs": false }`
+- Single quotes for strings in TypeScript
+- Trailing commas in multi-line structures
+- Semicolons always
 
 **Linting:**
-- No explicit ESLint config in this project; relies on TypeScript strict mode
-- `svelte-check` provides Svelte-specific checking
-- Run with: `npm run check` (one-time) or `npm run check:watch` (watch mode)
+- No ESLint configured. Svelte compiler warnings are used instead.
+- Known suppressed warnings via `<!-- svelte-ignore -->`:
+  - `a11y_no_noninteractive_tabindex`
+  - `a11y_no_static_element_interactions`
+  - `a11y_mouse_events_have_key_events`
+  - `a11y_click_events_have_key_events`
+  - `state_referenced_locally` (used in `+page.svelte` for store seeding)
 
-**Strict TypeScript:**
-- `strict: true` in `tsconfig.json`
-- `allowJs: true` with `checkJs: true` (enables JS type checking)
-- `esModuleInterop: true` for CommonJS imports
-- `forceConsistentCasingInFileNames: true`
-- All new code must pass `svelte-check --tsconfig ./tsconfig.json`
+**TypeScript:**
+- Strict mode enabled in `tsconfig.json`
+- `allowJs: true`, `checkJs: true`
+- `moduleResolution: "bundler"`, `allowImportingTsExtensions: true`
+- Type checking via `npx svelte-check --tsconfig ./tsconfig.json` from `frontend/` directory
+- `as any` casts used pragmatically for Kysely type gaps (e.g., `modified: modified as any`, `.updateTable(mapping.table as any)`)
 
 ## Import Organization
 
 **Order:**
-1. External packages (npm): `import { json } from '@sveltejs/kit'`
-2. Type imports: `import type { RequestHandler } from './$types'`
-3. Aliases and relative imports: `import { db } from '$lib/db/conn'`
-4. No blank lines within groups; blank line after each group
+1. Svelte/SvelteKit framework imports (`import { page } from '$app/state'`, `import type { Snippet } from 'svelte'`)
+2. Context imports (`import { getEditingContext, ... } from '$lib/context/gridContext.svelte.ts'`)
+3. Store/data imports (`import { assetStore } from '$lib/data/assetStore.svelte'`)
+4. Component imports (`import GridRow from '$lib/grid/components/grid-row/GridRow.svelte'`)
+5. Utility/config imports (`import { DEFAULT_WIDTH } from '$lib/grid/gridConfig'`)
+6. Type-only imports use `import type` syntax
 
 **Path Aliases:**
-- `$lib/*` → `src/lib/*` - Main library code
-- `$env/*` → Environment variables (handled by SvelteKit)
-- `$app/*` → SvelteKit runtime modules
-- Relative imports acceptable for same-directory modules
-
-**Special Import Patterns:**
-- Database connection: always imported as `import { db } from '$lib/db/conn'`
-- Type imports: `import type { User, Session } from '$lib/types'`
-- Type-only table definitions: `import type { ColumnType } from 'kysely'`
+- `$lib` maps to `frontend/src/lib/` (SvelteKit default)
+- `$app/state` for SvelteKit app state (page, navigating)
+- `./$types` for SvelteKit generated types (`PageProps`, `RequestHandler`)
+- Direct `.ts` extensions used in some imports: `'$lib/context/gridContext.svelte.ts'`
 
 ## Error Handling
 
-**Patterns:**
-- Try-catch blocks in all async operations (especially in API handlers and database functions)
-- Error checking: `error instanceof Error ? error.message : 'Unknown error'` pattern
-- Server-side: return structured JSON with error codes: `json({ error: string, message?: string }, { status: number })`
-- Client-side: use toasts for user feedback via `toastState.addToast(message, type)`
+**API Endpoints (server-side):**
+- Validate input early, return `json({ error: '...' }, { status: 4xx })` for bad input
+- Wrap DB operations in try/catch, return `json({ error: '...', message: error.message }, { status: 500 })`
+- Auth check first: `if (!locals.user) return json({ error: 'Unauthorized' }, { status: 401 })`
 
-**Errors in API Handlers:**
 ```typescript
-// Pattern: unauthorized check first, then try-catch
-export const POST: RequestHandler = async ({ request, locals }) => {
-    if (!locals.user) {
-        return json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    try {
-        // business logic
-        return json({ success: true, data });
-    } catch (error) {
-        return json(
-            {
-                error: 'Operation failed',
-                message: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 },
-        );
-    }
-};
+// Pattern from frontend/src/routes/api/update/+server.ts
+try {
+    // DB operations
+    return json({ success: true });
+} catch (error) {
+    return json(
+        { error: 'Bulk update failed', message: error instanceof Error ? error.message : 'Unknown error' },
+        { status: 500 },
+    );
+}
 ```
 
-**Database Errors:**
-- Allow thrown errors from database to propagate to handler's catch block
-- Specific error messages: throw new Error with descriptive text
-- Location: `src/lib/db/*.ts` functions throw errors for caller to handle
+**Event Queue (client-side):**
+- Queue catches all handler errors to prevent queue death:
+```typescript
+// Pattern from frontend/src/lib/grid/eventQueue/eventQueue.ts
+try {
+    await processEvent(event, contexts);
+} catch (error) {
+    console.error('[EventQueue] recovered from event failure:', error);
+} finally {
+    isProcessing = false;
+    processNext();
+}
+```
 
-**Client-side errors:**
-- Catch fetch errors and log via `console.error()`
-- Display user-friendly message via toast
-- Pattern: `console.error('Context:', error)` followed by `toastState.addToast('User message', 'error')`
+**API Fetch Helpers (client-side):**
+- `apiFetch()` and `apiPost()` in `eventHandler.ts` return `{ success: true, data }` or `{ success: false, data: null }`
+- Callers check `res.success` and show toast on failure
+- No thrown exceptions from fetch helpers
+
+**User-Facing Errors:**
+- Use toast notifications via `toastState.addToast(message, type)` where type is `'success' | 'error' | 'info' | 'warning'`
+- Never show raw error messages to users; use human-readable strings
 
 ## Logging
 
-**Framework:** `console.error()`, `console.log()` (browser/Node.js console)
+**Framework:** `console` (no logging library)
 
 **Patterns:**
-- **Errors:** Always log errors in catch blocks: `console.error('Context:', error)`
-- **Debug info:** Log in catch blocks only for diagnosis: `console.error('[Module] Context details', errorData)`
-- **No info/warn logs:** No `console.log()` or `console.warn()` in production code
-- **WebSocket logs:** Prefixed with `[Realtime]`: `console.error('[Realtime] Parse error', err)`
-- **Never log secrets:** Database credentials, session tokens, passwords are never logged
-
-**Frequency:** Errors only, not info logs. Logging is minimal and error-focused.
+- `console.error()` for caught exceptions in server routes, fetch failures, parse errors
+- `console.warn()` for unhandled event types
+- Prefix with context tag: `[EventQueue]`, `[EventHandler]`, `[Realtime]`
+- No `console.log()` in production code (only error/warn)
+- Server-side: log error then return JSON error response
+- Client-side: log error then show toast
 
 ## Comments
 
 **When to Comment:**
-- Complex algorithms or non-obvious logic: explain the "why"
-- Important business rules: explain implications
-- Workarounds for bugs: reference issue/commit
-- Non-obvious parameter purposes: inline comments
-- **Don't comment obvious code:** `const x = 5; // Set x to 5` is unnecessary
-
-**Style:**
-- Inline comments: `// This handles edge case X because Y`
-- Multi-line: use `/** ... */` for function documentation (see JSDoc below)
-- Comment same indentation level as code
+- Section dividers using box-drawing characters: `// ─── Section Name ───────────────────`
+- File-level docblock explaining the file's role and constraints (first 3-4 lines)
+- Inline comments for non-obvious logic (e.g., `// Normalize: start = top-left, end = bottom-right`)
+- TODO comments with context: `// TODO: Ctrl+Z (undo), Ctrl+Y (redo) -- will be owned by EditHandler`
 
 **JSDoc/TSDoc:**
-- Used in `.svelte.ts` manager files for public functions
-- Format: `/** Description of what the function does */` above function
-- Include `@param` and `@returns` for complex functions
-- Example from `rowManager.svelte.ts`:
-  ```typescript
-  /**
-   * Get height for a specific row
-   */
-  function getHeight(rowIndex: number): number { ... }
-  ```
+- Minimal usage. One JSDoc block found in `editHandler.svelte.ts` for `computeEditorPosition()`
+- Most functions rely on TypeScript types for documentation
+- Constants have JSDoc-style comments in `gridConfig.ts`
+
+**File Headers:**
+- Pure TS files start with `// path/to/file` comment and a one-line purpose statement:
+```typescript
+// frontend/src/lib/grid/eventQueue/eventHandler.ts
+// Pure TypeScript event router. No Svelte, no getContext(), no runes.
+```
 
 ## Function Design
 
-**Size:**
-- Prefer functions under 50 lines
-- Complex logic broken into smaller helpers
-- Database functions typically 10-30 lines
+**Size:** Functions are generally short (5-30 lines). Larger functions exist in GridOverlays for keyboard/mouse handling (~100 lines for `handleKeyDown`).
 
 **Parameters:**
-- Max 3 parameters; use object parameter for more
-- Type all parameters explicitly
-- Optional parameters marked with `?`
-- Example: `function save(assets: any[], colMgr?: ColumnManager, rowMgr?: RowManager)`
+- Destructure props in Svelte components: `let { data }: PageProps = $props()`
+- Context proxies passed as `Record<string, any>` bags through the event pipeline
+- Individual typed params for utility functions
 
 **Return Values:**
-- Always explicit return type in signatures
-- Async functions return `Promise<T>` or `Promise<void>`
-- Nullable returns use `| null` or `| undefined`
-- Example: `async function createAsset(...): Promise<number>`
+- API helpers return discriminated union: `{ success: true, data } | { success: false, data: null }`
+- Computation functions return `T | null` (e.g., `computeEditorPosition` returns position object or null)
+- Void functions for mutations (event handlers, context mutations)
+- DB functions return query results directly (Kysely returns)
 
 ## Module Design
 
 **Exports:**
-- Named exports for functions: `export async function createUser(...) { ... }`
-- Named exports for types: `export interface Toast { ... }`
-- Type-only exports: `export type SafeUser = Omit<User, 'password_hash'>`
-- Default exports: singleton instances only: `export const db = new Kysely(...)`
+- Named exports preferred: `export function`, `export const`, `export type`
+- Default exports only for SvelteKit conventions (`export default config`)
+- Singletons exported as named constants: `export const assetStore = ...`, `export const toastState = ...`
 
-**Barrel Files:**
-- `src/lib/types.ts` is the main type barrel
-- Manager singletons exported from their own files: `export const toastState = createToastState()`
-- No re-exports of re-exports (limit barrel depth)
+**Barrel Files:** Not used. Every import references the specific file directly.
 
-**Manager Pattern:**
-- Factory function returns object with public methods
-- Pattern: `export const singleton = createManager()`
-- Type: `export type Manager = ReturnType<typeof createManager>`
-- Internal state: Use `$state()` for Svelte 5 runes
-- Dependency injection via optional parameters in public methods
+## Svelte 5 Patterns
 
-## Svelte 5 Runes
+**Runes Usage:**
+- `$state()` for local component state and module-level singletons
+- `$derived()` for computed values from stores/contexts
+- `$derived.by(() => { ... })` for complex derivations with loops
+- `$effect()` for side effects (scroll handling, window listeners, trigger flag watching)
+- `$props()` for component inputs with TypeScript typing
+- `$state.snapshot()` for capturing reactive state before enqueuing events
 
-**State Management:**
-- `$state()` for reactive variables: `let count = $state(0)`
-- `$derived()` for computed values: `let doubled = $derived(count * 2)`
-- `$effect()` for side effects: `$effect(() => { ... })`
-- `$state.raw()` for non-reactive wrapper (rare): `let raw = $state.raw(largeObject)`
+**Context API:**
+- Use `createContext()` from `svelte` (returns `[getter, setter]` tuple)
+- Define all context types in `frontend/src/lib/context/gridContext.svelte.ts`
+- Initialize all contexts in `frontend/src/lib/context/GridContextProvider.svelte`
+- Only call `getXContext()` inside Svelte component `<script>` blocks (component init)
+- Pass context proxies as arguments through non-Svelte code (event pipeline)
 
-**Reactive URL:**
-- Import: `import { SvelteURL } from 'svelte/reactivity'`
-- Use `SvelteURL.searchParams` for deep reactivity (not `page.url`)
-- Sync to browser: `replaceState(new URL(reactiveUrl), {})`
+**Component Sets Pattern:**
+- Complex components split into `.svelte` (template) + `.svelte.ts` (logic)
+- The `.svelte` file handles rendering and event binding
+- The `.svelte.ts` file exports pure functions, classes, or state management
+- Examples: `EditHandler`, `ContextMenu`, `FilterPanel`, `EditDropdown`, `Autocomplete`
 
-## Svelte Ignore Comments
+**Singleton Pattern:**
+- Module-level `$state` objects for global data: `assetStore.svelte.ts`
+- Factory function returning getter/methods for global services: `toastState.svelte.ts`
+- Direct import (no context needed) for singletons
 
-**Usage:**
-- `// svelte-ignore state_referenced_locally` - When state is used within its own rune scope
-- `// svelte-ignore a11y*` - Accessibility warnings that are intentionally ignored
+## CSS / Styling
+
+**Framework:** Tailwind CSS v4 (via `@tailwindcss/vite` plugin)
+
+**Patterns:**
+- Utility-first classes directly in markup
+- Dark mode via `dark:` variant throughout
+- Responsive heights via `calc()`: `h-[calc(100dvh-8.9rem)]`
+- No CSS modules, no scoped `<style>` blocks in grid components
+- Color palette: neutral for light mode, slate for dark mode, blue for interactive elements, green for valid edits, yellow for invalid edits
 
 ---
 
-*Convention analysis: 2026-02-25*
+*Convention analysis: 2026-03-05*
