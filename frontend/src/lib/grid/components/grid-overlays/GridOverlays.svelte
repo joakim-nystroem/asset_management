@@ -1,55 +1,24 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
   import {
-    getEditingContext,
     getPendingContext,
     getSelectionContext,
     getClipboardContext,
     getViewContext,
-    getUiContext,
     getColumnWidthContext,
   } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
-  import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
-  import { toastState } from '$lib/toast/toastState.svelte';
-  import ContextMenu from '$lib/grid/components/context-menu/contextMenu.svelte';
+  import { realtime } from '$lib/utils/realtimeManager.svelte';
 
-  import { DEFAULT_WIDTH, MIN_COLUMN_WIDTH } from '$lib/grid/gridConfig';
+  import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
-  let { children }: { children: Snippet } = $props();
-
-  const editingCtx = getEditingContext();
   const pendingCtx = getPendingContext();
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
   const viewCtx = getViewContext();
-  const uiCtx = getUiContext();
-
   const colWidthCtx = getColumnWidthContext();
 
   // --- Local UI state ---
   let hoveredUser: string | null = $state(null);
-
-  // --- Resize drag state ---
-  let resizeDrag = $state<{ key: string; startX: number; startWidth: number } | null>(null);
-
-  // --- Context menu (local, passed as props) ---
-  let ctxMenu = $state({ x: 0, y: 0, row: -1, col: '', value: '', key: '' });
-
-  function openContextMenu(e: MouseEvent, row: number, col: string, value: string, key: string) {
-    const estimatedWidth = 150;
-    const estimatedHeight = 200;
-    const winW = window.innerWidth;
-    const winH = window.innerHeight;
-    ctxMenu.x = e.clientX + estimatedWidth > winW ? e.clientX - estimatedWidth : e.clientX;
-    ctxMenu.y = e.clientY + estimatedHeight > winH ? Math.max(4, winH - estimatedHeight - 8) : e.clientY;
-    ctxMenu.row = row;
-    ctxMenu.col = col;
-    ctxMenu.value = value;
-    ctxMenu.key = key;
-    uiCtx.contextMenu.visible = true;
-  }
-
 
   // --- Derived data ---
   const assets = $derived(assetStore.filteredAssets);
@@ -63,69 +32,6 @@
   // --- Asset ID → array index helper ---
   function assetIndex(id: number): number {
     return assets.findIndex((a: Record<string, any>) => a.id === id);
-  }
-
-  // --- Column pixel bounds helper ---
-  function colBounds(col: string): { left: number; right: number } {
-    const colIdx = keys.indexOf(col);
-    if (colIdx === -1) return { left: 0, right: 0 };
-    let left = 0;
-    for (let c = 0; c < colIdx; c++) left += getWidth(keys[c]);
-    return { left, right: left + getWidth(col) };
-  }
-
-  // --- Panel management helper ---
-  function setOpenPanel(panel?: 'contextMenu' | 'headerMenu' | 'filterPanel') {
-    if (panel !== 'contextMenu' && uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
-    if (panel !== 'headerMenu' && uiCtx.headerMenu.visible) { uiCtx.headerMenu.activeKey = ''; uiCtx.headerMenu.visible = false; }
-    if (panel !== 'filterPanel' && uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
-  }
-
-  // --- Selection helpers (inlined from selCtx) ---
-  let isDragging = false;
-
-  function selectCell(row: number, col: string) {
-    selCtx.selectionStart = { row, col };
-    selCtx.selectionEnd = { row, col };
-    selCtx.isSelecting = true;
-    selCtx.hideSelection = false;
-  }
-
-  function startSelection(row: number, col: string, e: MouseEvent) {
-    if (e.shiftKey) {
-      selCtx.selectionEnd = { row, col };
-    } else {
-      selCtx.selectionStart = { row, col };
-      selCtx.selectionEnd = { row, col };
-      isDragging = true;
-      selCtx.isSelecting = true;
-      selCtx.hideSelection = false;
-    }
-  }
-
-  function extendSelection(row: number, col: string) {
-    if (isDragging) {
-      selCtx.selectionEnd = { row, col };
-    }
-  }
-
-  function endSelection() {
-    isDragging = false;
-  }
-
-  function resetSelection() {
-    selCtx.selectionStart = { row: -1, col: '' };
-    selCtx.selectionEnd = { row: -1, col: '' };
-    selCtx.isSelecting = false;
-    isDragging = false;
-    selCtx.hideSelection = false;
-  }
-
-  // --- Start cell editing helper ---
-  function startCellEdit(row: number, col: string) {
-    editingCtx.isEditing = true;
-    editingCtx.editRow = row;
-    editingCtx.editCol = col;
   }
 
   // --- Overlay computation ---
@@ -158,7 +64,7 @@
     let width = 0;
     for (let c = minCol; c <= maxCol; c++) width += getWidth(keys[c]);
 
-    const top = clampedMinRow * rowHeight + 32; // absolute position in virtual space
+    const top = clampedMinRow * rowHeight + 32;
     const height = (clampedMaxRow - clampedMinRow + 1) * rowHeight;
 
     return {
@@ -170,275 +76,16 @@
     };
   }
 
-  // --- Clipboard visual helpers (data ops live in EditHandler) ---
-  function clearClipboard() {
-    clipCtx.copyStart = { row: -1, col: '' };
-    clipCtx.copyEnd = { row: -1, col: '' };
-  }
-
-  // --- Keyboard handler ---
-  function handleKeyDown(e: KeyboardEvent) {
-    const target = e.target as HTMLElement;
-    const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-    if (isInput) return;
-
-    if (e.key === 'Escape') {
-      if (editingCtx.isEditing) {
-        editingCtx.isEditing = false;
-        return;
-      }
-      if (selCtx.selectionStart.row !== -1) {
-        resetSelection();
-      }
-      clearClipboard();
-      setOpenPanel();
-      return;
-    }
-
-    if (e.key === 'F2') {
-      e.preventDefault();
-      if (selCtx.selectionStart.row === -1) return;
-      const row = selCtx.selectionStart.row;
-      const col = selCtx.selectionStart.col;
-      if (col === '' || col === 'id') return;
-      startCellEdit(row, col);
-      return;
-    }
-
-    if (e.metaKey || e.ctrlKey) {
-      const k = e.key.toLowerCase();
-
-      if (k === 'c') {
-        e.preventDefault();
-        if (!selCtx.isSelecting) return;
-        clipCtx.isCopying = true;
-        return;
-      }
-
-      if (k === 'v') {
-        e.preventDefault();
-        if (!selCtx.isSelecting) return;
-        editingCtx.isPasting = true;
-        return;
-      }
-
-      // TODO: Ctrl+Z (undo), Ctrl+Y (redo) — will be owned by EditHandler
-    }
-
-    // Arrow key navigation
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-      e.preventDefault();
-      if (selCtx.hideSelection) selCtx.hideSelection = false;
-      const anchor = selCtx.selectionStart;
-      if (anchor.row === -1) return;
-
-      if (e.metaKey || e.ctrlKey) {
-        let targetRow = selCtx.selectionEnd.row;
-        let targetCol = selCtx.selectionEnd.col;
-        switch (e.key) {
-          case 'ArrowUp':    targetRow = assets[0]?.id ?? targetRow; break;
-          case 'ArrowDown':  targetRow = assets[assets.length - 1]?.id ?? targetRow; break;
-          case 'ArrowLeft':  targetCol = keys[0]; break;
-          case 'ArrowRight': targetCol = keys[keys.length - 1]; break;
-        }
-        if (e.shiftKey) {
-          selCtx.selectionEnd = { row: targetRow, col: targetCol };
-        } else {
-          selectCell(targetRow, targetCol);
-        }
-        const idx = assetIndex(targetRow);
-        if (idx !== -1) viewCtx.scrollToRow = idx;
-        viewCtx.scrollToCol = colBounds(targetCol);
-        return;
-      }
-
-      if (e.shiftKey) {
-        const next = getArrowTarget(e.key, selCtx.selectionEnd, keys);
-        if (next) {
-          selCtx.selectionEnd = next;
-          const idx = assetIndex(next.row);
-          if (idx !== -1) viewCtx.scrollToRow = idx;
-          viewCtx.scrollToCol = colBounds(next.col);
-        }
-      } else {
-        const next = getArrowTarget(e.key, anchor, keys);
-        if (next) {
-          selectCell(next.row, next.col);
-          const idx = assetIndex(next.row);
-          if (idx !== -1) viewCtx.scrollToRow = idx;
-          viewCtx.scrollToCol = colBounds(next.col);
-        }
-      }
-    }
-  }
-
-  function getArrowTarget(
-    key: string,
-    current: { row: number; col: string },
-    keys: string[],
-  ): { row: number; col: string } | null {
-    const idx = assetIndex(current.row);
-    if (idx === -1) return null;
-    const colIdx = keys.indexOf(current.col);
-    if (colIdx === -1) return null;
-    switch (key) {
-      case 'ArrowUp':    return idx > 0 ? { row: assets[idx - 1].id, col: current.col } : null;
-      case 'ArrowDown':  return idx < assets.length - 1 ? { row: assets[idx + 1].id, col: current.col } : null;
-      case 'ArrowLeft':  return colIdx > 0 ? { row: current.row, col: keys[colIdx - 1] } : null;
-      case 'ArrowRight': return colIdx < keys.length - 1 ? { row: current.row, col: keys[colIdx + 1] } : null;
-      default:           return null;
-    }
-  }
-
-  // --- Mouse handlers ---
-  function handleMouseDown(e: MouseEvent) {
-    // Resize handle check — MUST come before header-col check (handle is inside header col)
-    const handle = (e.target as HTMLElement).closest('[data-resize-handle]') as HTMLElement | null;
-    if (handle) {
-      // Close any open panels before starting resize
-      setOpenPanel();
-
-      const key = handle.dataset.resizeHandle!;
-      const startWidth = colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH;
-      resizeDrag = { key, startX: e.clientX, startWidth };
-      document.body.style.cursor = 'col-resize';
-      e.preventDefault();
-      e.stopPropagation();
-      return;
-    }
-
-    // Header click — close other panels, let GridHeader handle menu toggle
-    const headerCol = (e.target as HTMLElement).closest('[data-header-col]') as HTMLElement | null;
-    if (headerCol) return;
-
-    const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
-    if (!cell) return;
-    setOpenPanel('contextMenu');
-    const row = Number(cell.dataset.row);
-    const colIdx = Number(cell.dataset.col);
-    if (isNaN(row) || isNaN(colIdx)) return;
-    const col = keys[colIdx];
-    if (!col) return;
-    if (editingCtx.isEditing) {
-      selectCell(row, col);
-      return;
-    }
-    startSelection(row, col, e);
-  }
-
-  function handleMouseOver(e: MouseEvent) {
-    if (resizeDrag) return; // Don't extend selection while resizing
-    const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
-    if (!cell) return;
-    const row = Number(cell.dataset.row);
-    const colIdx = Number(cell.dataset.col);
-    if (isNaN(row) || isNaN(colIdx)) return;
-    const col = keys[colIdx];
-    if (!col) return;
-    if (!editingCtx.isEditing) {
-      extendSelection(row, col);
-    }
-  }
-
-  function handleDblClick(e: MouseEvent) {
-    const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
-    if (!cell) return;
-    const row = Number(cell.dataset.row);
-    const colIdx = Number(cell.dataset.col);
-    if (isNaN(row) || isNaN(colIdx)) return;
-    const col = keys[colIdx];
-    if (!col) return;
-    if (col === 'id') {
-      toastState.addToast('ID column cannot be edited.', 'warning');
-      return;
-    }
-    e.preventDefault();
-    selectCell(row, col);
-    startCellEdit(row, col);
-  }
-
-  function handleContextMenu(e: MouseEvent) {
-    const cell = (e.target as HTMLElement).closest('[data-row][data-col]') as HTMLElement | null;
-    if (!cell) return;
-    const assetId = Number(cell.dataset.row);
-    const colIdx = Number(cell.dataset.col);
-    if (isNaN(assetId) || isNaN(colIdx)) return;
-    const col = keys[colIdx];
-    if (!col) return;
-    e.preventDefault();
-    const asset = assets.find((a: Record<string, any>) => a.id === assetId);
-    const value = String(asset?.[col] ?? '');
-    selectCell(assetId, col);
-    setOpenPanel('contextMenu');
-    openContextMenu(e, assetId, col, value, col);
-  }
-
-  // --- Window-level event listeners ---
-  $effect(() => {
-    function onMouseMove(e: MouseEvent) {
-      if (!resizeDrag) return;
-      const delta = e.clientX - resizeDrag.startX;
-      const newWidth = Math.max(MIN_COLUMN_WIDTH, resizeDrag.startWidth + delta);
-      colWidthCtx.widths.set(resizeDrag.key, newWidth);
-    }
-
-    function onMouseUp() {
-      endSelection();
-      if (resizeDrag) {
-        document.body.style.cursor = '';
-        resizeDrag = null;
-      }
-    }
-
-    function onWindowClick(e: MouseEvent) {
-      // Step 1: Snapshot current state before closing
-      const wasHeaderKey = uiCtx.headerMenu.visible ? uiCtx.headerMenu.activeKey : '';
-      const wasFilterOpen = uiCtx.filterPanel.visible;
-
-      // Step 2: Close all panels
-      setOpenPanel();
-
-      // Step 3: If click was on a panel trigger, open it (unless toggling off)
-      const headerCol = (e.target as HTMLElement).closest('[data-header-col]') as HTMLElement | null;
-      if (headerCol) {
-        const key = keys[Number(headerCol.dataset.headerCol)];
-        if (key !== wasHeaderKey) {
-          uiCtx.headerMenu.activeKey = key;
-          uiCtx.headerMenu.visible = true;
-        }
-        return;
-      }
-
-      const filterTrigger = (e.target as HTMLElement).closest('[data-filter-trigger]');
-      if (filterTrigger) {
-        if (!wasFilterOpen) {
-          uiCtx.filterPanel.visible = true;
-        }
-      }
-    }
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-    window.addEventListener('click', onWindowClick);
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-      window.removeEventListener('click', onWindowClick);
-    };
-  });
-
   // --- Overlay derivations ---
   const selectionOverlay = $derived(
     computeVisualOverlay(selCtx.selectionStart, selCtx.selectionEnd)
   );
 
-  // Dirty cell overlays — per-cell with merged borders between adjacent dirty cells
   const dirtyCellOverlays = $derived.by(() => {
     if (pendingCtx.edits.length === 0) return [];
     const { startIndex, endIndex } = viewCtx.virtualScroll.visibleRange;
     const rowHeight = viewCtx.virtualScroll.rowHeight;
 
-    // Map dirty cell coords for adjacency checks: "rowIdx,colIdx" → edit
     const editMap = new Map<string, typeof pendingCtx.edits[0]>();
     for (const edit of pendingCtx.edits) {
       const rowIdx = assets.findIndex((a: Record<string, any>) => a.id === edit.row);
@@ -459,7 +106,6 @@
       const w = getWidth(keys[colIdx]);
       const top = rowIdx * rowHeight + 32;
 
-      // Hide border on edges adjacent to a dirty neighbor with same validity
       const sameAbove = editMap.get(`${rowIdx - 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx - 1},${colIdx}`);
       const sameBelow = editMap.get(`${rowIdx + 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx + 1},${colIdx}`);
       const sameLeft = editMap.get(`${rowIdx},${colIdx - 1}`)?.isValid === edit.isValid && editMap.has(`${rowIdx},${colIdx - 1}`);
@@ -510,26 +156,16 @@
   );
 </script>
 
-<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<!-- svelte-ignore a11y_mouse_events_have_key_events -->
 <div
-  class="w-max min-w-full bg-white dark:bg-slate-800 text-left relative"
+  class="absolute top-0 left-0 w-max min-w-full pointer-events-none"
   style="height: {viewCtx.virtualScroll.getTotalHeight(assets.length) + 32 + 16}px;"
-  tabindex="-1"
-  onkeydown={handleKeyDown}
-  onmousedown={handleMouseDown}
-  onmouseover={handleMouseOver}
-  ondblclick={handleDblClick}
-  oncontextmenu={handleContextMenu}
 >
   <!-- Other user cursors -->
   {#each Object.entries(otherUserSelections) as [clientId, position]}
     {@const otherOverlay = computeVisualOverlay(position, position)}
     {#if otherOverlay}
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
-        class="absolute pointer-events-none z-50"
+        class="absolute pointer-events-none z-[15]"
         style="
             top: {otherOverlay.top}px;
             left: {otherOverlay.left}px;
@@ -539,6 +175,7 @@
             box-sizing: border-box;
           "
       >
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="absolute flex items-center justify-center text-white text-[10px] rounded-full font-bold shadow-sm overflow-hidden pointer-events-auto cursor-default"
           style="
@@ -568,7 +205,7 @@
   <!-- Copy overlay -->
   {#if copyOverlay}
     <div
-      class="absolute pointer-events-none z-20 border-blue-600 dark:border-blue-500"
+      class="absolute pointer-events-none z-10 border-blue-600 dark:border-blue-500"
       style="
       top: {copyOverlay.top}px;
       left: {copyOverlay.left}px;
@@ -582,7 +219,7 @@
     ></div>
   {/if}
 
-  <!-- Dirty cell overlays — show pending value on top of the real cell -->
+  <!-- Dirty cell overlays -->
   {#each dirtyCellOverlays as cell}
     <div
       class="absolute pointer-events-none z-[5] flex items-center px-2 text-xs truncate
@@ -613,21 +250,5 @@
           border-right-style: {selectionOverlay.showRightBorder ? 'solid' : 'none'};
           border-width: 2px;"
     ></div>
-  {/if}
-
-  <!-- Children: GridHeader, GridRows, EditHandler -->
-  {@render children()}
-
-  {#if uiCtx.contextMenu.visible}
-    <ContextMenu
-      visible={true}
-      x={ctxMenu.x}
-      y={ctxMenu.y}
-      row={ctxMenu.row}
-      col={ctxMenu.col}
-      value={ctxMenu.value}
-      cellKey={ctxMenu.key}
-      onclose={() => uiCtx.contextMenu.visible = false}
-    />
   {/if}
 </div>

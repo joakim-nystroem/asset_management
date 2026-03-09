@@ -63,6 +63,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     bind:this={menuElement}
+    data-panel="header-menu"
     class="absolute top-full {alignRight ? 'right-0' : 'left-0'} z-50 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm text-neutral-900 dark:text-neutral-100 min-w-48 font-normal normal-case cursor-default text-left flex flex-col"
     onclick={(e) => e.stopPropagation()}
   >

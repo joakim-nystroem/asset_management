@@ -13,7 +13,7 @@ export interface AssetTable {
     wbd_tag: string;
     asset_set_type: string;
     bu_estate: string;
-    department_id: number | null;
+    department_id: number;
     location_id: number;
     node: string;
     shelf_cabinet_table: string | null;

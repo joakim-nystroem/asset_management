@@ -4,6 +4,7 @@
 
   import {
     type PendingContext,
+    type HistoryAction,
     setEditingContext,
     setPendingContext,
     setHistoryContext,
@@ -27,6 +28,8 @@
   let editingCtx = $state({
     isEditing: false,
     isPasting: false,
+    isUndoing: false,
+    isRedoing: false,
     editRow: -1,
     editCol: '',
   });
@@ -38,10 +41,8 @@
   setPendingContext(pendingCtx);
 
   let historyCtx = $state({
-    undoStack: [],
-    redoStack: [],
-    canUndo: false,
-    canRedo: false,
+    undoStack: [] as HistoryAction[][],
+    redoStack: [] as HistoryAction[][],
   });
   setHistoryContext(historyCtx);
 
@@ -57,7 +58,6 @@
     selectionEnd: { row: -1, col: '' },
     isSelecting: false,
     hideSelection: false,
-    dirtyCells: new Set<string>(),
   });
   setSelectionContext(selectionCtx);
 
@@ -65,6 +65,7 @@
     copyStart: { row: -1, col: '' },
     copyEnd: { row: -1, col: '' },
     isCopying: false,
+    grid: [] as string[][],
   });
   setClipboardContext(clipboardCtx);
 
@@ -83,7 +84,7 @@
   let uiCtx = $state({
     filterPanel: { visible: false },
     headerMenu: { visible: false, activeKey: '' },
-    contextMenu: { visible: false },
+    contextMenu: { visible: false, x: 0, y: 0, row: -1, col: '', value: '' },
     commitRequested: false,
     commitCreateRequested: false,
     discardRequested: false,

@@ -26,8 +26,9 @@
 
 <GridContextProvider>
   <div class="px-4 py-2 flex-grow flex flex-col">
-    <EventListener />
-    <Toolbar />
-    <GridContainer />
+    <EventListener>
+      <Toolbar />
+      <GridContainer />
+    </EventListener>
   </div>
 </GridContextProvider>

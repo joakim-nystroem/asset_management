@@ -10,6 +10,8 @@ export type GridCell = { row: number; col: string };
 export type EditingContext = {
   isEditing: boolean;
   isPasting: boolean;
+  isUndoing: boolean;
+  isRedoing: boolean;
   editRow: number;
   editCol: string;
 };
@@ -20,11 +22,16 @@ export type PendingContext = {
 };
 
 // 3. Undo/Redo stack
+export type HistoryAction = {
+  id: number | string;
+  key: string;
+  oldValue: string;
+  newValue: string;
+};
+
 export type HistoryContext = {
-  undoStack: any[];
-  redoStack: any[];
-  canUndo: boolean;
-  canRedo: boolean;
+  undoStack: HistoryAction[][];
+  redoStack: HistoryAction[][];
 };
 
 // 4. Pending new rows
@@ -40,7 +47,6 @@ export type SelectionContext = {
   selectionEnd: GridCell;
   isSelecting: boolean;
   hideSelection: boolean;
-  dirtyCells: Set<string>;
 };
 
 // 6. Copy/paste state
@@ -48,6 +54,8 @@ export type ClipboardContext = {
   copyStart: GridCell;
   copyEnd: GridCell;
   isCopying: boolean;
+  /** Structured mini-grid from internal copy (rows × cols, top-left is [0][0]) */
+  grid: string[][];
 };
 
 // 7. Row definitions
@@ -66,11 +74,17 @@ export type ViewContext = {
 export type UiContext = {
   filterPanel: { visible: boolean };
   headerMenu: { visible: boolean; activeKey: string };
-  contextMenu: { visible: boolean };
+  contextMenu: { visible: boolean; x: number; y: number; row: number; col: string; value: string };
   commitRequested: boolean;
   commitCreateRequested: boolean;
   discardRequested: boolean;
 };
+
+export function setOpenPanel(uiCtx: UiContext, panel?: 'contextMenu' | 'headerMenu' | 'filterPanel') {
+  if (panel !== 'contextMenu' && uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
+  if (panel !== 'headerMenu' && uiCtx.headerMenu.visible) { uiCtx.headerMenu.activeKey = ''; uiCtx.headerMenu.visible = false; }
+  if (panel !== 'filterPanel' && uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
+}
 
 // 11. Column width overrides (drag-resize)
 export type ColumnWidthContext = {

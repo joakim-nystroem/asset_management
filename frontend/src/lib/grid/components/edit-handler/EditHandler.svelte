@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getEditingContext, getPendingContext, getSelectionContext, getClipboardContext, getViewContext, getColumnWidthContext } from '$lib/context/gridContext.svelte.ts';
+  import { untrack } from 'svelte';
+  import { getEditingContext, getPendingContext, getHistoryContext, getSelectionContext, getClipboardContext, getViewContext, getColumnWidthContext, type HistoryAction } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import EditDropdownComponent from '$lib/grid/components/edit-dropdown/editDropdown.svelte';
   import AutocompleteComponent from '$lib/grid/components/suggestion-menu/autocomplete.svelte';
@@ -10,6 +11,7 @@
 
   const editingCtx = getEditingContext();
   const pendingCtx = getPendingContext();
+  const historyCtx = getHistoryContext();
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
   const viewCtx = getViewContext();
@@ -31,6 +33,16 @@
   let inputValue = $state('');
   const editDropdown = createEditDropdown();
   const autocomplete = createAutocomplete();
+
+  // Column edit modes: 'dropdown' = fixed list, 'unique' = autocomplete from unique column values
+  const columnEditMode: Record<string, { type: 'dropdown'; options: () => string[]; required: boolean } | { type: 'unique' }> = {
+    location: { type: 'dropdown', options: () => assetStore.locations.map((l: any) => l.location_name), required: true },
+    status: { type: 'dropdown', options: () => assetStore.statuses.map((s: any) => s.status_name), required: true },
+    condition: { type: 'dropdown', options: () => assetStore.conditions.map((c: any) => c.condition_name), required: true },
+    department: { type: 'dropdown', options: () => assetStore.departments.map((d: any) => d.department_name), required: true },
+    wbd_tag: { type: 'unique' },
+    serial_number: { type: 'unique' },
+  };
 
   // Compute absolute position within GridOverlays
   const editorStyle = $derived.by(() => {
@@ -57,6 +69,45 @@
     return asset ? String(asset[colKey] ?? '') : '';
   }
 
+  // --- Validation ---
+  function validateCell(assetId: number, colKey: string, value: string): boolean {
+    const mode = columnEditMode[colKey];
+    if (!mode) return true;
+
+    if (mode.type === 'dropdown') {
+      if (!value && !mode.required) return true;
+      return mode.options().includes(value);
+    }
+
+    if (mode.type === 'unique') {
+      if (!value) return false; // unique columns are required
+      // Check against all base assets (excluding this asset) and pending edits
+      const isDuplicateInAssets = assetStore.baseAssets.some(
+        (a: Record<string, any>) => a.id !== assetId && String(a[colKey] ?? '') === value
+      );
+      if (isDuplicateInAssets) {
+        // Check if the duplicate has a pending edit changing it away from this value
+        const duplicateAsset = assetStore.baseAssets.find(
+          (a: Record<string, any>) => a.id !== assetId && String(a[colKey] ?? '') === value
+        );
+        if (duplicateAsset) {
+          const pendingForDuplicate = pendingCtx.edits.find(
+            (e) => e.row === duplicateAsset.id && e.col === colKey
+          );
+          if (!pendingForDuplicate || pendingForDuplicate.value === value) return false;
+        }
+      }
+      // Check against other pending edits for the same column
+      const isDuplicateInPending = pendingCtx.edits.some(
+        (e) => e.row !== assetId && e.col === colKey && e.value === value
+      );
+      if (isDuplicateInPending) return false;
+      return true;
+    }
+
+    return true;
+  }
+
   // --- Shared helper: upsert a single cell into pendingCtx ---
   function upsertPending(assetId: number, colKey: string, newValue: string) {
     const asset = assets.find((a: Record<string, any>) => a.id === assetId);
@@ -69,7 +120,8 @@
 
     // If changed from baseline, track it
     if (newValue !== baseline) {
-      pendingCtx.edits.push({ row: assetId, col: colKey, original: baseline, value: newValue, isValid: true });
+      const isValid = validateCell(assetId, colKey, newValue);
+      pendingCtx.edits.push({ row: assetId, col: colKey, original: baseline, value: newValue, isValid });
     }
   }
 
@@ -80,7 +132,7 @@
     return idx;
   }
 
-  // --- Copy: build tab-separated text from selection, pending-aware ---
+  // --- Copy: build mini-grid from selection, store in clipCtx + system clipboard ---
   $effect(() => {
     if (clipCtx.isCopying) {
       handleCopy();
@@ -100,81 +152,120 @@
     const maxCol = Math.max(startColIdx, endColIdx);
     const colKeys = keys.slice(minCol, maxCol + 1);
 
-    const externalRows = assets.slice(minRow, maxRow + 1).map((asset: Record<string, any>) =>
-      colKeys.map((key) => cellValue(asset.id, key)).join('\t')
-    );
+    // Build mini-grid (top-left = [0][0])
+    const grid: string[][] = [];
+    for (let r = minRow; r <= maxRow; r++) {
+      const asset = assets[r];
+      grid.push(colKeys.map((key) => cellValue(asset.id, key)));
+    }
 
-    // Set copy overlay positions
+    clipCtx.grid = grid;
     clipCtx.copyStart = { ...selCtx.selectionStart };
     clipCtx.copyEnd = { ...selCtx.selectionEnd };
     selCtx.hideSelection = true;
 
-    navigator.clipboard.writeText(externalRows.join('\n')).catch(() => {});
+    const text = grid.map((row) => row.join('\t')).join('\n');
+    navigator.clipboard.writeText(text).catch(() => {});
   }
 
-  // --- Paste: read system clipboard, parse 2D block, upsert each cell ---
+  // --- Paste: triggered by isPasting flag, uses internal clipCtx.grid ---
   $effect(() => {
     if (editingCtx.isPasting) {
       handlePaste();
+      editingCtx.isPasting = false;
     }
   });
 
-  async function handlePaste() {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (!text) return;
+  function handlePaste() {
+    if (selCtx.selectionStart.row === -1) return;
+    if (clipCtx.grid.length === 0 || clipCtx.grid[0].length === 0) return;
 
-      const lines = text.split(/\r?\n/);
-      if (lines.at(-1) === '') lines.pop();
-      const clipRows = lines.map((line) => line.split(/\t|,/));
-      const clipHeight = clipRows.length;
-      const clipWidth = clipRows[0].length;
+    const clipHeight = clipCtx.grid.length;
+    const clipWidth = clipCtx.grid[0].length;
 
-      const startRow = assetIndex(selCtx.selectionStart.row);
-      const endRow = assetIndex(selCtx.selectionEnd.row);
-      const startCol = keys.indexOf(selCtx.selectionStart.col);
-      const endCol = keys.indexOf(selCtx.selectionEnd.col);
-      if (startCol === -1 || endCol === -1) return;
-      const minStartRow = Math.min(startRow, endRow);
-      const minStartCol = Math.min(startCol, endCol);
-      const selHeight = Math.abs(endRow - startRow) + 1;
-      const selWidth = Math.abs(endCol - startCol) + 1;
+    const startRow = assetIndex(selCtx.selectionStart.row);
+    const endRow = assetIndex(selCtx.selectionEnd.row);
+    const startCol = keys.indexOf(selCtx.selectionStart.col);
+    const endCol = keys.indexOf(selCtx.selectionEnd.col);
+    if (startCol === -1 || endCol === -1) return;
+    const minStartRow = Math.min(startRow, endRow);
+    const minStartCol = Math.min(startCol, endCol);
+    const selHeight = Math.abs(endRow - startRow) + 1;
+    const selWidth = Math.abs(endCol - startCol) + 1;
 
-      const canTile = selHeight % clipHeight === 0 && selWidth % clipWidth === 0;
-      const maxRow = Math.min(canTile ? selHeight : clipHeight, assets.length - minStartRow);
-      const maxCol = Math.min(canTile ? selWidth : clipWidth, keys.length - minStartCol);
+    const canTile = selHeight % clipHeight === 0 && selWidth % clipWidth === 0;
+    const maxRow = Math.min(canTile ? selHeight : clipHeight, assets.length - minStartRow);
+    const maxCol = Math.min(canTile ? selWidth : clipWidth, keys.length - minStartCol);
 
-      const pastedKeys = new Set<string>();
-      const newEdits: typeof pendingCtx.edits = [];
+    const pastedKeys = new Set<string>();
+    const newEdits: typeof pendingCtx.edits = [];
+    const historyBatch: HistoryAction[] = [];
 
-      for (let r = 0; r < maxRow; r++) {
-        const asset = assets[minStartRow + r];
-        const clipRow = clipRows[r % clipHeight];
+    for (let r = 0; r < maxRow; r++) {
+      const asset = assets[minStartRow + r];
+      const clipRow = clipCtx.grid[r % clipHeight];
 
-        for (let c = 0; c < maxCol; c++) {
-          const key = keys[minStartCol + c];
-          if (key === 'id') continue;
+      for (let c = 0; c < maxCol; c++) {
+        const key = keys[minStartCol + c];
+        if (key === 'id') continue;
 
-          const value = clipRow[c % clipWidth];
-          const original = String(asset[key] ?? '');
-          pastedKeys.add(`${asset.id}:${key}`);
-
-          if (value !== original) {
-            newEdits.push({ row: asset.id, col: key, original, value, isValid: true });
-          }
+        const newValue = clipRow[c % clipWidth];
+        const oldValue = cellValue(asset.id, key);
+        const original = String(asset[key] ?? '');
+        pastedKeys.add(`${asset.id}:${key}`);
+        const isValid = validateCell(asset.id, key, newValue);
+        newEdits.push({ row: asset.id, col: key, original, value: newValue, isValid });
+        if (oldValue !== newValue) {
+          historyBatch.push({ id: asset.id, key, oldValue, newValue });
         }
       }
-
-      pendingCtx.edits = [
-        ...pendingCtx.edits.filter((e) => !pastedKeys.has(`${e.row}:${e.col}`)),
-        ...newEdits,
-      ];
-    } catch {
-      // Clipboard read failed
-    } finally {
-      selCtx.hideSelection = true;
-      editingCtx.isPasting = false;
     }
+
+    pendingCtx.edits = [
+      ...pendingCtx.edits.filter((e) => !pastedKeys.has(`${e.row}:${e.col}`)),
+      ...newEdits,
+    ];
+
+    if (historyBatch.length > 0) {
+      historyCtx.undoStack = [...historyCtx.undoStack, historyBatch];
+      historyCtx.redoStack = [];
+    }
+    selCtx.hideSelection = true;
+  }
+
+  // --- Undo/Redo ---
+  $effect(() => {
+    if (editingCtx.isUndoing) {
+      handleUndo();
+      editingCtx.isUndoing = false;
+    }
+  });
+
+  $effect(() => {
+    if (editingCtx.isRedoing) {
+      handleRedo();
+      editingCtx.isRedoing = false;
+    }
+  });
+
+  function handleUndo() {
+    if (historyCtx.undoStack.length === 0) return;
+    const batch = historyCtx.undoStack[historyCtx.undoStack.length - 1];
+    historyCtx.undoStack = historyCtx.undoStack.slice(0, -1);
+    for (const action of batch) {
+      upsertPending(action.id as number, action.key, action.oldValue);
+    }
+    historyCtx.redoStack = [...historyCtx.redoStack, batch];
+  }
+
+  function handleRedo() {
+    if (historyCtx.redoStack.length === 0) return;
+    const batch = historyCtx.redoStack[historyCtx.redoStack.length - 1];
+    historyCtx.redoStack = historyCtx.redoStack.slice(0, -1);
+    for (const action of batch) {
+      upsertPending(action.id as number, action.key, action.newValue);
+    }
+    historyCtx.undoStack = [...historyCtx.undoStack, batch];
   }
 
   // Seed inputValue when editing starts (normal edit, not paste)
@@ -185,6 +276,12 @@
         (e) => e.row === editingCtx.editRow && e.col === editKey
       );
       inputValue = pending ? pending.value : editOriginalValue;
+
+      // Show dropdown for constrained columns
+      const mode = editKey ? columnEditMode[editKey] : undefined;
+      if (mode?.type === 'dropdown') {
+        untrack(() => editDropdown.show(mode.options(), inputValue));
+      }
     }
   });
 
@@ -207,7 +304,14 @@
 
   function saveEdit() {
     if (!editKey || editingCtx.editRow < 0) { cancelEdit(); return; }
-    upsertPending(editingCtx.editRow, editKey, inputValue.trim());
+    const oldValue = cellValue(editingCtx.editRow, editKey);
+    const newValue = inputValue.trim();
+    if (oldValue !== newValue) {
+      historyCtx.undoStack = [...historyCtx.undoStack, [{ id: editingCtx.editRow, key: editKey, oldValue, newValue }]];
+      historyCtx.redoStack = [];
+      selCtx.hideSelection = true;
+    }
+    upsertPending(editingCtx.editRow, editKey, newValue);
     cancelEdit();
   }
 
@@ -257,8 +361,9 @@
   function handleInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
     inputValue = target.value;
-    // Update suggestions for free-text columns
-    if (!editDropdown.isVisible) {
+    // Update suggestions only for columns without a specific edit mode
+    const mode = editKey ? columnEditMode[editKey] : undefined;
+    if (!mode && !editDropdown.isVisible) {
       autocomplete.updateSuggestions(assets, editKey ?? '', inputValue);
     }
   }

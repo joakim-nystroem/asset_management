@@ -3,7 +3,7 @@
   import favicon from '$lib/assets/favicon.svg';
   import { beforeNavigate } from '$app/navigation';
   import { enhance } from '$app/forms';
-  import { realtime } from '$lib/utils/interaction/realtimeManager.svelte';
+  import { realtime } from '$lib/utils/realtimeManager.svelte.js';
   import ToastContainer from '$lib/toast/ToastContainer.svelte';
   
   let { children, data } = $props();

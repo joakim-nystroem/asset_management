@@ -6,14 +6,33 @@
     getNewRowContext,
     getQueryContext,
     getSortContext,
+    getEditingContext,
+    getSelectionContext,
+    getClipboardContext,
+    getViewContext,
+    getColumnWidthContext,
+    setOpenPanel,
   } from '$lib/context/gridContext.svelte';
+
+  import { createKeyboardHandler } from './EventListener.svelte.ts';
   import { enqueue } from './eventQueue';
+
+  let { children } = $props();
 
   const uiCtx = getUiContext();
   const pendingCtx = getPendingContext();
   const newRowCtx = getNewRowContext();
   const queryCtx = getQueryContext();
   const sortCtx = getSortContext();
+  const editingCtx = getEditingContext();
+  const selCtx = getSelectionContext();
+  const clipCtx = getClipboardContext();
+  const viewCtx = getViewContext();
+  const colWidthCtx = getColumnWidthContext();
+
+  const handleKeyDown = createKeyboardHandler({
+    editingCtx, selCtx, clipCtx, viewCtx, uiCtx, colWidthCtx,
+  });
 
   // ─── COMMIT_UPDATE: existing row edits ─────────────────────────────────────
   $effect(() => {
@@ -88,3 +107,15 @@
     );
   });
 </script>
+
+<svelte:window
+  onkeydown={handleKeyDown}
+  onmouseup={() => { selCtx.isSelecting = false; }}
+  onclick={(e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-panel]')) return;
+    setOpenPanel(uiCtx);
+  }}
+/>
+
+{@render children?.()}

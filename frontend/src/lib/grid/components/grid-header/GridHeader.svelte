@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { getUiContext, getSortContext, getColumnWidthContext } from '$lib/context/gridContext.svelte.ts';
+  import { getUiContext, getSortContext, getColumnWidthContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
   import HeaderMenu from '$lib/grid/components/header-menu/headerMenu.svelte';
 
-  import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+  import { DEFAULT_WIDTH, MIN_COLUMN_WIDTH } from '$lib/grid/gridConfig';
 
   const uiCtx = getUiContext();
   const sortCtx = getSortContext();
@@ -22,10 +22,10 @@
     if (uiCtx.headerMenu.visible) {
       const idx = keys.indexOf(uiCtx.headerMenu.activeKey);
       headerMenuEl = document.querySelector(`[data-header-col="${idx}"]`);
-      
-      
+
+
     function recalc() {
-      if (headerMenuEl) menuAlignRight = headerMenuEl?.getBoundingClientRect().right + 192 > window.innerWidth; 
+      if (headerMenuEl) menuAlignRight = headerMenuEl?.getBoundingClientRect().right + 192 > window.innerWidth;
     }
 
     recalc();
@@ -34,17 +34,65 @@
     }
   });
 
+  // --- Header click: toggle menu for this column ---
+  function handleHeaderClick(key: string) {
+    if (uiCtx.headerMenu.visible && uiCtx.headerMenu.activeKey === key) {
+      setOpenPanel(uiCtx); // Toggle off
+    } else {
+      setOpenPanel(uiCtx, 'headerMenu');
+      uiCtx.headerMenu.activeKey = key;
+      uiCtx.headerMenu.visible = true;
+    }
+  }
+
+  // --- Resize drag state ---
+  let resizeDrag = $state<{ key: string; startX: number; startWidth: number } | null>(null);
+
+  function startResize(key: string, e: MouseEvent) {
+    setOpenPanel(uiCtx);
+
+    const startWidth = colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH;
+    resizeDrag = { key, startX: e.clientX, startWidth };
+    document.body.style.cursor = 'col-resize';
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  $effect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!resizeDrag) return;
+      const delta = e.clientX - resizeDrag.startX;
+      const newWidth = Math.max(MIN_COLUMN_WIDTH, resizeDrag.startWidth + delta);
+      colWidthCtx.widths.set(resizeDrag.key, newWidth);
+    }
+
+    function onMouseUp() {
+      if (resizeDrag) {
+        document.body.style.cursor = '';
+        resizeDrag = null;
+      }
+    }
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  });
 </script>
 
-<div class="sticky top-0 z-20 flex border-b border-neutral-200 dark:border-slate-600 bg-neutral-50 dark:bg-slate-700">
+<div class="sticky top-0 z-20 flex border-b border-neutral-200 dark:border-slate-600">
   {#each keys as key, i}
     <div
       data-header-col={i}
-      class="header-interactive relative group border-r border-neutral-200 dark:border-slate-600 last:border-r-0"
+      data-panel="header-menu"
+      class="header-interactive relative group border-r border-neutral-200 dark:border-slate-600 last:border-r-0 bg-neutral-50 dark:bg-slate-700"
       style="width: {colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH}px; min-width: {colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH}px;"
     >
       <button
         class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
+        onclick={() => handleHeaderClick(key)}
       >
         <span class="truncate">{key.replaceAll("_", " ")}</span>
         <span class="ml-1">
@@ -57,12 +105,10 @@
       </button>
 
       <!-- Resize handle -->
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         class="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-blue-400 z-50"
-        data-resize-handle={key}
-        onclick={(e) => e.stopPropagation()}
+        onmousedown={(e) => startResize(key, e)}
         ondblclick={(e) => {
           e.stopPropagation();
           colWidthCtx.widths.delete(key);
