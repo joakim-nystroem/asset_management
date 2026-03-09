@@ -23,12 +23,30 @@
       shouldShowAbove = spaceBelow < dropdownHeight && rect.top > dropdownHeight;
     }
   });
+
+  // Scroll selected item into view (within dropdown only, don't affect parent scroll)
+  $effect(() => {
+    if (dropdown.isVisible && dropdownRef && dropdown.selectedIndex >= 0) {
+      const item = dropdownRef.children[dropdown.selectedIndex] as HTMLElement | undefined;
+      if (item) {
+        const container = dropdownRef;
+        const itemTop = item.offsetTop;
+        const itemBottom = itemTop + item.offsetHeight;
+        if (itemTop < container.scrollTop) {
+          container.scrollTop = itemTop;
+        } else if (itemBottom > container.scrollTop + container.clientHeight) {
+          container.scrollTop = itemBottom - container.clientHeight;
+        }
+      }
+    }
+  });
 </script>
 
 {#if dropdown.isVisible}
   <div
     bind:this={dropdownRef}
-    class="absolute z-[200] bg-white dark:bg-slate-700 border border-blue-500 dark:border-blue-400 rounded shadow-lg max-h-48 overflow-y-auto"
+    class="absolute z-[200] bg-white dark:bg-slate-700 border border-blue-500 dark:border-blue-400 rounded shadow-lg overflow-y-auto"
+    style:max-height="198px"
     style="
       {shouldShowAbove ? 'bottom: 100%; margin-bottom: 2px;' : 'top: 100%; margin-top: 2px;'}
       left: 0;
