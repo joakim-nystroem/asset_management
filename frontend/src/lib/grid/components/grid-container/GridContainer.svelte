@@ -8,13 +8,14 @@
   import EditHandler from '$lib/grid/components/edit-handler/EditHandler.svelte';
   import ContextMenu from '$lib/grid/components/context-menu/contextMenu.svelte';
   import CustomScrollbar from '$lib/grid/components/custom-scrollbar/CustomScrollbar.svelte';
-  import { createScrollbarState } from '$lib/grid/components/custom-scrollbar/customScrollbar.svelte.ts';
+  import { createScrollbarState, type ScrollbarSize } from '$lib/grid/components/custom-scrollbar/customScrollbar.svelte.ts';
 
   const viewCtx = getViewContext();
   const uiCtx = getUiContext();
   const colWidthCtx = getColumnWidthContext();
   const virtualScroll = viewCtx.virtualScroll;
   const scrollbar = createScrollbarState();
+  const scrollbarSize: ScrollbarSize = 'thin';
 
   const assets = $derived(assetStore.filteredAssets);
   const keys = $derived(Object.keys(assets[0] ?? {}));
@@ -25,8 +26,8 @@
     keys.reduce((sum, key) => sum + (colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH), 0)
   );
 
-  // Total content height from virtual scroll (rows + header)
-  const contentHeight = $derived(virtualScroll.getTotalHeight(assets.length) + 32);
+  // Total content height: rows + horizontal scrollbar track height
+  const contentHeight = $derived(virtualScroll.getTotalHeight(assets.length) + scrollbar.TRACK_SIZES[scrollbarSize]);
 
   // Keep scrollbar content dimensions in sync
   $effect(() => {
@@ -39,6 +40,12 @@
       virtualScroll.updateContainerHeight(scrollbar.viewportHeight);
     }
   });
+
+  // Wire viewCtx.setScroll to scrollbar so EventListener can drive scrolling
+  viewCtx.setScroll = (top: number, left: number) => {
+    scrollbar.setScroll(top, left);
+    handleScrollbarScroll(scrollbar.scrollTop, scrollbar.scrollLeft);
+  };
 
   // Sync scrollbar scrollTop → virtual scroll + viewCtx
   function handleScrollbarScroll(scrollTop: number, scrollLeft: number) {
@@ -102,7 +109,7 @@
     <CustomScrollbar
       scroll={scrollbar}
       height="calc(100dvh - 8.9rem - 32px)"
-      size="thin"
+      size={scrollbarSize}
       vertical
       horizontal
       onscroll={handleScrollbarScroll}

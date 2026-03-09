@@ -70,6 +70,7 @@ export type ViewContext = {
   scrollToCol: { left: number; right: number } | null;
   scrollTop: number;
   scrollLeft: number;
+  setScroll: (top: number, left: number) => void;
 };
 
 // 9. UI panel states (mutually exclusive) + trigger flags

@@ -80,6 +80,7 @@
     scrollToCol: null as { left: number; right: number } | null,
     scrollTop: 0,
     scrollLeft: 0,
+    setScroll: () => {},
   });
   setViewContext(viewCtx);
 
