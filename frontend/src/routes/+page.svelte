@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { PageProps } from './$types';
   import { assetStore } from '$lib/data/assetStore.svelte';
+  import { queryStore } from '$lib/data/queryStore.svelte';
   import GridContextProvider from '$lib/context/GridContextProvider.svelte';
   import EventListener from '$lib/grid/eventQueue/EventListener.svelte';
   import Toolbar from '$lib/grid/components/toolbar/Toolbar.svelte';
@@ -22,6 +23,17 @@
   assetStore.conditions = data.conditions ?? [];
   // svelte-ignore state_referenced_locally
   assetStore.departments = data.departments ?? [];
+
+  // Seed query store from URL params (server-resolved)
+  // svelte-ignore state_referenced_locally
+  queryStore.view = data.initialView ?? 'default';
+  // svelte-ignore state_referenced_locally
+  queryStore.q = data.initialQ ?? '';
+  // svelte-ignore state_referenced_locally
+  queryStore.filters = (data.initialFilters ?? []).flatMap((f: string) => {
+    const i = f.indexOf(':');
+    return i > 0 ? [{ key: f.slice(0, i), value: f.slice(i + 1) }] : [];
+  });
 </script>
 
 <GridContextProvider>

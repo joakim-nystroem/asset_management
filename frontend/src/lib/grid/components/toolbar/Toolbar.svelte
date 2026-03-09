@@ -2,12 +2,12 @@
   import { page } from '$app/state';
   import FilterPanel from "$lib/grid/components/filter-panel/filterPanel.svelte";
   import { assetStore } from '$lib/data/assetStore.svelte';
+  import { queryStore } from '$lib/data/queryStore.svelte';
   import {
     getPendingContext,
     getNewRowContext,
     getViewContext,
     getUiContext,
-    getQueryContext,
     getSelectionContext,
     getClipboardContext,
     getHistoryContext,
@@ -19,11 +19,10 @@
   const newRowCtx = getNewRowContext();
   const viewCtx = getViewContext();
   const uiCtx = getUiContext();
-  const queryCtx = getQueryContext();
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
 
-  // Local search input — only pushed to queryCtx on explicit action
+  // Local search input — only pushed to queryStore on explicit action
   let searchInput = $state('');
 
   const VIEW_CONFIGS = [
@@ -35,7 +34,7 @@
   ];
 
   const currentViewLabel = $derived(
-    VIEW_CONFIGS.find(v => v.name === queryCtx.view)?.label ?? 'Default'
+    VIEW_CONFIGS.find(v => v.name === queryStore.view)?.label ?? 'Default'
   );
 
   const hasInvalid = $derived(
@@ -47,21 +46,21 @@
   let viewDropdownOpen = $state(false);
 
   function handleSearch() {
-    queryCtx.q = searchInput;
+    queryStore.q = searchInput;
   }
 
   function handleClearSearch() {
     searchInput = '';
-    queryCtx.q = '';
+    queryStore.q = '';
   }
 
   function handleViewChange(viewName: string) {
     viewDropdownOpen = false;
     // View change resets search and filters
     searchInput = '';
-    queryCtx.q = '';
-    queryCtx.filters = [];
-    queryCtx.view = viewName;
+    queryStore.q = '';
+    queryStore.filters = [];
+    queryStore.view = viewName;
   }
 
   // New row counter
@@ -137,9 +136,9 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
             </svg>
             <span>Filters</span>
-            {#if queryCtx.filters.length > 0}
+            {#if queryStore.filters.length > 0}
               <span class="px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-xs font-medium">
-                {queryCtx.filters.length}
+                {queryStore.filters.length}
               </span>
             {/if}
           </button>
@@ -255,7 +254,7 @@
             {#each VIEW_CONFIGS as view}
               <button
                 onclick={() => handleViewChange(view.name)}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {queryCtx.view === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {queryStore.view === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
               >
                 {view.label}
               </button>

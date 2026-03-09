@@ -1,10 +1,10 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import { queryStore } from '$lib/data/queryStore.svelte';
   import {
     getUiContext,
     getPendingContext,
     getNewRowContext,
-    getQueryContext,
     getSortContext,
     getEditingContext,
     getSelectionContext,
@@ -14,6 +14,7 @@
     setOpenPanel,
   } from '$lib/context/gridContext.svelte';
 
+  import { replaceState } from '$app/navigation';
   import { createKeyboardHandler } from './EventListener.svelte.ts';
   import { enqueue } from './eventQueue';
 
@@ -22,7 +23,6 @@
   const uiCtx = getUiContext();
   const pendingCtx = getPendingContext();
   const newRowCtx = getNewRowContext();
-  const queryCtx = getQueryContext();
   const sortCtx = getSortContext();
   const editingCtx = getEditingContext();
   const selCtx = getSelectionContext();
@@ -133,12 +133,12 @@
     }
   });
 
-  // ─── QUERY: auto-fire on any queryCtx change (view, search, filters) ──────
+  // ─── QUERY: auto-fire on any queryStore change (view, search, filters) ──────
   let queryInitialized = false;
   $effect(() => {
-    const view = queryCtx.view;
-    const q = queryCtx.q;
-    const filters = $state.snapshot(queryCtx.filters);
+    const view = queryStore.view;
+    const q = queryStore.q;
+    const filters = $state.snapshot(queryStore.filters);
 
     if (!queryInitialized) {
       queryInitialized = true;
@@ -153,6 +153,14 @@
       },
       {},
     );
+
+    // Sync URL to reflect current query state
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', view);
+    if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
+    url.searchParams.delete('filter');
+    for (const f of filters) url.searchParams.append('filter', `${f.key}:${f.value}`);
+    replaceState(url, {});
   });
 </script>
 

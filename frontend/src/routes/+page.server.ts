@@ -73,6 +73,8 @@ export const load: PageServerLoad = async ({ request, url }) => {
         conditions,
         departments,
         initialView: resolvedView,
+        initialQ: qParam,
+        initialFilters: filterParams,
       };
     }
   } catch (err: unknown) {
@@ -84,5 +86,5 @@ export const load: PageServerLoad = async ({ request, url }) => {
     }
   }
 
-  return { assets, dbError, locations, statuses, conditions, departments, initialView: resolvedView };
+  return { assets, dbError, locations, statuses, conditions, departments, initialView: resolvedView, initialQ: qParam, initialFilters: filterParams };
 };

@@ -100,13 +100,6 @@ export type SortContext = {
   direction: 'asc' | 'desc';
 };
 
-// 10. Query state — view, search, and filters (replaces searchManager + activeView)
-export type QueryContext = {
-  view: string;
-  q: string;
-  filters: { key: string; value: string }[];
-};
-
 // ─── Domain context pairs ─────────────────────────────────────────────────────
 
 export const [getEditingContext, setEditingContext] = createContext<EditingContext>();
@@ -118,6 +111,5 @@ export const [getClipboardContext, setClipboardContext] = createContext<Clipboar
 export const [getRowContext, setRowContext] = createContext<RowContext>();
 export const [getViewContext, setViewContext] = createContext<ViewContext>();
 export const [getUiContext, setUiContext] = createContext<UiContext>();
-export const [getQueryContext, setQueryContext] = createContext<QueryContext>();
 export const [getColumnWidthContext, setColumnWidthContext] = createContext<ColumnWidthContext>();
 export const [getSortContext, setSortContext] = createContext<SortContext>();

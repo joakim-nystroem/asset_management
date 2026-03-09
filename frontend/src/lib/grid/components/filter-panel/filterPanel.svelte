@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { getUiContext, getQueryContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
+  import { queryStore } from '$lib/data/queryStore.svelte';
+  import { getUiContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
 
   const uiCtx = getUiContext();
-  const queryCtx = getQueryContext();
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -15,10 +15,10 @@
   <!-- Header -->
   <div class="flex items-center justify-between px-4 py-3 border-b border-neutral-200 dark:border-slate-700">
     <h3 class="font-semibold text-sm text-neutral-900 dark:text-neutral-100">Active Filters</h3>
-    {#if queryCtx.filters.length > 0}
+    {#if queryStore.filters.length > 0}
       <button
         onclick={() => {
-          queryCtx.filters = [];
+          queryStore.filters = [];
           setOpenPanel(uiCtx);
         }}
         class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium cursor-pointer"
@@ -30,13 +30,13 @@
 
   <!-- Filter List -->
   <div class="max-h-96 overflow-y-auto">
-    {#if queryCtx.filters.length === 0}
+    {#if queryStore.filters.length === 0}
       <div class="px-4 py-8 text-center text-neutral-500 dark:text-neutral-400 text-sm">
         No active filters
       </div>
     {:else}
       <div class="p-2 space-y-1">
-        {#each queryCtx.filters as filter, i}
+        {#each queryStore.filters as filter, i}
           <div class="flex items-center justify-between px-3 py-2 rounded hover:bg-neutral-50 dark:hover:bg-slate-700 group">
             <div class="flex-1 min-w-0">
               <div class="text-xs text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
@@ -48,7 +48,7 @@
             </div>
             <button
               onclick={() => {
-                queryCtx.filters.splice(i, 1);
+                queryStore.filters.splice(i, 1);
               }}
               class="ml-2 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 cursor-pointer"
               aria-label="Remove filter"

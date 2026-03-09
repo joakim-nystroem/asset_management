@@ -1,6 +1,7 @@
 <script lang="ts">
   import { assetStore } from '$lib/data/assetStore.svelte';
-  import { getQueryContext, getUiContext, getSortContext } from '$lib/context/gridContext.svelte.ts';
+  import { queryStore } from '$lib/data/queryStore.svelte';
+  import { getUiContext, getSortContext } from '$lib/context/gridContext.svelte.ts';
 
   let {
     activeKey,
@@ -10,7 +11,6 @@
     alignRight?: boolean;
   } = $props();
 
-  const queryCtx = getQueryContext();
   const uiCtx = getUiContext();
   const sortCtx = getSortContext();
 
@@ -126,16 +126,16 @@
               <button
                 class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full"
                 onclick={() => {
-                  const idx = queryCtx.filters.findIndex(f => f.key === activeKey && f.value === item);
+                  const idx = queryStore.filters.findIndex(f => f.key === activeKey && f.value === item);
                   if (idx >= 0) {
-                    queryCtx.filters.splice(idx, 1);
+                    queryStore.filters.splice(idx, 1);
                   } else {
-                    queryCtx.filters.push({ key: activeKey, value: item });
+                    queryStore.filters.push({ key: activeKey, value: item });
                   }
                 }}
               >
                 <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
-                  {#if queryCtx.filters.some(f => f.key === activeKey && f.value === item)}✓{/if}
+                  {#if queryStore.filters.some(f => f.key === activeKey && f.value === item)}✓{/if}
                 </div>
                 <div class="truncate">{item}</div>
               </button>

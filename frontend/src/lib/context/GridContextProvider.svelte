@@ -14,7 +14,6 @@
     setRowContext,
     setViewContext,
     setUiContext,
-    setQueryContext,
     setColumnWidthContext,
     setSortContext,
   } from '$lib/context/gridContext.svelte.ts';
@@ -105,12 +104,6 @@
   });
   setSortContext(sortCtx);
 
-  let queryCtx = $state({
-    view: 'default',
-    q: '',
-    filters: [] as { key: string; value: string }[],
-  });
-  setQueryContext(queryCtx);
 </script>
 
 {@render children()}
