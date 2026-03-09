@@ -11,7 +11,7 @@
   };
 </script>
 
-<div class="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+<div class="fixed bottom-4 right-4 z-[300] flex flex-col gap-2 pointer-events-none">
   {#each toastState.toasts as toast (toast.id)}
     <div
       animate:flip={{ duration: 300 }}
