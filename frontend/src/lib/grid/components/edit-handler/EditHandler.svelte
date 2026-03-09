@@ -60,7 +60,7 @@
       viewCtx.virtualScroll
     );
     if (!pos) return 'display: none;';
-    return `top: ${pos.top}px; left: ${pos.left}px; width: ${pos.width}px; height: ${pos.height}px;`;
+    return `top: ${pos.top - viewCtx.scrollTop}px; left: ${pos.left}px; width: ${pos.width}px; height: ${pos.height}px;`;
   });
 
   // --- Shared helper: resolve the visible value for a cell (pending or asset) ---

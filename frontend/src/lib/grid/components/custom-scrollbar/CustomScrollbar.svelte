@@ -24,6 +24,15 @@
 
   const trackSize = $derived(scroll.TRACK_SIZES[size]);
 
+  // Clamp thumb positions so they stop before the corner square
+  const bothVisible = $derived(vertical && scroll.vVisible && horizontal && scroll.hVisible);
+  const vThumbTop = $derived(bothVisible
+    ? Math.min(scroll.vThumbTop, scroll.viewportHeight - trackSize - scroll.vThumbHeight)
+    : scroll.vThumbTop);
+  const hThumbLeft = $derived(bothVisible
+    ? Math.min(scroll.hThumbLeft, scroll.viewportWidth - trackSize - scroll.hThumbWidth)
+    : scroll.hThumbLeft);
+
   let containerRef: HTMLDivElement | null = $state(null);
   let isDraggingV = $state(false);
   let isDraggingH = $state(false);
@@ -142,19 +151,17 @@
   {#if vertical && scroll.vVisible}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="absolute top-0 right-0 z-[200]"
-      style="width: {trackSize}px; height: 100%; {horizontal && scroll.hVisible ? `padding-bottom: ${trackSize}px;` : ''}"
+      class="absolute top-0 right-0 z-[200] bg-neutral-200 dark:bg-slate-700"
+      style="width: {trackSize}px; height: {horizontal && scroll.hVisible ? `calc(100% - ${trackSize}px)` : '100%'};"
       onmousedown={onVTrackClick}
     >
-      <div class="relative w-full h-full">
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="absolute w-full rounded-full transition-colors
-            {isDraggingV ? 'bg-neutral-500 dark:bg-slate-400' : 'bg-neutral-300 dark:bg-slate-600 hover:bg-neutral-400 dark:hover:bg-slate-500'}"
-          style="top: {scroll.vThumbTop}px; height: {scroll.vThumbHeight}px;"
-          onmousedown={onVThumbDown}
-        ></div>
-      </div>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="absolute w-full rounded-full transition-colors
+          {isDraggingV ? 'bg-neutral-600 dark:bg-slate-300' : 'bg-neutral-400 dark:bg-slate-400 hover:bg-neutral-500 dark:hover:bg-slate-300'}"
+        style="top: {vThumbTop}px; height: {scroll.vThumbHeight}px;"
+        onmousedown={onVThumbDown}
+      ></div>
     </div>
   {/if}
 
@@ -162,19 +169,25 @@
   {#if horizontal && scroll.hVisible}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="absolute bottom-0 left-0 z-[200]"
-      style="height: {trackSize}px; width: 100%; {vertical && scroll.vVisible ? `padding-right: ${trackSize}px;` : ''}"
+      class="absolute bottom-0 left-0 z-[200] bg-neutral-200 dark:bg-slate-700"
+      style="height: {trackSize}px; width: {vertical && scroll.vVisible ? `calc(100% - ${trackSize}px)` : '100%'};"
       onmousedown={onHTrackClick}
     >
-      <div class="relative w-full h-full">
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="absolute h-full rounded-full transition-colors
-            {isDraggingH ? 'bg-neutral-500 dark:bg-slate-400' : 'bg-neutral-300 dark:bg-slate-600 hover:bg-neutral-400 dark:hover:bg-slate-500'}"
-          style="left: {scroll.hThumbLeft}px; width: {scroll.hThumbWidth}px;"
-          onmousedown={onHThumbDown}
-        ></div>
-      </div>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="absolute h-full rounded-full transition-colors
+          {isDraggingH ? 'bg-neutral-600 dark:bg-slate-300' : 'bg-neutral-400 dark:bg-slate-400 hover:bg-neutral-500 dark:hover:bg-slate-300'}"
+        style="left: {hThumbLeft}px; width: {scroll.hThumbWidth}px;"
+        onmousedown={onHThumbDown}
+      ></div>
     </div>
+  {/if}
+
+  <!-- Corner square where both scrollbars meet -->
+  {#if vertical && scroll.vVisible && horizontal && scroll.hVisible}
+    <div
+      class="absolute bottom-0 right-0 z-[200] bg-neutral-200 dark:bg-slate-700"
+      style="width: {trackSize}px; height: {trackSize}px;"
+    ></div>
   {/if}
 </div>
