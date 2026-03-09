@@ -222,9 +222,12 @@
   <!-- Dirty cell overlays -->
   {#each dirtyCellOverlays as cell}
     <div
-      class="absolute pointer-events-none z-[5] flex items-center px-2 text-xs truncate
-        {cell.isValid ? 'bg-green-50 dark:bg-slate-800' : 'bg-yellow-50 dark:bg-slate-800'}
-        text-neutral-700 dark:text-neutral-200
+      class="absolute pointer-events-none z-[89] bg-white dark:bg-slate-800"
+      style="top: {cell.top}px; left: {cell.left}px; width: {cell.width}px; height: {cell.height}px;"
+    ></div>
+    <div
+      class="absolute pointer-events-none flex items-center px-2 text-xs truncate text-neutral-700 dark:text-neutral-200 z-[90]
+        {cell.isValid ? 'bg-green-400/20 dark:bg-green-400/10' : 'bg-yellow-400/20 dark:bg-yellow-400/10'}
         {cell.borderTop ? (cell.isValid ? 'border-t-2 border-t-green-400 dark:border-t-green-600' : 'border-t-2 border-t-yellow-500 dark:border-t-yellow-600') : 'border-t border-t-neutral-200 dark:border-t-slate-700'}
         {cell.borderBottom ? (cell.isValid ? 'border-b-2 border-b-green-400 dark:border-b-green-600' : 'border-b-2 border-b-yellow-500 dark:border-b-yellow-600') : 'border-b border-b-neutral-200 dark:border-b-slate-700'}
         {cell.borderLeft ? (cell.isValid ? 'border-l-2 border-l-green-400 dark:border-l-green-600' : 'border-l-2 border-l-yellow-500 dark:border-l-yellow-600') : 'border-l border-l-neutral-200 dark:border-l-slate-700'}
@@ -233,6 +236,7 @@
     >
       <span class="truncate w-full">{cell.value}</span>
     </div>
+    
   {/each}
 
   <!-- Selection overlay -->

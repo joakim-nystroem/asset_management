@@ -44,6 +44,8 @@
     serial_number: { type: 'unique' },
   };
 
+  const isDropdownColumn = $derived(editKey ? columnEditMode[editKey]?.type === 'dropdown' : false);
+
   // Compute absolute position within GridOverlays
   const editorStyle = $derived.by(() => {
     if (!editingCtx.isEditing || !editKey || editingCtx.editRow < 0 || editingCtx.editCol === '') {
@@ -386,7 +388,8 @@
         onkeydown={handleKeydown}
         onmousedown={(e) => e.stopPropagation()}
         onblur={handleBlur}
-        class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
+        readonly={isDropdownColumn}
+        class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none {isDropdownColumn ? 'cursor-default caret-transparent' : ''}"
         style="overflow: hidden;"
       ></textarea>
       <EditDropdownComponent
