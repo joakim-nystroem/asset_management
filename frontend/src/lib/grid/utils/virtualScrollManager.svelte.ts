@@ -61,6 +61,10 @@ function createVirtualScrollManager() {
     scrollTop = target.scrollTop;
   }
 
+  function updateScrollTop(value: number) {
+    scrollTop = value;
+  }
+
   function updateContainerHeight(height: number) {
     containerHeight = height;
   }
@@ -173,6 +177,7 @@ function createVirtualScrollManager() {
     getTotalHeight,
     getOffsetY,
     handleScroll,
+    updateScrollTop,
     updateContainerHeight,
     scrollToRow,
     getActualIndex,

@@ -1,42 +1,69 @@
 <script lang="ts">
-  import { getViewContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
+  import { getViewContext, getUiContext, getColumnWidthContext } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
+  import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
   import GridRow from '$lib/grid/components/grid-row/GridRow.svelte';
   import GridHeader from '$lib/grid/components/grid-header/GridHeader.svelte';
   import GridOverlays from '$lib/grid/components/grid-overlays/GridOverlays.svelte';
   import EditHandler from '$lib/grid/components/edit-handler/EditHandler.svelte';
   import ContextMenu from '$lib/grid/components/context-menu/contextMenu.svelte';
+  import CustomScrollbar from '$lib/grid/components/custom-scrollbar/CustomScrollbar.svelte';
+  import { createScrollbarState } from '$lib/grid/components/custom-scrollbar/customScrollbar.svelte.ts';
+
   const viewCtx = getViewContext();
   const uiCtx = getUiContext();
+  const colWidthCtx = getColumnWidthContext();
   const virtualScroll = viewCtx.virtualScroll;
+  const scrollbar = createScrollbarState();
 
   const assets = $derived(assetStore.filteredAssets);
   const keys = $derived(Object.keys(assets[0] ?? {}));
-
-  let scrollContainer: HTMLDivElement | null = $state(null);
   const visibleData = $derived(virtualScroll.getVisibleItems(assets));
 
-  function handleScroll(e: Event) {
-    virtualScroll.handleScroll(e);
+  // Total content width from column widths
+  const contentWidth = $derived(
+    keys.reduce((sum, key) => sum + (colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH), 0)
+  );
+
+  // Total content height from virtual scroll (rows + header)
+  const contentHeight = $derived(virtualScroll.getTotalHeight(assets.length) + 32);
+
+  // Keep scrollbar content dimensions in sync
+  $effect(() => {
+    scrollbar.setDimensions(contentWidth, contentHeight, scrollbar.viewportWidth, scrollbar.viewportHeight);
+  });
+
+  // Sync viewport height to virtual scroll when scrollbar reports it
+  $effect(() => {
+    if (scrollbar.viewportHeight > 0) {
+      virtualScroll.updateContainerHeight(scrollbar.viewportHeight);
+    }
+  });
+
+  // Sync scrollbar scrollTop → virtual scroll + viewCtx
+  function handleScrollbarScroll(scrollTop: number, scrollLeft: number) {
+    virtualScroll.updateScrollTop(scrollTop);
+    viewCtx.scrollTop = scrollTop;
+    viewCtx.scrollLeft = scrollLeft;
     if (uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
   }
 
   // Observe viewCtx.scrollToRow — ensureVisible (only scroll if out of viewport)
   $effect(() => {
     const row = viewCtx.scrollToRow;
-    if (row !== null && scrollContainer) {
-      const headerHeight = 32;
-      const rowTop = row * virtualScroll.rowHeight + headerHeight;
+    if (row !== null) {
+      const rowTop = row * virtualScroll.rowHeight;
       const rowBottom = rowTop + virtualScroll.rowHeight;
-      const viewTop = scrollContainer.scrollTop + headerHeight;
-      const viewBottom = scrollContainer.scrollTop + scrollContainer.clientHeight;
- 
+      const viewTop = scrollbar.scrollTop;
+      const viewBottom = scrollbar.scrollTop + scrollbar.viewportHeight;
+
       if (rowTop < viewTop) {
-        scrollContainer.scrollTop = rowTop - headerHeight;
+        scrollbar.scrollTop = rowTop;
       } else if (rowBottom > viewBottom) {
-        scrollContainer.scrollTop = rowBottom - scrollContainer.clientHeight + 40;
+        scrollbar.scrollTop = rowBottom - scrollbar.viewportHeight + 40;
       }
 
+      virtualScroll.updateScrollTop(scrollbar.scrollTop);
       viewCtx.scrollToRow = null;
     }
   });
@@ -44,56 +71,60 @@
   // Observe viewCtx.scrollToCol — horizontal ensureVisible
   $effect(() => {
     const col = viewCtx.scrollToCol;
-    if (col !== null && scrollContainer) {
-      const viewLeft = scrollContainer.scrollLeft;
-      const viewRight = scrollContainer.scrollLeft + scrollContainer.clientWidth;
+    if (col !== null) {
+      const viewLeft = scrollbar.scrollLeft;
+      const viewRight = scrollbar.scrollLeft + scrollbar.viewportWidth;
 
       if (col.left < viewLeft) {
-        scrollContainer.scrollLeft = col.left;
+        scrollbar.scrollLeft = col.left;
       } else if (col.right > viewRight) {
-        scrollContainer.scrollLeft = col.right - scrollContainer.clientWidth;
+        scrollbar.scrollLeft = col.right - scrollbar.viewportWidth;
       }
 
       viewCtx.scrollToCol = null;
     }
   });
-
-  // ResizeObserver for container height
-  $effect(() => {
-    let ro: ResizeObserver | null = null;
-    if (scrollContainer) {
-      scrollContainer.scrollTop = 0;
-      ro = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          virtualScroll.updateContainerHeight(entry.contentRect.height);
-        }
-      });
-      ro.observe(scrollContainer);
-    }
-    return () => { if (ro) ro.disconnect(); };
-  });
 </script>
 
 {#if assets.length > 0}
   <div
-    bind:this={scrollContainer}
-    onscroll={handleScroll}
-    class="rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
+    class="rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md relative select-none focus:outline-none"
     tabindex="-1"
   >
-    <GridHeader {keys} />
-    <GridOverlays />
-
-    <div
-      class="absolute top-8 w-full"
-      style="transform: translateY({virtualScroll.getOffsetY()}px);"
-    >
-      {#each visibleData.items as asset, i (asset.id || visibleData.startIndex + i)}
-          <GridRow {asset} {keys} />
-      {/each}
+    <!-- Header: scrolls horizontally, stays pinned vertically -->
+    <div class="overflow-hidden">
+      <div style="transform: translateX({-scrollbar.scrollLeft}px);">
+        <GridHeader {keys} />
+      </div>
     </div>
 
-    <EditHandler />
+    <!-- Scrollable grid body -->
+    <CustomScrollbar
+      scroll={scrollbar}
+      height="calc(100dvh - 8.9rem - 32px)"
+      size="thin"
+      vertical
+      horizontal
+      onscroll={handleScrollbarScroll}
+    >
+      <div class="relative h-full">
+        <div style="transform: translateX({-scrollbar.scrollLeft}px);">
+          <GridOverlays />
+
+          <div
+            class="absolute top-0 w-full"
+            style="transform: translateY({visibleData.startIndex * virtualScroll.rowHeight - scrollbar.scrollTop}px);"
+          >
+            {#each visibleData.items as asset, i (asset.id || visibleData.startIndex + i)}
+              <GridRow {asset} {keys} />
+            {/each}
+          </div>
+
+          <EditHandler />
+        </div>
+      </div>
+    </CustomScrollbar>
+
     {#if uiCtx.contextMenu.visible}
       <ContextMenu />
     {/if}
@@ -103,7 +134,7 @@
   </p>
 {:else}
   <div
-    class="flex items-center justify-center rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-auto h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
+    class="flex items-center justify-center rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden h-[calc(100dvh-8.9rem)] shadow-md relative select-none focus:outline-none"
   >
     <p class="text-lg text-neutral-400">Query successful, but no data was returned.</p>
   </div>

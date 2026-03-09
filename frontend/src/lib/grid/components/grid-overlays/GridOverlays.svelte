@@ -64,7 +64,7 @@
     let width = 0;
     for (let c = minCol; c <= maxCol; c++) width += getWidth(keys[c]);
 
-    const top = clampedMinRow * rowHeight + 32;
+    const top = clampedMinRow * rowHeight - viewCtx.scrollTop;
     const height = (clampedMaxRow - clampedMinRow + 1) * rowHeight;
 
     return {
@@ -104,7 +104,7 @@
       let left = 0;
       for (let c = 0; c < colIdx; c++) left += getWidth(keys[c]);
       const w = getWidth(keys[colIdx]);
-      const top = rowIdx * rowHeight + 32;
+      const top = rowIdx * rowHeight - viewCtx.scrollTop;
 
       const sameAbove = editMap.get(`${rowIdx - 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx - 1},${colIdx}`);
       const sameBelow = editMap.get(`${rowIdx + 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx + 1},${colIdx}`);
@@ -158,7 +158,7 @@
 
 <div
   class="absolute top-0 left-0 w-max min-w-full pointer-events-none"
-  style="height: {viewCtx.virtualScroll.getTotalHeight(assets.length) + 32 + 16}px;"
+  style="height: {viewCtx.virtualScroll.getTotalHeight(assets.length) + 16}px;"
 >
   <!-- Other user cursors -->
   {#each Object.entries(otherUserSelections) as [clientId, position]}

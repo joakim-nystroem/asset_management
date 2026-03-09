@@ -68,6 +68,8 @@ export type ViewContext = {
   virtualScroll: any;
   scrollToRow: number | null;
   scrollToCol: { left: number; right: number } | null;
+  scrollTop: number;
+  scrollLeft: number;
 };
 
 // 9. UI panel states (mutually exclusive) + trigger flags

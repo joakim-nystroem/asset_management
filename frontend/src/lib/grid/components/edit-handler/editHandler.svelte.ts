@@ -28,8 +28,8 @@ export function computeEditorPosition(
 
   const rowHeight = virtualScroll.rowHeight;
 
-  // Y: header (32px) + row position
-  const top = 32 + rowIndex * rowHeight;
+  // Y: row position (header is outside scroll container)
+  const top = rowIndex * rowHeight;
 
   // X: sum of widths of all columns before editCol
   let left = 0;
