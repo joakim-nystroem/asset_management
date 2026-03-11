@@ -1,21 +1,5 @@
 import { PUBLIC_WS_URL, PUBLIC_WS_PROTOCOL } from '$env/static/public';
 
-interface User {
-    row: number;
-    col: number;
-    assetId?: number | string; // ID of the asset being selected
-    firstname: string;
-    lastname: string;
-    color: string;
-}
-
-interface CellLock {
-    userId: string;
-    firstname: string;
-    lastname: string;
-    color: string;
-}
-
 const INSTANCE_KEY = Symbol.for('APP_REALTIME_MANAGER');
 const MAX_QUEUE_SIZE = 50;
 
@@ -27,11 +11,7 @@ function createRealtimeManager() {
     }
 
     // --- STATE ---
-    const state = $state({
-        clientId: null as string | null,
-        connectedUsers: {} as Record<string, User>,
-        lockedCells: {} as Record<string, CellLock>
-    });
+    let clientId = $state<string | null>(null);
 
     // --- PLUMBING ---
     let socket: WebSocket | null = null;
@@ -41,6 +21,7 @@ function createRealtimeManager() {
     let lastSentPos: { row: number; col: number; assetId?: number | string } | null = null;
     let session: { id: string; color?: string } | null = null;
     let onAssetUpdate: ((data: any) => void) | null = null;
+    let onMessage: ((type: string, payload: any) => void) | null = null;
 
     // Message Queue for offline actions
     let messageQueue: string[] = [];
@@ -49,6 +30,14 @@ function createRealtimeManager() {
 
     function setAssetUpdateHandler(handler: (data: any) => void) {
         onAssetUpdate = handler;
+    }
+
+    function setMessageHandler(handler: (type: string, payload: any) => void) {
+        onMessage = handler;
+    }
+
+    function getClientId(): string | null {
+        return clientId;
     }
 
     function sendPositionUpdate(row: number, col: number, assetId?: number | string) {
@@ -69,21 +58,13 @@ function createRealtimeManager() {
         send('CELL_EDIT_START', { assetId, key });
     }
 
-    function sendEditEnd(assetId: number | string, key: string) {
-        send('CELL_EDIT_END', { assetId, key });
-    }
-
-    function isCellLocked(assetId: number | string, key: string): boolean {
-        return `${assetId}:${key}` in state.lockedCells;
-    }
-
-    function getCellLock(assetId: number | string, key: string): CellLock | null {
-        return state.lockedCells[`${assetId}:${key}`] ?? null;
+    function sendEditEnd() {
+        send('CELL_EDIT_END', {});
     }
 
     function send(type: string, payload: any) {
         if (!shouldReconnect) return;
-        
+
         const msg = JSON.stringify({ type, payload });
 
         if (socket?.readyState === WebSocket.OPEN) {
@@ -100,16 +81,16 @@ function createRealtimeManager() {
                         return false;
                     }
                 });
-                
+
                 if (posIndex !== -1) {
                     messageQueue.splice(posIndex, 1);
                 } else {
                     messageQueue.shift();
                 }
             }
-            
+
             messageQueue.push(msg);
-            
+
             // Trigger reconnect if disconnected
             if (!socket || socket.readyState === WebSocket.CLOSED) {
                 if (session) connect(session.id, session.color);
@@ -133,8 +114,8 @@ function createRealtimeManager() {
         }
 
         // If we are already connected/connecting to the correct session, just return
-        if (socket && 
-            (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) && 
+        if (socket &&
+            (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) &&
             session?.id === sessionId) {
             return;
         }
@@ -151,15 +132,15 @@ function createRealtimeManager() {
 
         ws.onopen = () => {
             attempts = 0;
-            
+
             // 1. RESTORE PRESENCE FIRST (before queue)
             if (lastSentPos) {
-                ws.send(JSON.stringify({ 
-                    type: 'USER_POSITION_UPDATE', 
-                    payload: lastSentPos 
+                ws.send(JSON.stringify({
+                    type: 'USER_POSITION_UPDATE',
+                    payload: lastSentPos
                 }));
             }
-            
+
             // 2. FLUSH QUEUE
             if (messageQueue.length > 0) {
                 while (messageQueue.length > 0 && ws.readyState === WebSocket.OPEN) {
@@ -172,8 +153,8 @@ function createRealtimeManager() {
         ws.onclose = (e) => {
             if (socket !== ws) return;
             socket = null;
-            state.clientId = null;
-            
+            clientId = null;
+
             if (shouldReconnect) scheduleReconnect();
         };
 
@@ -187,8 +168,8 @@ function createRealtimeManager() {
             try {
                 const { type, payload } = JSON.parse(e.data);
                 handleMessage(type, payload);
-            } catch (err) { 
-                console.error('[Realtime] Parse error', err); 
+            } catch (err) {
+                console.error('[Realtime] Parse error', err);
             }
         };
     }
@@ -205,12 +186,12 @@ function createRealtimeManager() {
 
     function disconnect() {
         shouldReconnect = false; // Stop intentional reconnects
-        
+
         if (reconnectTimer) {
             clearTimeout(reconnectTimer);
             reconnectTimer = null;
         }
-        
+
         // Clear queue immediately
         messageQueue = [];
 
@@ -223,11 +204,10 @@ function createRealtimeManager() {
         cleanupSocket();
 
         // Clean State
-        state.clientId = null;
-        state.connectedUsers = {};
-        state.lockedCells = {};
+        clientId = null;
         lastSentPos = null;
         onAssetUpdate = null;
+        onMessage = null;
     }
 
     function cleanupSocket() {
@@ -242,76 +222,11 @@ function createRealtimeManager() {
     }
 
     function handleMessage(type: string, payload: any) {
-        switch (type) {
-            case 'asset_update':
-                onAssetUpdate?.(payload);
-                break;
-                
-            case 'WELCOME':
-                state.clientId = payload.clientId;
-                // Remove self from connected users
-                if (state.connectedUsers[payload.clientId]) {
-                    const { [payload.clientId]: _, ...rest } = state.connectedUsers;
-                    state.connectedUsers = rest;
-                }
-                break;
-                
-            case 'EXISTING_USERS': {
-                // Server now sends { users: {...}, lockedCells: {...} }
-                const users = { ...(payload.users || payload) };
-                if (state.clientId) delete users[state.clientId];
-                state.connectedUsers = users;
-
-                // Populate locked cells from server state
-                if (payload.lockedCells) {
-                    state.lockedCells = { ...payload.lockedCells };
-                }
-                break;
-            }
-            
-            case 'USER_POSITION_UPDATE':
-                if (payload.clientId !== state.clientId) {
-                    // Immutable update
-                    state.connectedUsers = {
-                        ...state.connectedUsers,
-                        [payload.clientId]: payload
-                    };
-                }
-                break;
-                
-            case 'USER_LEFT':
-                if (state.connectedUsers[payload.clientId]) {
-                    const { [payload.clientId]: _, ...rest } = state.connectedUsers;
-                    state.connectedUsers = rest;
-                }
-                break;
-
-            case 'CELL_LOCKED': {
-                const lockKey = `${payload.assetId}:${payload.key}`;
-                state.lockedCells = {
-                    ...state.lockedCells,
-                    [lockKey]: {
-                        userId: payload.userId,
-                        firstname: payload.firstname,
-                        lastname: payload.lastname,
-                        color: payload.color,
-                    }
-                };
-                break;
-            }
-
-            case 'CELL_UNLOCKED': {
-                const lockKey = `${payload.assetId}:${payload.key}`;
-                if (state.lockedCells[lockKey]) {
-                    const { [lockKey]: _, ...rest } = state.lockedCells;
-                    state.lockedCells = rest;
-                }
-                break;
-            }
-
-            default:
-                break;
+        if (type === 'asset_update') {
+            onAssetUpdate?.(payload);
+            return;
         }
+        onMessage?.(type, payload);
     }
 
     // --- RECONNECT ON TAB FOCUS ---
@@ -329,17 +244,14 @@ function createRealtimeManager() {
 
     // --- EXPORT ---
     const instance = {
-        get clientId() { return state.clientId },
-        get connectedUsers() { return state.connectedUsers },
-        get lockedCells() { return state.lockedCells },
         connect,
         disconnect,
         sendPositionUpdate,
         sendDeselect,
         sendEditStart,
         sendEditEnd,
-        isCellLocked,
-        getCellLock,
+        getClientId,
+        setMessageHandler,
         setAssetUpdateHandler
     };
 

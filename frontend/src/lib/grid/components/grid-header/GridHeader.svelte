@@ -15,22 +15,13 @@
   let { keys }: Props = $props();
 
   // --- Menu alignment (computed from DOM when menu opens) ---
-  let headerMenuEl = $state<HTMLElement | null>(null);
   let menuAlignRight = $state(false);
 
   $effect(() => {
     if (uiCtx.headerMenu.visible) {
       const idx = keys.indexOf(uiCtx.headerMenu.activeKey);
-      headerMenuEl = document.querySelector(`[data-header-col="${idx}"]`);
-
-
-    function recalc() {
-      if (headerMenuEl) menuAlignRight = headerMenuEl?.getBoundingClientRect().right + 192 > window.innerWidth;
-    }
-
-    recalc();
-    document.addEventListener('scroll', recalc, true);
-    return () => document.removeEventListener('scroll', recalc, true);
+      const el = document.querySelector(`[data-header-col="${idx}"]`);
+      if (el) menuAlignRight = el.getBoundingClientRect().right + 192 > window.innerWidth;
     }
   });
 
@@ -92,7 +83,7 @@
     >
       <button
         class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
-        onclick={() => handleHeaderClick(key)}
+        onclick={(e) => { e.stopPropagation(); handleHeaderClick(key); }}
       >
         <span class="truncate">{key.replaceAll("_", " ")}</span>
         <span class="ml-1">
@@ -116,7 +107,7 @@
       ></div>
 
       {#if uiCtx.headerMenu.visible && uiCtx.headerMenu.activeKey === key}
-        <HeaderMenu activeKey={key} alignRight={menuAlignRight}/>
+        <HeaderMenu activeKey={key} alignRight={menuAlignRight} />
       {/if}
     </div>
   {/each}

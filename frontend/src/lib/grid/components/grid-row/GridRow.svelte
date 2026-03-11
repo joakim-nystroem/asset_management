@@ -1,15 +1,13 @@
 <script lang="ts">
-  import { getColumnWidthContext, getSelectionContext, getEditingContext, getUiContext, getPendingContext, setOpenPanel, getViewContext } from '$lib/context/gridContext.svelte.ts';
+  import { getColumnWidthContext, getSelectionContext, getEditingContext, getUiContext, getPendingContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
   import { toastState } from '$lib/toast/toastState.svelte';
 
-  import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+  import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   const colWidthCtx = getColumnWidthContext();
   const selCtx = getSelectionContext();
   const editingCtx = getEditingContext();
   const uiCtx = getUiContext();
   const pendingCtx = getPendingContext();
-  const viewCtx = getViewContext();
-  const virtualScroll = viewCtx.virtualScroll;
 
   function getCellError(key: string): string | null {
     const edit = pendingCtx.edits.find(e => e.row === asset.id && e.col === key && !e.isValid);
@@ -25,7 +23,7 @@
 
 </script>
 
-<div class="group flex h-full border-b border-neutral-200 dark:border-slate-700" style="height: {virtualScroll.rowHeight}px;">
+<div class="group flex h-full border-b border-neutral-200 dark:border-slate-700" style="height: {DEFAULT_ROW_HEIGHT}px;">
 {#each keys as key, j}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div

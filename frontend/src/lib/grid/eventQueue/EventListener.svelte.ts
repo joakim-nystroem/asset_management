@@ -2,10 +2,10 @@ import type {
   EditingContext,
   SelectionContext,
   ClipboardContext,
-  ViewContext,
   UiContext,
   ColumnWidthContext,
 } from '$lib/context/gridContext.svelte';
+import { getScrollSignalContext } from '$lib/context/gridContext.svelte';
 import { setOpenPanel } from '$lib/context/gridContext.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
 import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
@@ -14,13 +14,13 @@ type KeyboardContexts = {
   editingCtx: EditingContext;
   selCtx: SelectionContext;
   clipCtx: ClipboardContext;
-  viewCtx: ViewContext;
   uiCtx: UiContext;
   colWidthCtx: ColumnWidthContext;
 };
 
 export function createKeyboardHandler(ctxs: KeyboardContexts) {
-  const { editingCtx, selCtx, clipCtx, viewCtx, uiCtx, colWidthCtx } = ctxs;
+  const { editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx } = ctxs;
+  const scrollSignalCtx = getScrollSignalContext();
 
   function getAssets() {
     return assetStore.filteredAssets;
@@ -175,8 +175,8 @@ export function createKeyboardHandler(ctxs: KeyboardContexts) {
           selectCell(targetRow, targetCol);
         }
         const idx = assetIndex(targetRow);
-        if (idx !== -1) viewCtx.scrollToRow = idx;
-        viewCtx.scrollToCol = colBounds(targetCol);
+        if (idx !== -1) scrollSignalCtx.scrollToRow = idx;
+        scrollSignalCtx.scrollToCol = colBounds(targetCol);
         return;
       }
 
@@ -185,16 +185,16 @@ export function createKeyboardHandler(ctxs: KeyboardContexts) {
         if (next) {
           selCtx.selectionEnd = next;
           const idx = assetIndex(next.row);
-          if (idx !== -1) viewCtx.scrollToRow = idx;
-          viewCtx.scrollToCol = colBounds(next.col);
+          if (idx !== -1) scrollSignalCtx.scrollToRow = idx;
+          scrollSignalCtx.scrollToCol = colBounds(next.col);
         }
       } else {
         const next = getArrowTarget(e.key, anchor);
         if (next) {
           selectCell(next.row, next.col);
           const idx = assetIndex(next.row);
-          if (idx !== -1) viewCtx.scrollToRow = idx;
-          viewCtx.scrollToCol = colBounds(next.col);
+          if (idx !== -1) scrollSignalCtx.scrollToRow = idx;
+          scrollSignalCtx.scrollToCol = colBounds(next.col);
         }
       }
     }

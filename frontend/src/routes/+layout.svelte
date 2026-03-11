@@ -12,7 +12,7 @@
   let showUserMenu = $state(false);
   let sessionColor: string = $derived(data.session_color || '#6b7280');
 
-  let isWsConnected = $derived(realtime.clientId !== null);
+  let isWsConnected = $derived(realtime.getClientId() !== null);
 
   // Manage WebSocket connection in layout (persists across navigation)
   $effect(() => {

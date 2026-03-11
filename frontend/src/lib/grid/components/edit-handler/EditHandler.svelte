@@ -1,7 +1,11 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { getEditingContext, getPendingContext, getHistoryContext, getSelectionContext, getClipboardContext, getViewContext, getColumnWidthContext, type HistoryAction } from '$lib/context/gridContext.svelte.ts';
+  import { getEditingContext, getPendingContext, getHistoryContext, getSelectionContext, getClipboardContext, getColumnWidthContext, type HistoryAction } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
+  import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+
+  let { scrollTop }: { scrollTop: number } = $props();
+
   import EditDropdownComponent from '$lib/grid/components/edit-dropdown/editDropdown.svelte';
   import AutocompleteComponent from '$lib/grid/components/suggestion-menu/autocomplete.svelte';
   import { createEditDropdown } from '$lib/grid/components/edit-dropdown/editDropdown.svelte.ts';
@@ -14,7 +18,6 @@
   const historyCtx = getHistoryContext();
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
-  const viewCtx = getViewContext();
   const colWidthCtx = getColumnWidthContext();
   const assets = $derived(assetStore.filteredAssets);
   const keys = $derived(Object.keys(assets[0] ?? {}));
@@ -63,10 +66,9 @@
       colWidthCtx.widths,
       keys,
       assets,
-      viewCtx.virtualScroll
     );
     if (!pos) return 'display: none;';
-    return `top: ${pos.top - viewCtx.scrollTop}px; left: ${pos.left}px; width: ${pos.width}px; height: ${pos.height}px;`;
+    return `top: ${pos.top - scrollTop}px; left: ${pos.left}px; width: ${pos.width}px; height: ${pos.height}px;`;
   });
 
   // --- Shared helper: resolve the visible value for a cell (pending or asset) ---

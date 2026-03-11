@@ -5,6 +5,7 @@
   import {
     type PendingContext,
     type HistoryAction,
+    type PresenceEntry,
     setEditingContext,
     setPendingContext,
     setHistoryContext,
@@ -12,13 +13,12 @@
     setSelectionContext,
     setClipboardContext,
     setRowContext,
-    setViewContext,
+    setScrollSignalContext,
     setUiContext,
     setColumnWidthContext,
     setSortContext,
+    setPresenceContext,
   } from '$lib/context/gridContext.svelte.ts';
-
-  import { createVirtualScroll } from '$lib/grid/utils/virtualScrollManager.svelte';
 
   let { children }: { children: Snippet } = $props();
 
@@ -73,15 +73,12 @@
   });
   setRowContext(rowCtx);
 
-  let viewCtx = $state({
-    virtualScroll: createVirtualScroll(),
+  let scrollSignalCtx = $state({
     scrollToRow: null as number | null,
     scrollToCol: null as { left: number; right: number } | null,
-    scrollTop: 0,
-    scrollLeft: 0,
-    setScroll: () => {},
+    isAutoScrolling: false,
   });
-  setViewContext(viewCtx);
+  setScrollSignalContext(scrollSignalCtx);
 
   let uiCtx = $state({
     filterPanel: { visible: false },
@@ -103,6 +100,11 @@
     direction: 'asc' as 'asc' | 'desc',
   });
   setSortContext(sortCtx);
+
+  let presenceCtx = $state({
+    users: [] as PresenceEntry[],
+  });
+  setPresenceContext(presenceCtx);
 
 </script>
 

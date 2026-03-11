@@ -6,12 +6,12 @@
   import {
     getPendingContext,
     getNewRowContext,
-    getViewContext,
     getUiContext,
     getSelectionContext,
     getClipboardContext,
     getHistoryContext,
     getColumnWidthContext,
+    getScrollSignalContext,
     setOpenPanel,
   } from '$lib/context/gridContext.svelte.ts';
   import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
@@ -19,11 +19,11 @@
   const pendingCtx = getPendingContext();
   const historyCtx = getHistoryContext();
   const newRowCtx = getNewRowContext();
-  const viewCtx = getViewContext();
   const uiCtx = getUiContext();
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
   const colWidthCtx = getColumnWidthContext();
+  const scrollSignalCtx = getScrollSignalContext();
 
   // Local search input — only pushed to queryStore on explicit action
   let searchInput = $state('');
@@ -87,7 +87,7 @@
     const rowIndex = assets.findIndex((a: any) => a.id === invalidEdit.row);
     if (rowIndex < 0) return;
 
-    viewCtx.scrollToRow = rowIndex;
+    scrollSignalCtx.scrollToRow = rowIndex;
 
     // Compute column bounds for horizontal scroll
     const keys = Object.keys(assets[0] ?? {});
@@ -95,7 +95,7 @@
     if (colIdx >= 0) {
       let left = 0;
       for (let c = 0; c < colIdx; c++) left += colWidthCtx.widths.get(keys[c]) ?? DEFAULT_WIDTH + 5;
-      viewCtx.scrollToCol = { left, right: left + (colWidthCtx.widths.get(invalidEdit.col) ?? DEFAULT_WIDTH + 5) };
+      scrollSignalCtx.scrollToCol = { left, right: left + (colWidthCtx.widths.get(invalidEdit.col) ?? DEFAULT_WIDTH + 5) };
     }
   }
 </script>

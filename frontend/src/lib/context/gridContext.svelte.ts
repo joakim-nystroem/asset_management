@@ -63,14 +63,12 @@ export type RowContext = {
   rowHeights: SvelteMap<number, number>;
 };
 
-// 8. Scroll state
-export type ViewContext = {
-  virtualScroll: any;
+// 8. Scroll navigation signals — one-shot commands consumed by VirtualScrollManager owner (e.g. GridContainer).
+// Lives in context because writers (Toolbar, EventListener) and consumers are siblings under GridContextProvider.
+export type ScrollSignalContext = {
   scrollToRow: number | null;
   scrollToCol: { left: number; right: number } | null;
-  scrollTop: number;
-  scrollLeft: number;
-  setScroll: (top: number, left: number) => void;
+  isAutoScrolling: boolean;
 };
 
 // 9. UI panel states (mutually exclusive) + trigger flags
@@ -100,6 +98,21 @@ export type SortContext = {
   direction: 'asc' | 'desc';
 };
 
+// 13. Presence — other users' positions and cell locks
+export type PresenceEntry = {
+  id: number;
+  firstname: string;
+  lastname: string;
+  color: string;
+  row: number;
+  col: string;
+  isLocked: boolean;
+};
+
+export type PresenceContext = {
+  users: PresenceEntry[];
+};
+
 // ─── Domain context pairs ─────────────────────────────────────────────────────
 
 export const [getEditingContext, setEditingContext] = createContext<EditingContext>();
@@ -109,7 +122,8 @@ export const [getNewRowContext, setNewRowContext] = createContext<NewRowContext>
 export const [getSelectionContext, setSelectionContext] = createContext<SelectionContext>();
 export const [getClipboardContext, setClipboardContext] = createContext<ClipboardContext>();
 export const [getRowContext, setRowContext] = createContext<RowContext>();
-export const [getViewContext, setViewContext] = createContext<ViewContext>();
+export const [getScrollSignalContext, setScrollSignalContext] = createContext<ScrollSignalContext>();
 export const [getUiContext, setUiContext] = createContext<UiContext>();
 export const [getColumnWidthContext, setColumnWidthContext] = createContext<ColumnWidthContext>();
 export const [getSortContext, setSortContext] = createContext<SortContext>();
+export const [getPresenceContext, setPresenceContext] = createContext<PresenceContext>();

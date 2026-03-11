@@ -189,6 +189,23 @@ func (clm *CellLockManager) RemoveAllForUser(userID string) []string {
 	return removed
 }
 
+// GetLock returns a single lock by key
+func (clm *CellLockManager) GetLock(lockKey string) *CellLockInfo {
+	clm.mutex.RLock()
+	defer clm.mutex.RUnlock()
+	if info, ok := clm.locks[lockKey]; ok {
+		return &CellLockInfo{
+			UserID:    info.UserID,
+			AssetID:   info.AssetID,
+			Key:       info.Key,
+			Firstname: info.Firstname,
+			Lastname:  info.Lastname,
+			Color:     info.Color,
+		}
+	}
+	return nil
+}
+
 // GetAll returns a snapshot of all current locks
 func (clm *CellLockManager) GetAll() map[string]*CellLockInfo {
 	clm.mutex.RLock()
@@ -408,6 +425,7 @@ func (c *Client) handleCellEditStart(payload interface{}) {
 	)
 
 	if locked {
+		log.Printf("[CellLock] %s (%s %s) locked cell %s", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, lockKey)
 		broadcastPayload := map[string]interface{}{
 			"assetId":   assetIdRaw,
 			"key":       keyStr,
@@ -417,32 +435,46 @@ func (c *Client) handleCellEditStart(payload interface{}) {
 			"color":     c.userInfo.Color,
 		}
 		c.hub.BroadcastMessage("CELL_LOCKED", broadcastPayload, c)
+	} else {
+		// Cell already locked by another user — send CELL_LOCKED back to requester
+		// so their client knows to cancel the edit
+		existing := c.hub.cellLocks.GetLock(lockKey)
+		if existing != nil {
+			log.Printf("[CellLock] %s rejected for cell %s (held by %s %s)", c.userInfo.Username, lockKey, existing.Firstname, existing.Lastname)
+			rejectPayload := map[string]interface{}{
+				"assetId":   existing.AssetID,
+				"key":       existing.Key,
+				"userId":    existing.UserID,
+				"firstname": existing.Firstname,
+				"lastname":  existing.Lastname,
+				"color":     existing.Color,
+			}
+			msg := Message{Type: "CELL_LOCKED", Payload: rejectPayload}
+			jsonMsg, err := json.Marshal(msg)
+			if err == nil {
+				select {
+				case c.send <- jsonMsg:
+				default:
+					log.Printf("[CellLock] Failed to send rejection to %s (buffer full)", c.userInfo.Username)
+				}
+			}
+		}
 	}
 }
 
 func (c *Client) handleCellEditEnd(payload interface{}) {
-	payloadMap, ok := payload.(map[string]interface{})
-	if !ok {
-		return
-	}
-
-	assetIdRaw, ok1 := payloadMap["assetId"]
-	keyStr, ok2 := payloadMap["key"].(string)
-	if !ok1 || !ok2 || keyStr == "" {
-		return
-	}
-
-	assetId := fmt.Sprintf("%v", assetIdRaw)
-	lockKey := assetId + ":" + keyStr
-
-	unlocked := c.hub.cellLocks.Unlock(lockKey, c.userID)
-
-	if unlocked {
-		broadcastPayload := map[string]interface{}{
-			"assetId": assetIdRaw,
-			"key":     keyStr,
+	// Release all locks for this user (only one cell can be edited at a time)
+	removedLocks := c.hub.cellLocks.RemoveAllForUser(c.userID)
+	for _, lockKey := range removedLocks {
+		parts := strings.SplitN(lockKey, ":", 2)
+		if len(parts) == 2 {
+			log.Printf("[CellLock] %s unlocked cell %s", c.userInfo.Username, lockKey)
+			broadcastPayload := map[string]interface{}{
+				"assetId": parts[0],
+				"key":     parts[1],
+			}
+			c.hub.BroadcastMessage("CELL_UNLOCKED", broadcastPayload, c)
 		}
-		c.hub.BroadcastMessage("CELL_UNLOCKED", broadcastPayload, c)
 	}
 }
 

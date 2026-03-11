@@ -1,13 +1,9 @@
 import type { SvelteMap } from 'svelte/reactivity';
-import type { VirtualScrollManager } from '$lib/grid/utils/virtualScrollManager.svelte.ts';
 
-import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
 
 /**
- * Compute the absolute pixel position of EditHandler within GridOverlays.
- *
- * GridOverlays div contains: header (32px) + rows at absolute positions.
- * EditHandler is absolutely positioned within GridOverlays' div.
+ * Compute the absolute pixel position of EditHandler within the scroll viewport.
  *
  * @param editRowId - Asset ID (from editingCtx.editRow)
  * @param assets - Current filteredAssets array (for ID → index conversion)
@@ -18,15 +14,13 @@ export function computeEditorPosition(
   columnWidths: SvelteMap<string, number>,
   keys: string[],
   assets: Record<string, any>[],
-  virtualScroll: VirtualScrollManager
+  rowHeight: number = DEFAULT_ROW_HEIGHT
 ): { top: number; left: number; width: number; height: number } | null {
   const rowIndex = assets.findIndex((a) => a.id === editRowId);
   if (rowIndex === -1) return null;
 
   const colIdx = keys.indexOf(editCol);
   if (colIdx === -1) return null;
-
-  const rowHeight = virtualScroll.rowHeight;
 
   // Y: row position (header is outside scroll container)
   const top = rowIndex * rowHeight;

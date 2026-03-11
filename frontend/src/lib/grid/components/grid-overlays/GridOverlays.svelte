@@ -3,22 +3,26 @@
     getPendingContext,
     getSelectionContext,
     getClipboardContext,
-    getViewContext,
     getColumnWidthContext,
+    getPresenceContext,
   } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
-  import { realtime } from '$lib/utils/realtimeManager.svelte';
 
-  import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+  import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+
+  let { scrollTop, visibleRange }: {
+    scrollTop: number;
+    visibleRange: { startIndex: number; endIndex: number };
+  } = $props();
 
   const pendingCtx = getPendingContext();
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
-  const viewCtx = getViewContext();
   const colWidthCtx = getColumnWidthContext();
+  const presenceCtx = getPresenceContext();
 
   // --- Local UI state ---
-  let hoveredUser: string | null = $state(null);
+  let hoveredUser: number | null = $state(null);
 
   // --- Derived data ---
   const assets = $derived(assetStore.filteredAssets);
@@ -39,8 +43,8 @@
     start: { row: number; col: string },
     end: { row: number; col: string },
   ) {
-    const { startIndex, endIndex } = viewCtx.virtualScroll.visibleRange;
-    const rowHeight = viewCtx.virtualScroll.rowHeight;
+    const { startIndex, endIndex } = visibleRange;
+    const rowHeight = DEFAULT_ROW_HEIGHT;
 
     const startRowIdx = assetIndex(start.row);
     const endRowIdx = assetIndex(end.row);
@@ -64,7 +68,7 @@
     let width = 0;
     for (let c = minCol; c <= maxCol; c++) width += getWidth(keys[c]);
 
-    const top = clampedMinRow * rowHeight - viewCtx.scrollTop;
+    const top = clampedMinRow * rowHeight - scrollTop;
     const height = (clampedMaxRow - clampedMinRow + 1) * rowHeight;
 
     return {
@@ -83,8 +87,8 @@
 
   const dirtyCellOverlays = $derived.by(() => {
     if (pendingCtx.edits.length === 0) return [];
-    const { startIndex, endIndex } = viewCtx.virtualScroll.visibleRange;
-    const rowHeight = viewCtx.virtualScroll.rowHeight;
+    const { startIndex, endIndex } = visibleRange;
+    const rowHeight = DEFAULT_ROW_HEIGHT;
 
     const editMap = new Map<string, typeof pendingCtx.edits[0]>();
     for (const edit of pendingCtx.edits) {
@@ -104,7 +108,7 @@
       let left = 0;
       for (let c = 0; c < colIdx; c++) left += getWidth(keys[c]);
       const w = getWidth(keys[colIdx]);
-      const top = rowIdx * rowHeight - viewCtx.scrollTop;
+      const top = rowIdx * rowHeight - scrollTop;
 
       const sameAbove = editMap.get(`${rowIdx - 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx - 1},${colIdx}`);
       const sameBelow = editMap.get(`${rowIdx + 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx + 1},${colIdx}`);
@@ -127,41 +131,30 @@
       : null
   );
 
-  const otherUserSelections = $derived(
-    Object.entries(realtime.connectedUsers).reduce(
-      (acc, [clientId, position]) => {
-        let rowIndex = -1;
-        if (position.assetId !== undefined) {
-          rowIndex = assets.findIndex((a: Record<string, any>) => a.id === position.assetId);
-        } else {
-          rowIndex = position.row;
-        }
-        if (rowIndex === -1) return acc;
-        acc[clientId] = {
-          ...position,
-          row: rowIndex,
-          col: keys[position.col] ?? '',
-          initials: (
-            (position.firstname?.[0] || '') + (position.lastname?.[0] || '')
-          ).toUpperCase(),
-          fullName: `${position.firstname?.[0]?.toUpperCase() || ''}${position.firstname?.slice(1) || ''} ${position.lastname?.[0]?.toUpperCase() || ''}${position.lastname?.slice(1) || ''}`.trim(),
-          editing: Object.entries(realtime.lockedCells).some(
-            ([, lock]) => lock.userId === clientId
-          ),
-        };
-        return acc;
-      },
-      {} as Record<string, any>
-    )
-  );
+  const otherUserSelections = $derived.by(() => {
+    const result: Record<number, any> = {};
+    for (const user of presenceCtx.users) {
+      const rowIndex = assets.findIndex((a: Record<string, any>) => a.id === user.row);
+      if (rowIndex === -1) continue;
+      result[user.id] = {
+        ...user,
+        row: rowIndex,
+        initials: (
+          (user.firstname?.[0] || '') + (user.lastname?.[0] || '')
+        ).toUpperCase(),
+        fullName: `${user.firstname?.[0]?.toUpperCase() || ''}${user.firstname?.slice(1) || ''} ${user.lastname?.[0]?.toUpperCase() || ''}${user.lastname?.slice(1) || ''}`.trim(),
+      };
+    }
+    return result;
+  });
 </script>
 
 <div
   class="absolute top-0 left-0 w-max min-w-full pointer-events-none"
-  style="height: {viewCtx.virtualScroll.getTotalHeight(assets.length) + 16}px;"
+  style="height: {assets.length * DEFAULT_ROW_HEIGHT + 16}px;"
 >
   <!-- Other user cursors -->
-  {#each Object.entries(otherUserSelections) as [clientId, position]}
+  {#each Object.entries(otherUserSelections) as [userId, position]}
     {@const otherOverlay = computeVisualOverlay(position, position)}
     {#if otherOverlay}
       <div
@@ -171,7 +164,7 @@
             left: {otherOverlay.left}px;
             width: {otherOverlay.width}px;
             height: {otherOverlay.height}px;
-            border: {position.editing ? '2px' : '1px'} solid {position.color};
+            border: {position.isLocked ? '2px' : '1px'} solid {position.color};
             box-sizing: border-box;
           "
       >
@@ -184,17 +177,17 @@
             height: 16px;
             background-color: {position.color};
             min-width: 16px;
-            max-width: {hoveredUser === clientId ? '200px' : '16px'};
+            max-width: {hoveredUser === position.id ? '200px' : '16px'};
             transition: max-width 0.2s ease-in-out, background-color 0.2s ease-in-out;
           "
-          onmouseenter={() => hoveredUser = clientId}
+          onmouseenter={() => hoveredUser = position.id}
           onmouseleave={() => hoveredUser = null}
         >
-          <div class="{hoveredUser === clientId ? 'px-1' : ''} whitespace-nowrap">
-            {#if position.editing}
-              {hoveredUser === clientId ? `${position.fullName} editing...` : '...'}
+          <div class="{hoveredUser === position.id ? 'px-1' : ''} whitespace-nowrap">
+            {#if position.isLocked}
+              {hoveredUser === position.id ? `${position.fullName} editing...` : '...'}
             {:else}
-              {hoveredUser === clientId ? position.fullName : position.initials}
+              {hoveredUser === position.id ? position.fullName : position.initials}
             {/if}
           </div>
         </div>
@@ -236,7 +229,7 @@
     >
       <span class="truncate w-full">{cell.value}</span>
     </div>
-    
+
   {/each}
 
   <!-- Selection overlay -->
