@@ -18,7 +18,7 @@ export type EditingContext = {
 
 // 2. Pending changes buffer (dirty edits between save and commit)
 export type PendingContext = {
-  edits: { row: number | string; col: string; original: string; value: string; isValid: boolean }[];
+  edits: { row: number | string; col: string; original: string; value: string; isValid: boolean; validationError: string | null }[];
 };
 
 // 3. Undo/Redo stack

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getColumnWidthContext, getSelectionContext, getEditingContext, getUiContext, setOpenPanel, getViewContext } from '$lib/context/gridContext.svelte.ts';
+  import { getColumnWidthContext, getSelectionContext, getEditingContext, getUiContext, getPendingContext, setOpenPanel, getViewContext } from '$lib/context/gridContext.svelte.ts';
   import { toastState } from '$lib/toast/toastState.svelte';
 
   import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
@@ -7,8 +7,14 @@
   const selCtx = getSelectionContext();
   const editingCtx = getEditingContext();
   const uiCtx = getUiContext();
+  const pendingCtx = getPendingContext();
   const viewCtx = getViewContext();
   const virtualScroll = viewCtx.virtualScroll;
+
+  function getCellError(key: string): string | null {
+    const edit = pendingCtx.edits.find(e => e.row === asset.id && e.col === key && !e.isValid);
+    return edit?.validationError ?? null;
+  }
 
   type Props = {
     asset: Record<string, any>;
@@ -26,7 +32,7 @@
     data-row={asset.id}
     data-col={j}
     class="
-      h-full flex items-center text-xs
+      group/cell relative h-full flex items-center text-xs
       text-neutral-700 dark:text-neutral-200
       border-r border-b border-neutral-200 dark:border-slate-700 last:border-r-0
       px-2 cursor-cell group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600
@@ -80,6 +86,12 @@
     }}
   >
     <span class="truncate w-full">{asset[key]}</span>
+    {#if getCellError(key)}
+      <div class="absolute top-full right-3 mt-1 z-[95] pointer-events-none opacity-0 group-hover/cell:opacity-100 transition-opacity whitespace-nowrap bg-red-600 text-white text-xs px-2 py-1 rounded shadow-lg">
+        {getCellError(key)}
+        <div class="absolute bottom-full right-9 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-red-600"></div>
+      </div>
+    {/if}
   </div>
 {/each}
 </div>

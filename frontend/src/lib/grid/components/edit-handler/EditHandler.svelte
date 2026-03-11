@@ -44,6 +44,12 @@
     serial_number: { type: 'unique' },
   };
 
+  const validationErrors = {
+    required: 'Value is required',
+    invalidOption: 'Invalid value',
+    duplicate: 'Must be unique',
+  };
+
   const isDropdownColumn = $derived(editKey ? columnEditMode[editKey]?.type === 'dropdown' : false);
 
   // Compute absolute position within GridOverlays
@@ -72,17 +78,19 @@
   }
 
   // --- Validation ---
-  function validateCell(assetId: number, colKey: string, value: string): boolean {
+  function validateCell(assetId: number, colKey: string, value: string): { isValid: boolean; error: string | null } {
     const mode = columnEditMode[colKey];
-    if (!mode) return true;
+    if (!mode) return { isValid: true, error: null };
 
     if (mode.type === 'dropdown') {
-      if (!value && !mode.required) return true;
-      return mode.options().includes(value);
+      if (!value && !mode.required) return { isValid: true, error: null };
+      if (!value && mode.required) return { isValid: false, error: validationErrors.required };
+      const valid = mode.options().includes(value);
+      return { isValid: valid, error: valid ? null : validationErrors.invalidOption };
     }
 
     if (mode.type === 'unique') {
-      if (!value) return false; // unique columns are required
+      if (!value) return { isValid: false, error: validationErrors.required };
       // Check against all base assets (excluding this asset) and pending edits
       const isDuplicateInAssets = assetStore.baseAssets.some(
         (a: Record<string, any>) => a.id !== assetId && String(a[colKey] ?? '') === value
@@ -96,18 +104,18 @@
           const pendingForDuplicate = pendingCtx.edits.find(
             (e) => e.row === duplicateAsset.id && e.col === colKey
           );
-          if (!pendingForDuplicate || pendingForDuplicate.value === value) return false;
+          if (!pendingForDuplicate || pendingForDuplicate.value === value) return { isValid: false, error: validationErrors.duplicate };
         }
       }
       // Check against other pending edits for the same column
       const isDuplicateInPending = pendingCtx.edits.some(
         (e) => e.row !== assetId && e.col === colKey && e.value === value
       );
-      if (isDuplicateInPending) return false;
-      return true;
+      if (isDuplicateInPending) return { isValid: false, error: validationErrors.duplicate };
+      return { isValid: true, error: null };
     }
 
-    return true;
+    return { isValid: true, error: null };
   }
 
   // --- Shared helper: upsert a single cell into pendingCtx ---
@@ -122,8 +130,8 @@
 
     // If changed from baseline, track it
     if (newValue !== baseline) {
-      const isValid = validateCell(assetId, colKey, newValue);
-      pendingCtx.edits.push({ row: assetId, col: colKey, original: baseline, value: newValue, isValid });
+      const { isValid, error } = validateCell(assetId, colKey, newValue);
+      pendingCtx.edits.push({ row: assetId, col: colKey, original: baseline, value: newValue, isValid, validationError: error });
     }
   }
 
@@ -215,8 +223,8 @@
         const oldValue = cellValue(asset.id, key);
         const original = String(asset[key] ?? '');
         pastedKeys.add(`${asset.id}:${key}`);
-        const isValid = validateCell(asset.id, key, newValue);
-        newEdits.push({ row: asset.id, col: key, original, value: newValue, isValid });
+        const { isValid, error } = validateCell(asset.id, key, newValue);
+        newEdits.push({ row: asset.id, col: key, original, value: newValue, isValid, validationError: error });
         if (oldValue !== newValue) {
           historyBatch.push({ id: asset.id, key, oldValue, newValue });
         }

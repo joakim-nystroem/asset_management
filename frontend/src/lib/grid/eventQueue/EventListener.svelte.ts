@@ -50,7 +50,7 @@ export function createKeyboardHandler(ctxs: KeyboardContexts) {
   function selectCell(row: number, col: string) {
     selCtx.selectionStart = { row, col };
     selCtx.selectionEnd = { row, col };
-    selCtx.isSelecting = true;
+    selCtx.isSelecting = false;
     selCtx.hideSelection = false;
   }
 

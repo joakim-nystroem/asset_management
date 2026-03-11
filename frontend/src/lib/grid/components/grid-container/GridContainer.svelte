@@ -71,6 +71,7 @@
       }
 
       virtualScroll.updateScrollTop(scrollbar.scrollTop);
+      viewCtx.scrollTop = scrollbar.scrollTop;
       viewCtx.scrollToRow = null;
     }
   });
@@ -88,6 +89,7 @@
         scrollbar.scrollLeft = col.right - scrollbar.viewportWidth;
       }
 
+      viewCtx.scrollLeft = scrollbar.scrollLeft;
       viewCtx.scrollToCol = null;
     }
   });
