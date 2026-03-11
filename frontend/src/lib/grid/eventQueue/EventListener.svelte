@@ -39,6 +39,7 @@
 
   // ─── WS BRIDGE: incoming messages → queue ──────────────────────────────────
   realtime.setMessageHandler((type, payload) => {
+    console.log('[WS Bridge] received:', type, payload);
     enqueue({ type: 'WS_' + type, payload }, { presenceCtx, editingCtx });
   });
 

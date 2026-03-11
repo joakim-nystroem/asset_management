@@ -131,22 +131,7 @@
       : null
   );
 
-  const otherUserSelections = $derived.by(() => {
-    const result: Record<number, any> = {};
-    for (const user of presenceCtx.users) {
-      const rowIndex = assets.findIndex((a: Record<string, any>) => a.id === user.row);
-      if (rowIndex === -1) continue;
-      result[user.id] = {
-        ...user,
-        row: rowIndex,
-        initials: (
-          (user.firstname?.[0] || '') + (user.lastname?.[0] || '')
-        ).toUpperCase(),
-        fullName: `${user.firstname?.[0]?.toUpperCase() || ''}${user.firstname?.slice(1) || ''} ${user.lastname?.[0]?.toUpperCase() || ''}${user.lastname?.slice(1) || ''}`.trim(),
-      };
-    }
-    return result;
-  });
+  const otherUserSelections = $derived(presenceCtx.users);
 </script>
 
 <div
@@ -154,8 +139,10 @@
   style="height: {assets.length * DEFAULT_ROW_HEIGHT + 16}px;"
 >
   <!-- Other user cursors -->
-  {#each Object.entries(otherUserSelections) as [userId, position]}
-    {@const otherOverlay = computeVisualOverlay(position, position)}
+  {#each otherUserSelections as user (user.id)}
+    {@const otherOverlay = computeVisualOverlay(user, user)}
+    {@const initials = ((user.firstname?.[0] || '') + (user.lastname?.[0] || '')).toUpperCase()}
+    {@const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim()}
     {#if otherOverlay}
       <div
         class="absolute pointer-events-none z-[15]"
@@ -164,7 +151,7 @@
             left: {otherOverlay.left}px;
             width: {otherOverlay.width}px;
             height: {otherOverlay.height}px;
-            border: {position.isLocked ? '2px' : '1px'} solid {position.color};
+            border: {user.isLocked ? '2px' : '1px'} solid {user.color};
             box-sizing: border-box;
           "
       >
@@ -175,19 +162,19 @@
             top: -8px;
             right: -8px;
             height: 16px;
-            background-color: {position.color};
+            background-color: {user.color};
             min-width: 16px;
-            max-width: {hoveredUser === position.id ? '200px' : '16px'};
+            max-width: {hoveredUser === user.id ? '200px' : '16px'};
             transition: max-width 0.2s ease-in-out, background-color 0.2s ease-in-out;
           "
-          onmouseenter={() => hoveredUser = position.id}
+          onmouseenter={() => hoveredUser = user.id}
           onmouseleave={() => hoveredUser = null}
         >
-          <div class="{hoveredUser === position.id ? 'px-1' : ''} whitespace-nowrap">
-            {#if position.isLocked}
-              {hoveredUser === position.id ? `${position.fullName} editing...` : '...'}
+          <div class="{hoveredUser === user.id ? 'px-1' : ''} whitespace-nowrap">
+            {#if user.isLocked}
+              {hoveredUser === user.id ? `${fullName} editing...` : '...'}
             {:else}
-              {hoveredUser === position.id ? position.fullName : position.initials}
+              {hoveredUser === user.id ? fullName : initials}
             {/if}
           </div>
         </div>

@@ -259,6 +259,7 @@ function handleWsExistingUsers(
     locksByUser.set(lock.userId, { assetId, key });
   }
 
+  const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
   const entries: PresenceContext['users'] = [];
   for (const [, user] of Object.entries(users) as [string, any][]) {
     const lock = locksByUser.get(String(user.userId));
@@ -267,12 +268,13 @@ function handleWsExistingUsers(
       firstname: user.firstname || '',
       lastname: user.lastname || '',
       color: user.color || '#6b7280',
-      row: lock ? Number(lock.assetId) : user.row ?? -1,
-      col: lock ? lock.key : '',
+      row: lock ? Number(lock.assetId) : user.assetId ?? user.row ?? -1,
+      col: lock ? lock.key : keys[user.col] ?? '',
       isLocked: !!lock,
     });
   }
   presenceCtx.users = entries;
+  console.log('[Presence] EXISTING_USERS populated', entries.length, 'users');
 }
 
 function handleWsUserPositionUpdate(
@@ -281,11 +283,16 @@ function handleWsUserPositionUpdate(
 ): void {
   const { presenceCtx } = contexts;
   const userId = Number(payload.userId);
+  const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
+  const colKey = keys[payload.col] ?? '';
+  const assetId = payload.assetId ?? payload.row ?? -1;
   const existing = presenceCtx.users.find((u: any) => u.id === userId);
 
+  console.log('[Presence] USER_POSITION_UPDATE', { userId, assetId, colKey, payload, currentUsers: presenceCtx.users.length });
+
   if (existing) {
-    existing.row = payload.assetId ?? payload.row ?? -1;
-    existing.col = '';
+    existing.row = assetId;
+    existing.col = colKey;
     existing.firstname = payload.firstname || existing.firstname;
     existing.lastname = payload.lastname || existing.lastname;
     existing.color = payload.color || existing.color;
@@ -295,8 +302,8 @@ function handleWsUserPositionUpdate(
       firstname: payload.firstname || '',
       lastname: payload.lastname || '',
       color: payload.color || '#6b7280',
-      row: payload.assetId ?? payload.row ?? -1,
-      col: '',
+      row: assetId,
+      col: colKey,
       isLocked: false,
     });
   }
