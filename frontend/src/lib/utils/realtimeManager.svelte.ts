@@ -11,7 +11,7 @@ function createRealtimeManager() {
     }
 
     // --- STATE ---
-    let clientId = $state<string | null>(null);
+    let connected = $state(false);
 
     // --- PLUMBING ---
     let socket: WebSocket | null = null;
@@ -34,10 +34,6 @@ function createRealtimeManager() {
 
     function setMessageHandler(handler: (type: string, payload: any) => void) {
         onMessage = handler;
-    }
-
-    function getClientId(): string | null {
-        return clientId;
     }
 
     function sendPositionUpdate(row: number, col: number, assetId?: number | string) {
@@ -132,6 +128,7 @@ function createRealtimeManager() {
 
         ws.onopen = () => {
             attempts = 0;
+            connected = true;
 
             // 1. RESTORE PRESENCE FIRST (before queue)
             if (lastSentPos) {
@@ -153,7 +150,7 @@ function createRealtimeManager() {
         ws.onclose = (e) => {
             if (socket !== ws) return;
             socket = null;
-            clientId = null;
+            connected = false;
 
             if (shouldReconnect) scheduleReconnect();
         };
@@ -204,7 +201,7 @@ function createRealtimeManager() {
         cleanupSocket();
 
         // Clean State
-        clientId = null;
+        connected = false;
         lastSentPos = null;
         onAssetUpdate = null;
         onMessage = null;
@@ -243,14 +240,18 @@ function createRealtimeManager() {
     }
 
     // --- EXPORT ---
+    function isConnected(): boolean {
+        return connected;
+    }
+
     const instance = {
+        isConnected,
         connect,
         disconnect,
         sendPositionUpdate,
         sendDeselect,
         sendEditStart,
         sendEditEnd,
-        getClientId,
         setMessageHandler,
         setAssetUpdateHandler
     };

@@ -4,6 +4,8 @@
 
 import { toastState } from '$lib/toast/toastState.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
+import { realtime } from '$lib/utils/realtimeManager.svelte';
+import type { PresenceContext } from '$lib/context/gridContext.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
 
@@ -63,6 +65,39 @@ export async function processEvent(
 
     case 'WS_DELTA':
       handleWsDelta(event.payload, contexts);
+      break;
+
+    // ─── Incoming WS events ────────────────────────────────────────────────
+    case 'WS_WELCOME':
+      break;
+
+    case 'WS_EXISTING_USERS':
+      handleWsExistingUsers(event.payload, contexts);
+      break;
+
+    case 'WS_USER_POSITION_UPDATE':
+      handleWsUserPositionUpdate(event.payload, contexts);
+      break;
+
+    case 'WS_USER_LEFT':
+      handleWsUserLeft(event.payload, contexts);
+      break;
+
+    case 'WS_CELL_LOCKED':
+      handleWsCellLocked(event.payload, contexts);
+      break;
+
+    case 'WS_CELL_UNLOCKED':
+      handleWsCellUnlocked(event.payload, contexts);
+      break;
+
+    // ─── Outbound WS events ───────────────────────────────────────────────
+    case 'CELL_EDIT_START':
+      realtime.sendEditStart(event.payload.assetId, event.payload.key);
+      break;
+
+    case 'CELL_EDIT_END':
+      realtime.sendEditEnd();
       break;
 
     default:
@@ -205,4 +240,113 @@ function handleWsDelta(
 
   const baseRow = assetStore.baseAssets.find((a: any) => a.id === id);
   if (baseRow) baseRow[key] = value;
+}
+
+// ─── WS Presence Handlers ──────────────────────────────────────────────────
+
+function handleWsExistingUsers(
+  payload: Record<string, any>,
+  contexts: Record<string, any>,
+): void {
+  const { presenceCtx } = contexts;
+  const users = payload.users || payload;
+  const lockedCells = payload.lockedCells || {};
+
+  // Build a set of locked cells keyed by userId for merging
+  const locksByUser = new Map<string, { assetId: string; key: string }>();
+  for (const [lockKey, lock] of Object.entries(lockedCells) as [string, any][]) {
+    const [assetId, key] = lockKey.split(':');
+    locksByUser.set(lock.userId, { assetId, key });
+  }
+
+  const entries: PresenceContext['users'] = [];
+  for (const [, user] of Object.entries(users) as [string, any][]) {
+    const lock = locksByUser.get(String(user.userId));
+    entries.push({
+      id: Number(user.userId),
+      firstname: user.firstname || '',
+      lastname: user.lastname || '',
+      color: user.color || '#6b7280',
+      row: lock ? Number(lock.assetId) : user.row ?? -1,
+      col: lock ? lock.key : '',
+      isLocked: !!lock,
+    });
+  }
+  presenceCtx.users = entries;
+}
+
+function handleWsUserPositionUpdate(
+  payload: Record<string, any>,
+  contexts: Record<string, any>,
+): void {
+  const { presenceCtx } = contexts;
+  const userId = Number(payload.userId);
+  const existing = presenceCtx.users.find((u: any) => u.id === userId);
+
+  if (existing) {
+    existing.row = payload.assetId ?? payload.row ?? -1;
+    existing.col = '';
+    existing.firstname = payload.firstname || existing.firstname;
+    existing.lastname = payload.lastname || existing.lastname;
+    existing.color = payload.color || existing.color;
+  } else {
+    presenceCtx.users.push({
+      id: userId,
+      firstname: payload.firstname || '',
+      lastname: payload.lastname || '',
+      color: payload.color || '#6b7280',
+      row: payload.assetId ?? payload.row ?? -1,
+      col: '',
+      isLocked: false,
+    });
+  }
+}
+
+function handleWsUserLeft(
+  payload: Record<string, any>,
+  contexts: Record<string, any>,
+): void {
+  const { presenceCtx } = contexts;
+  const userId = Number(payload.clientId);
+  const idx = presenceCtx.users.findIndex((u: any) => u.id === userId);
+  if (idx !== -1) presenceCtx.users.splice(idx, 1);
+}
+
+function handleWsCellLocked(
+  payload: Record<string, any>,
+  contexts: Record<string, any>,
+): void {
+  const { presenceCtx, editingCtx } = contexts;
+  const userId = Number(payload.userId);
+  const assetId = Number(payload.assetId);
+  const key = payload.key;
+
+  const user = presenceCtx.users.find((u: any) => u.id === userId);
+  if (user) {
+    user.isLocked = true;
+    user.row = assetId;
+    user.col = key;
+  }
+
+  // Rejection case: another user locked the cell we're editing
+  if (editingCtx && editingCtx.isEditing &&
+      editingCtx.editRow === assetId && editingCtx.editCol === key) {
+    editingCtx.isEditing = false;
+    const name = user ? `${user.firstname} ${user.lastname}`.trim() : 'another user';
+    toastState.addToast(`Cell is being edited by ${name}`, 'warning');
+  }
+}
+
+function handleWsCellUnlocked(
+  payload: Record<string, any>,
+  contexts: Record<string, any>,
+): void {
+  const { presenceCtx } = contexts;
+  const assetId = Number(payload.assetId);
+  const key = payload.key;
+
+  const user = presenceCtx.users.find(
+    (u: any) => u.isLocked && u.row === assetId && u.col === key,
+  );
+  if (user) user.isLocked = false;
 }

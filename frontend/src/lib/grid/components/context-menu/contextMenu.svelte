@@ -1,10 +1,12 @@
 <script lang="ts">
-  import { getEditingContext, getClipboardContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
+  import { getEditingContext, getClipboardContext, getUiContext, getPresenceContext } from '$lib/context/gridContext.svelte.ts';
+  import { toastState } from '$lib/toast/toastState.svelte';
   import { handleFilterByValue } from './contextMenu.svelte.ts';
 
   const editingCtx = getEditingContext();
   const clipCtx = getClipboardContext();
   const uiCtx = getUiContext();
+  const presenceCtx = getPresenceContext();
 
   function close() {
     uiCtx.contextMenu.visible = false;
@@ -23,10 +25,18 @@
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
       onclick={() => {
+        const row = uiCtx.contextMenu.row;
+        const col = uiCtx.contextMenu.col;
+        const lock = presenceCtx.users.find(u => u.row === row && u.col === col && u.isLocked);
+        if (lock) {
+          toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');
+          close();
+          return;
+        }
         close();
         editingCtx.isEditing = true;
-        editingCtx.editRow = uiCtx.contextMenu.row;
-        editingCtx.editCol = uiCtx.contextMenu.col;
+        editingCtx.editRow = row;
+        editingCtx.editCol = col;
       }}
     >
       <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

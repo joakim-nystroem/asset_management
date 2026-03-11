@@ -4,10 +4,12 @@ import type {
   ClipboardContext,
   UiContext,
   ColumnWidthContext,
+  PresenceContext,
 } from '$lib/context/gridContext.svelte';
 import { getScrollSignalContext } from '$lib/context/gridContext.svelte';
 import { setOpenPanel } from '$lib/context/gridContext.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
+import { toastState } from '$lib/toast/toastState.svelte';
 import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
 type KeyboardContexts = {
@@ -16,10 +18,11 @@ type KeyboardContexts = {
   clipCtx: ClipboardContext;
   uiCtx: UiContext;
   colWidthCtx: ColumnWidthContext;
+  presenceCtx: PresenceContext;
 };
 
 export function createKeyboardHandler(ctxs: KeyboardContexts) {
-  const { editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx } = ctxs;
+  const { editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx, presenceCtx } = ctxs;
   const scrollSignalCtx = getScrollSignalContext();
 
   function getAssets() {
@@ -68,6 +71,11 @@ export function createKeyboardHandler(ctxs: KeyboardContexts) {
 
 
   function startCellEdit(row: number, col: string) {
+    const lock = presenceCtx.users.find(u => u.row === row && u.col === col && u.isLocked);
+    if (lock) {
+      toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');
+      return;
+    }
     editingCtx.isEditing = true;
     editingCtx.editRow = row;
     editingCtx.editCol = col;

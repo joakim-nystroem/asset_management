@@ -11,8 +11,10 @@
     getClipboardContext,
     getColumnWidthContext,
     getScrollSignalContext,
+    getPresenceContext,
     setOpenPanel,
   } from '$lib/context/gridContext.svelte';
+  import { realtime } from '$lib/utils/realtimeManager.svelte';
 
   import { replaceState } from '$app/navigation';
   import { createKeyboardHandler } from './EventListener.svelte.ts';
@@ -29,9 +31,24 @@
   const clipCtx = getClipboardContext();
   const colWidthCtx = getColumnWidthContext();
   const scrollSignalCtx = getScrollSignalContext();
+  const presenceCtx = getPresenceContext();
 
   const handleKeyDown = createKeyboardHandler({
-    editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx,
+    editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx, presenceCtx,
+  });
+
+  // ─── WS BRIDGE: incoming messages → queue ──────────────────────────────────
+  realtime.setMessageHandler((type, payload) => {
+    enqueue({ type: 'WS_' + type, payload }, { presenceCtx, editingCtx });
+  });
+
+  // ─── WS BRIDGE: outbound edit lock/unlock ──────────────────────────────────
+  $effect(() => {
+    if (editingCtx.isEditing && editingCtx.editRow !== -1 && editingCtx.editCol !== '') {
+      enqueue({ type: 'CELL_EDIT_START', payload: { assetId: editingCtx.editRow, key: editingCtx.editCol } }, {});
+    } else if (!editingCtx.isEditing) {
+      enqueue({ type: 'CELL_EDIT_END', payload: {} }, {});
+    }
   });
 
   // ─── COMMIT_UPDATE: existing row edits ─────────────────────────────────────
