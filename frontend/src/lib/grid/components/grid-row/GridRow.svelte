@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getColumnWidthContext, getSelectionContext, getEditingContext, getUiContext, getPendingContext, getPresenceContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
+  import { getColumnWidthContext, getSelectionContext, getEditingContext, getUiContext, getPendingContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
+  import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
 
   import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
@@ -8,8 +9,6 @@
   const editingCtx = getEditingContext();
   const uiCtx = getUiContext();
   const pendingCtx = getPendingContext();
-  const presenceCtx = getPresenceContext();
-
   function getCellError(key: string): string | null {
     const edit = pendingCtx.edits.find(e => e.row === asset.id && e.col === key && !e.isValid);
     return edit?.validationError ?? null;
@@ -60,9 +59,14 @@
         toastState.addToast('ID column cannot be edited.', 'warning');
         return;
       }
-      const lock = presenceCtx.users.find(u => u.row === asset.id && u.col === key && u.isLocked);
+      const lock = presenceStore.users.find(u => u.row === asset.id && u.col === key && u.isLocked);
       if (lock) {
         toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');
+        return;
+      }
+      const pending = presenceStore.pendingCells.find(p => p.assetId === asset.id && p.key === key);
+      if (pending) {
+        toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
         return;
       }
       selCtx.selectionStart = { row: asset.id, col: key };

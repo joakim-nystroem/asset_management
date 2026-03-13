@@ -5,7 +5,6 @@
   import {
     type PendingContext,
     type HistoryAction,
-    type PresenceEntry,
     setEditingContext,
     setPendingContext,
     setHistoryContext,
@@ -17,7 +16,6 @@
     setUiContext,
     setColumnWidthContext,
     setSortContext,
-    setPresenceContext,
   } from '$lib/context/gridContext.svelte.ts';
 
   let { children }: { children: Snippet } = $props();
@@ -84,9 +82,6 @@
     filterPanel: { visible: false },
     headerMenu: { visible: false, activeKey: '' },
     contextMenu: { visible: false, x: 0, y: 0, row: -1, col: '', value: '' },
-    commitRequested: false,
-    commitCreateRequested: false,
-    discardRequested: false,
   });
   setUiContext(uiCtx);
 
@@ -101,10 +96,6 @@
   });
   setSortContext(sortCtx);
 
-  let presenceCtx = $state({
-    users: [] as PresenceEntry[],
-  });
-  setPresenceContext(presenceCtx);
 
 </script>
 

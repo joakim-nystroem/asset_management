@@ -1,17 +1,14 @@
 <script lang="ts">
-  import { page } from '$app/state';
   import { queryStore } from '$lib/data/queryStore.svelte';
   import {
     getUiContext,
-    getPendingContext,
-    getNewRowContext,
     getSortContext,
     getEditingContext,
     getSelectionContext,
     getClipboardContext,
     getColumnWidthContext,
     getScrollSignalContext,
-    getPresenceContext,
+    getPendingContext,
     setOpenPanel,
   } from '$lib/context/gridContext.svelte';
   import { realtime } from '$lib/utils/realtimeManager.svelte';
@@ -23,83 +20,49 @@
   let { children } = $props();
 
   const uiCtx = getUiContext();
-  const pendingCtx = getPendingContext();
-  const newRowCtx = getNewRowContext();
   const sortCtx = getSortContext();
   const editingCtx = getEditingContext();
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
   const colWidthCtx = getColumnWidthContext();
   const scrollSignalCtx = getScrollSignalContext();
-  const presenceCtx = getPresenceContext();
-
+  const pendingCtx = getPendingContext();
   const handleKeyDown = createKeyboardHandler({
-    editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx, presenceCtx,
+    editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx,
   });
 
-  // ─── WS BRIDGE: incoming messages → queue ──────────────────────────────────
-  realtime.setMessageHandler((type, payload) => {
-    console.log('[WS Bridge] received:', type, payload);
-    enqueue({ type: 'WS_' + type, payload }, { presenceCtx, editingCtx });
+  // ─── CLIENT_STATE provider for reconnect ─────────────────────────────────
+  realtime.setLocalStateProvider(() => {
+    const position = selCtx.selectionStart.row !== -1
+      ? { row: selCtx.selectionStart.row, col: selCtx.selectionStart.col }
+      : null;
+    const lock = editingCtx.isEditing && editingCtx.editRow !== -1
+      ? { assetId: editingCtx.editRow, key: editingCtx.editCol }
+      : null;
+    const pending = pendingCtx.edits.map(e => ({
+      assetId: e.row,
+      key: e.col,
+      value: e.value,
+    }));
+    return { position, lock, pending };
   });
 
-  // ─── WS BRIDGE: outbound edit lock/unlock ──────────────────────────────────
+  // ─── WS BRIDGE: outbound selection → position update ───────────────────────
+  $effect(() => {
+    const row = selCtx.selectionStart.row;
+    const col = selCtx.selectionStart.col;
+
+    if (row === -1 || col === '') {
+      enqueue({ type: 'POSITION_DESELECT', payload: {} }, {});
+      return;
+    }
+    enqueue({ type: 'POSITION_UPDATE', payload: { assetId: row, key: col } }, {});
+  });
+
+  // ─── WS BRIDGE: outbound edit lock ────────────────────────────────────────
   $effect(() => {
     if (editingCtx.isEditing && editingCtx.editRow !== -1 && editingCtx.editCol !== '') {
       enqueue({ type: 'CELL_EDIT_START', payload: { assetId: editingCtx.editRow, key: editingCtx.editCol } }, {});
-    } else if (!editingCtx.isEditing) {
-      enqueue({ type: 'CELL_EDIT_END', payload: {} }, {});
-    }
-  });
-
-  // ─── COMMIT_UPDATE: existing row edits ─────────────────────────────────────
-  $effect(() => {
-    if (uiCtx.commitRequested) {
-      enqueue(
-        {
-          type: 'COMMIT_UPDATE',
-          payload: {
-            changes: $state.snapshot(pendingCtx.edits),
-            hasInvalidChanges: pendingCtx.edits.some((e) => !e.isValid),
-            user: page.data.user ?? null,
-          },
-        },
-        { pendingCtx },
-      );
-      uiCtx.commitRequested = false;
-    }
-  });
-
-  // ─── COMMIT_CREATE: new row creation ───────────────────────────────────────
-  $effect(() => {
-    if (uiCtx.commitCreateRequested) {
-      enqueue(
-        {
-          type: 'COMMIT_CREATE',
-          payload: {
-            rows: $state.snapshot(newRowCtx.newRows),
-            user: page.data.user ?? null,
-          },
-        },
-        { newRowCtx },
-      );
-      uiCtx.commitCreateRequested = false;
-    }
-  });
-
-  // ─── DISCARD: revert uncommitted changes ───────────────────────────────────
-  $effect(() => {
-    if (uiCtx.discardRequested) {
-      enqueue(
-        {
-          type: 'DISCARD',
-          payload: {
-            user: page.data.user ?? null,
-          },
-        },
-        { pendingCtx, newRowCtx },
-      );
-      uiCtx.discardRequested = false;
     }
   });
 

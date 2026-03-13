@@ -1,4 +1,6 @@
 import { PUBLIC_WS_URL, PUBLIC_WS_PROTOCOL } from '$env/static/public';
+import { connectionStore } from '$lib/data/connectionStore.svelte';
+import { enqueue } from '$lib/grid/eventQueue/eventQueue';
 
 const INSTANCE_KEY = Symbol.for('APP_REALTIME_MANAGER');
 const MAX_QUEUE_SIZE = 50;
@@ -10,9 +12,6 @@ function createRealtimeManager() {
         existing.disconnect();
     }
 
-    // --- STATE ---
-    let connected = $state(false);
-
     // --- PLUMBING ---
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -21,7 +20,7 @@ function createRealtimeManager() {
     let lastSentPos: { row: number; col: number; assetId?: number | string } | null = null;
     let session: { id: string; color?: string } | null = null;
     let onAssetUpdate: ((data: any) => void) | null = null;
-    let onMessage: ((type: string, payload: any) => void) | null = null;
+    let localStateProvider: (() => { position: any; lock: any; pending: any[] }) | null = null;
 
     // Message Queue for offline actions
     let messageQueue: string[] = [];
@@ -32,8 +31,8 @@ function createRealtimeManager() {
         onAssetUpdate = handler;
     }
 
-    function setMessageHandler(handler: (type: string, payload: any) => void) {
-        onMessage = handler;
+    function setLocalStateProvider(fn: () => { position: any; lock: any; pending: any[] }) {
+        localStateProvider = fn;
     }
 
     function sendPositionUpdate(row: number, col: number, assetId?: number | string) {
@@ -56,6 +55,18 @@ function createRealtimeManager() {
 
     function sendEditEnd() {
         send('CELL_EDIT_END', {});
+    }
+
+    function sendCellPending(assetId: number | string, key: string, value: string) {
+        send('CELL_PENDING', { assetId, key, value });
+    }
+
+    function sendCellPendingClear(assetId: number | string, key: string) {
+        send('CELL_PENDING_CLEAR', { assetId, key });
+    }
+
+    function sendPendingClearAll() {
+        send('PENDING_CLEAR_ALL', {});
     }
 
     function send(type: string, payload: any) {
@@ -128,10 +139,17 @@ function createRealtimeManager() {
 
         ws.onopen = () => {
             attempts = 0;
-            connected = true;
+            connectionStore.status = 'connected';
 
-            // 1. RESTORE PRESENCE FIRST (before queue)
-            if (lastSentPos) {
+            // 1. SEND CLIENT_STATE (bundles position, lock, pending for reconnect reconciliation)
+            if (localStateProvider) {
+                const state = localStateProvider();
+                ws.send(JSON.stringify({
+                    type: 'CLIENT_STATE',
+                    payload: state
+                }));
+            } else if (lastSentPos) {
+                // Fallback: no provider registered yet, just restore position
                 ws.send(JSON.stringify({
                     type: 'USER_POSITION_UPDATE',
                     payload: lastSentPos
@@ -150,7 +168,7 @@ function createRealtimeManager() {
         ws.onclose = (e) => {
             if (socket !== ws) return;
             socket = null;
-            connected = false;
+            connectionStore.status = 'disconnected';
 
             if (shouldReconnect) scheduleReconnect();
         };
@@ -172,6 +190,7 @@ function createRealtimeManager() {
     }
 
     function scheduleReconnect() {
+        connectionStore.status = 'reconnecting';
         if (reconnectTimer) return; // Don't schedule multiple timers
 
         const delay = Math.min(1000 * 2 ** attempts++, 10000); // Cap at 10s
@@ -201,10 +220,10 @@ function createRealtimeManager() {
         cleanupSocket();
 
         // Clean State
-        connected = false;
+        connectionStore.status = 'disconnected';
         lastSentPos = null;
         onAssetUpdate = null;
-        onMessage = null;
+        localStateProvider = null;
     }
 
     function cleanupSocket() {
@@ -223,7 +242,7 @@ function createRealtimeManager() {
             onAssetUpdate?.(payload);
             return;
         }
-        onMessage?.(type, payload);
+        enqueue({ type: 'WS_' + type, payload }, {});
     }
 
     // --- RECONNECT ON TAB FOCUS ---
@@ -241,7 +260,7 @@ function createRealtimeManager() {
 
     // --- EXPORT ---
     function isConnected(): boolean {
-        return connected;
+        return connectionStore.status === 'connected';
     }
 
     const instance = {
@@ -252,8 +271,11 @@ function createRealtimeManager() {
         sendDeselect,
         sendEditStart,
         sendEditEnd,
-        setMessageHandler,
-        setAssetUpdateHandler
+        sendCellPending,
+        sendCellPendingClear,
+        sendPendingClearAll,
+        setAssetUpdateHandler,
+        setLocalStateProvider,
     };
 
     (globalThis as any)[INSTANCE_KEY] = instance;

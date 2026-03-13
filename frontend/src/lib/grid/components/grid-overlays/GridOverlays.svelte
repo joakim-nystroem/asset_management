@@ -4,8 +4,8 @@
     getSelectionContext,
     getClipboardContext,
     getColumnWidthContext,
-    getPresenceContext,
   } from '$lib/context/gridContext.svelte.ts';
+import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
 
   import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
@@ -19,7 +19,6 @@
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
   const colWidthCtx = getColumnWidthContext();
-  const presenceCtx = getPresenceContext();
 
   // --- Local UI state ---
   let hoveredUser: number | null = $state(null);
@@ -131,7 +130,35 @@
       : null
   );
 
-  const otherUserSelections = $derived(presenceCtx.users);
+  const otherUserSelections = $derived(presenceStore.users);
+
+  // --- Other users' pending cell overlays (blue shading) ---
+  const pendingCellOverlays = $derived.by(() => {
+    if (presenceStore.pendingCells.length === 0) return [];
+    const { startIndex, endIndex } = visibleRange;
+    const rowHeight = DEFAULT_ROW_HEIGHT;
+
+    const overlays: { top: number; left: number; width: number; height: number; color: string; name: string }[] = [];
+
+    for (const cell of presenceStore.pendingCells) {
+      const rowIdx = assets.findIndex((a: Record<string, any>) => a.id === cell.assetId);
+      if (rowIdx === -1 || rowIdx < startIndex || rowIdx >= endIndex) continue;
+      const colIdx = keys.indexOf(cell.key);
+      if (colIdx === -1) continue;
+
+      let left = 0;
+      for (let c = 0; c < colIdx; c++) left += getWidth(keys[c]);
+      const w = getWidth(keys[colIdx]);
+      const top = rowIdx * rowHeight - scrollTop;
+
+      overlays.push({
+        top, left, width: w, height: rowHeight,
+        color: cell.color || '#6b7280',
+        name: `${cell.firstname || ''} ${cell.lastname || ''}`.trim(),
+      });
+    }
+    return overlays;
+  });
 </script>
 
 <div
@@ -180,6 +207,26 @@
         </div>
       </div>
     {/if}
+  {/each}
+
+  <!-- Other users' pending cells (blue shading + lock icon) -->
+  {#each pendingCellOverlays as cell}
+    <div
+      class="absolute pointer-events-none z-[14] flex items-center"
+      style="
+        top: {cell.top}px;
+        left: {cell.left}px;
+        width: {cell.width}px;
+        height: {cell.height}px;
+        background-color: {cell.color}12;
+        border: 1px solid {cell.color}40;
+        box-sizing: border-box;
+      "
+    >
+      <svg class="w-3 h-3 ml-auto mr-1 opacity-40" fill="none" stroke="{cell.color}" viewBox="0 0 24 24" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+      </svg>
+    </div>
   {/each}
 
   <!-- Copy overlay -->

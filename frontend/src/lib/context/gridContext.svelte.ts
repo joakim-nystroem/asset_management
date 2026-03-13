@@ -76,10 +76,13 @@ export type UiContext = {
   filterPanel: { visible: boolean };
   headerMenu: { visible: boolean; activeKey: string };
   contextMenu: { visible: boolean; x: number; y: number; row: number; col: string; value: string };
-  commitRequested: boolean;
-  commitCreateRequested: boolean;
-  discardRequested: boolean;
 };
+
+export function resetEditing(ctx: EditingContext) {
+  ctx.isEditing = false;
+  ctx.editRow = -1;
+  ctx.editCol = '';
+}
 
 export function setOpenPanel(uiCtx: UiContext, panel?: 'contextMenu' | 'headerMenu' | 'filterPanel') {
   if (panel !== 'contextMenu' && uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
@@ -109,10 +112,6 @@ export type PresenceEntry = {
   isLocked: boolean;
 };
 
-export type PresenceContext = {
-  users: PresenceEntry[];
-};
-
 // ─── Domain context pairs ─────────────────────────────────────────────────────
 
 export const [getEditingContext, setEditingContext] = createContext<EditingContext>();
@@ -126,4 +125,3 @@ export const [getScrollSignalContext, setScrollSignalContext] = createContext<Sc
 export const [getUiContext, setUiContext] = createContext<UiContext>();
 export const [getColumnWidthContext, setColumnWidthContext] = createContext<ColumnWidthContext>();
 export const [getSortContext, setSortContext] = createContext<SortContext>();
-export const [getPresenceContext, setPresenceContext] = createContext<PresenceContext>();

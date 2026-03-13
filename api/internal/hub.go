@@ -102,12 +102,9 @@ func (up *UserPresence) Count() int {
 }
 
 type CellLockInfo struct {
-	UserID    string
-	AssetID   string
-	Key       string
-	Firstname string
-	Lastname  string
-	Color     string
+	UserID  string
+	AssetID string
+	Key     string
 }
 
 type CellLockManager struct {
@@ -125,7 +122,7 @@ func NewCellLockManager() *CellLockManager {
 	}
 }
 
-func (clm *CellLockManager) Lock(lockKey, userID, assetID, key, firstname, lastname, color string) bool {
+func (clm *CellLockManager) Lock(lockKey, userID, assetID, key string) bool {
 	clm.mutex.Lock()
 	defer clm.mutex.Unlock()
 
@@ -135,12 +132,9 @@ func (clm *CellLockManager) Lock(lockKey, userID, assetID, key, firstname, lastn
 	}
 
 	clm.locks[lockKey] = &CellLockInfo{
-		UserID:    userID,
-		AssetID:   assetID,
-		Key:       key,
-		Firstname: firstname,
-		Lastname:  lastname,
-		Color:     color,
+		UserID:  userID,
+		AssetID: assetID,
+		Key:     key,
 	}
 
 	if _, ok := clm.userLocks[userID]; !ok {
@@ -195,12 +189,9 @@ func (clm *CellLockManager) GetLock(lockKey string) *CellLockInfo {
 	defer clm.mutex.RUnlock()
 	if info, ok := clm.locks[lockKey]; ok {
 		return &CellLockInfo{
-			UserID:    info.UserID,
-			AssetID:   info.AssetID,
-			Key:       info.Key,
-			Firstname: info.Firstname,
-			Lastname:  info.Lastname,
-			Color:     info.Color,
+			UserID:  info.UserID,
+			AssetID: info.AssetID,
+			Key:     info.Key,
 		}
 	}
 	return nil
@@ -214,15 +205,126 @@ func (clm *CellLockManager) GetAll() map[string]*CellLockInfo {
 	snapshot := make(map[string]*CellLockInfo, len(clm.locks))
 	for k, v := range clm.locks {
 		snapshot[k] = &CellLockInfo{
-			UserID:    v.UserID,
-			AssetID:   v.AssetID,
-			Key:       v.Key,
-			Firstname: v.Firstname,
-			Lastname:  v.Lastname,
-			Color:     v.Color,
+			UserID:  v.UserID,
+			AssetID: v.AssetID,
+			Key:     v.Key,
 		}
 	}
 	return snapshot
+}
+
+type PendingCellInfo struct {
+	UserID  string
+	AssetID string
+	Key     string
+	Value   string
+}
+
+type PendingCellManager struct {
+	// "assetId:key" → PendingCellInfo
+	cells     map[string]*PendingCellInfo
+	// userID → set of cell keys for cleanup
+	userCells map[string]map[string]bool
+	mutex     sync.RWMutex
+}
+
+func NewPendingCellManager() *PendingCellManager {
+	return &PendingCellManager{
+		cells:     make(map[string]*PendingCellInfo),
+		userCells: make(map[string]map[string]bool),
+	}
+}
+
+func (pcm *PendingCellManager) Add(cellKey, userID, assetID, key, value string) bool {
+	pcm.mutex.Lock()
+	defer pcm.mutex.Unlock()
+
+	// Check if already pending by someone else
+	if existing, ok := pcm.cells[cellKey]; ok && existing.UserID != userID {
+		return false
+	}
+
+	pcm.cells[cellKey] = &PendingCellInfo{
+		UserID:  userID,
+		AssetID: assetID,
+		Key:     key,
+		Value:   value,
+	}
+
+	if _, ok := pcm.userCells[userID]; !ok {
+		pcm.userCells[userID] = make(map[string]bool)
+	}
+	pcm.userCells[userID][cellKey] = true
+
+	return true
+}
+
+func (pcm *PendingCellManager) Remove(cellKey, userID string) bool {
+	pcm.mutex.Lock()
+	defer pcm.mutex.Unlock()
+
+	existing, ok := pcm.cells[cellKey]
+	if !ok || existing.UserID != userID {
+		return false
+	}
+
+	delete(pcm.cells, cellKey)
+	if userSet, ok := pcm.userCells[userID]; ok {
+		delete(userSet, cellKey)
+		if len(userSet) == 0 {
+			delete(pcm.userCells, userID)
+		}
+	}
+	return true
+}
+
+func (pcm *PendingCellManager) RemoveAllForUser(userID string) []string {
+	pcm.mutex.Lock()
+	defer pcm.mutex.Unlock()
+
+	cellKeys, ok := pcm.userCells[userID]
+	if !ok {
+		return nil
+	}
+
+	removed := make([]string, 0, len(cellKeys))
+	for cellKey := range cellKeys {
+		delete(pcm.cells, cellKey)
+		removed = append(removed, cellKey)
+	}
+	delete(pcm.userCells, userID)
+	return removed
+}
+
+func (pcm *PendingCellManager) GetAll() map[string]*PendingCellInfo {
+	pcm.mutex.RLock()
+	defer pcm.mutex.RUnlock()
+
+	snapshot := make(map[string]*PendingCellInfo, len(pcm.cells))
+	for k, v := range pcm.cells {
+		snapshot[k] = &PendingCellInfo{
+			UserID:  v.UserID,
+			AssetID: v.AssetID,
+			Key:     v.Key,
+			Value:   v.Value,
+		}
+	}
+	return snapshot
+}
+
+func (pcm *PendingCellManager) IsBlockedByOther(cellKey, userID string) (bool, *PendingCellInfo) {
+	pcm.mutex.RLock()
+	defer pcm.mutex.RUnlock()
+
+	if info, ok := pcm.cells[cellKey]; ok && info.UserID != userID {
+		return true, &PendingCellInfo{
+			UserID:  info.UserID,
+			AssetID: info.AssetID,
+			Key:     info.Key,
+			Value:   info.Value,
+		}
+	}
+	return false, nil
 }
 
 // UserInfo holds authenticated user data
@@ -258,6 +360,7 @@ type Hub struct {
 	mutex           sync.RWMutex
 	presence        *UserPresence
 	cellLocks       *CellLockManager
+	pendingCells    *PendingCellManager
 	shutdown        chan struct{}
 	wg              sync.WaitGroup
 	db              *sql.DB
@@ -273,6 +376,7 @@ func NewHub(db *sql.DB, allowedOrigins []string) *Hub {
 		userClients:    make(map[string]map[*Client]bool),
 		presence:       NewUserPresence(),
 		cellLocks:      NewCellLockManager(),
+		pendingCells:   NewPendingCellManager(),
 		shutdown:       make(chan struct{}),
 		db:             db,
 		allowedOrigins: allowedOrigins,
@@ -354,6 +458,14 @@ func (c *Client) readPump() {
 			c.handleCellEditStart(msg.Payload)
 		case "CELL_EDIT_END":
 			c.handleCellEditEnd(msg.Payload)
+		case "CELL_PENDING":
+			c.handleCellPending(msg.Payload)
+		case "CELL_PENDING_CLEAR":
+			c.handleCellPendingClear(msg.Payload)
+		case "PENDING_CLEAR_ALL":
+			c.handlePendingClearAll()
+		case "CLIENT_STATE":
+			c.handleClientState(msg.Payload)
 		case "PING":
 			// Client is checking if we're alive, we auto-respond with pong
 		}
@@ -414,15 +526,37 @@ func (c *Client) handleCellEditStart(payload interface{}) {
 	assetId := fmt.Sprintf("%v", assetIdRaw)
 	lockKey := assetId + ":" + keyStr
 
-	locked := c.hub.cellLocks.Lock(
-		lockKey,
-		c.userID,
-		assetId,
-		keyStr,
-		c.userInfo.Firstname,
-		c.userInfo.Lastname,
-		c.userInfo.Color,
-	)
+	// Check if cell is pending by another user
+	if blocked, blocker := c.hub.pendingCells.IsBlockedByOther(lockKey, c.userID); blocked {
+		blockerInfo := c.hub.getUserInfo(blocker.UserID)
+		firstname := ""
+		lastname := ""
+		color := "#6b7280"
+		if blockerInfo != nil {
+			firstname = blockerInfo.Firstname
+			lastname = blockerInfo.Lastname
+			color = blockerInfo.Color
+		}
+		rejectPayload := map[string]interface{}{
+			"assetId":   assetId,
+			"key":       keyStr,
+			"userId":    blocker.UserID,
+			"firstname": firstname,
+			"lastname":  lastname,
+			"color":     color,
+		}
+		msg := Message{Type: "CELL_LOCKED", Payload: rejectPayload}
+		jsonMsg, err := json.Marshal(msg)
+		if err == nil {
+			select {
+			case c.send <- jsonMsg:
+			default:
+			}
+		}
+		return
+	}
+
+	locked := c.hub.cellLocks.Lock(lockKey, c.userID, assetId, keyStr)
 
 	if locked {
 		log.Printf("[CellLock] %s (%s %s) locked cell %s", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, lockKey)
@@ -436,18 +570,25 @@ func (c *Client) handleCellEditStart(payload interface{}) {
 		}
 		c.hub.BroadcastMessage("CELL_LOCKED", broadcastPayload, c)
 	} else {
-		// Cell already locked by another user — send CELL_LOCKED back to requester
-		// so their client knows to cancel the edit
 		existing := c.hub.cellLocks.GetLock(lockKey)
 		if existing != nil {
-			log.Printf("[CellLock] %s rejected for cell %s (held by %s %s)", c.userInfo.Username, lockKey, existing.Firstname, existing.Lastname)
+			holderInfo := c.hub.getUserInfo(existing.UserID)
+			firstname := ""
+			lastname := ""
+			color := "#6b7280"
+			if holderInfo != nil {
+				firstname = holderInfo.Firstname
+				lastname = holderInfo.Lastname
+				color = holderInfo.Color
+			}
+			log.Printf("[CellLock] %s rejected for cell %s (held by %s %s)", c.userInfo.Username, lockKey, firstname, lastname)
 			rejectPayload := map[string]interface{}{
 				"assetId":   existing.AssetID,
 				"key":       existing.Key,
 				"userId":    existing.UserID,
-				"firstname": existing.Firstname,
-				"lastname":  existing.Lastname,
-				"color":     existing.Color,
+				"firstname": firstname,
+				"lastname":  lastname,
+				"color":     color,
 			}
 			msg := Message{Type: "CELL_LOCKED", Payload: rejectPayload}
 			jsonMsg, err := json.Marshal(msg)
@@ -475,6 +616,239 @@ func (c *Client) handleCellEditEnd(payload interface{}) {
 			}
 			c.hub.BroadcastMessage("CELL_UNLOCKED", broadcastPayload, c)
 		}
+	}
+}
+
+func (c *Client) handleCellPending(payload interface{}) {
+	payloadMap, ok := payload.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	assetIdRaw, ok1 := payloadMap["assetId"]
+	keyStr, ok2 := payloadMap["key"].(string)
+	valueStr, _ := payloadMap["value"].(string)
+	if !ok1 || !ok2 || keyStr == "" {
+		return
+	}
+
+	assetId := fmt.Sprintf("%v", assetIdRaw)
+	cellKey := assetId + ":" + keyStr
+
+	added := c.hub.pendingCells.Add(cellKey, c.userID, assetId, keyStr, valueStr)
+
+	if added {
+		broadcastPayload := map[string]interface{}{
+			"assetId":   assetIdRaw,
+			"key":       keyStr,
+			"userId":    c.userID,
+			"firstname": c.userInfo.Firstname,
+			"lastname":  c.userInfo.Lastname,
+			"color":     c.userInfo.Color,
+		}
+		c.hub.BroadcastMessage("PENDING_BROADCAST", broadcastPayload, c)
+	}
+}
+
+func (c *Client) handleCellPendingClear(payload interface{}) {
+	payloadMap, ok := payload.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	assetIdRaw, ok1 := payloadMap["assetId"]
+	keyStr, ok2 := payloadMap["key"].(string)
+	if !ok1 || !ok2 || keyStr == "" {
+		return
+	}
+
+	assetId := fmt.Sprintf("%v", assetIdRaw)
+	cellKey := assetId + ":" + keyStr
+
+	removed := c.hub.pendingCells.Remove(cellKey, c.userID)
+	if removed {
+		broadcastPayload := map[string]interface{}{
+			"assetId": assetIdRaw,
+			"key":     keyStr,
+			"userId":  c.userID,
+		}
+		c.hub.BroadcastMessage("PENDING_CLEAR_BROADCAST", broadcastPayload, c)
+	}
+}
+
+func (c *Client) handlePendingClearAll() {
+	removedCells := c.hub.pendingCells.RemoveAllForUser(c.userID)
+	if len(removedCells) > 0 {
+		cells := make([]map[string]interface{}, 0, len(removedCells))
+		for _, cellKey := range removedCells {
+			parts := strings.SplitN(cellKey, ":", 2)
+			if len(parts) == 2 {
+				cells = append(cells, map[string]interface{}{
+					"assetId": parts[0],
+					"key":     parts[1],
+				})
+			}
+		}
+		broadcastPayload := map[string]interface{}{
+			"userId": c.userID,
+			"cells":  cells,
+		}
+		c.hub.BroadcastMessage("PENDING_CLEAR_BROADCAST", broadcastPayload, c)
+	}
+}
+
+func (c *Client) handleClientState(payload interface{}) {
+	payloadMap, ok := payload.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	var conflicts []map[string]interface{}
+
+	// 1. Reconcile position
+	if posRaw, ok := payloadMap["position"]; ok && posRaw != nil {
+		if posMap, ok := posRaw.(map[string]interface{}); ok {
+			row, rowOk := posMap["row"].(float64)
+			col, colOk := posMap["col"].(float64)
+			if rowOk && colOk && row >= 0 && col >= 0 {
+				c.hub.presence.Set(c.userID, int(row), int(col))
+
+				broadcastPayload := map[string]interface{}{
+					"row":       int(row),
+					"col":       int(col),
+					"clientId":  c.userID,
+					"userId":    c.userInfo.UserID,
+					"username":  c.userInfo.Username,
+					"firstname": c.userInfo.Firstname,
+					"lastname":  c.userInfo.Lastname,
+					"color":     c.userInfo.Color,
+				}
+				c.hub.BroadcastMessage("USER_POSITION_UPDATE", broadcastPayload, c)
+			}
+		}
+	}
+
+	// 2. Reconcile lock
+	if lockRaw, ok := payloadMap["lock"]; ok && lockRaw != nil {
+		if lockMap, ok := lockRaw.(map[string]interface{}); ok {
+			assetIdRaw, ok1 := lockMap["assetId"]
+			keyStr, ok2 := lockMap["key"].(string)
+			if ok1 && ok2 && keyStr != "" {
+				assetId := fmt.Sprintf("%v", assetIdRaw)
+				lockKey := assetId + ":" + keyStr
+
+				// Check pending by another user first
+				if blocked, blocker := c.hub.pendingCells.IsBlockedByOther(lockKey, c.userID); blocked {
+					blockerInfo := c.hub.getUserInfo(blocker.UserID)
+					conflict := map[string]interface{}{
+						"type":    "lock",
+						"assetId": assetId,
+						"key":     keyStr,
+						"heldBy":  blocker.UserID,
+					}
+					if blockerInfo != nil {
+						conflict["firstname"] = blockerInfo.Firstname
+						conflict["lastname"] = blockerInfo.Lastname
+					}
+					conflicts = append(conflicts, conflict)
+				} else if locked := c.hub.cellLocks.Lock(lockKey, c.userID, assetId, keyStr); locked {
+					broadcastPayload := map[string]interface{}{
+						"assetId":   assetIdRaw,
+						"key":       keyStr,
+						"userId":    c.userID,
+						"firstname": c.userInfo.Firstname,
+						"lastname":  c.userInfo.Lastname,
+						"color":     c.userInfo.Color,
+					}
+					c.hub.BroadcastMessage("CELL_LOCKED", broadcastPayload, c)
+				} else {
+					existing := c.hub.cellLocks.GetLock(lockKey)
+					conflict := map[string]interface{}{
+						"type":    "lock",
+						"assetId": assetId,
+						"key":     keyStr,
+					}
+					if existing != nil {
+						conflict["heldBy"] = existing.UserID
+						holderInfo := c.hub.getUserInfo(existing.UserID)
+						if holderInfo != nil {
+							conflict["firstname"] = holderInfo.Firstname
+							conflict["lastname"] = holderInfo.Lastname
+						}
+					}
+					conflicts = append(conflicts, conflict)
+				}
+			}
+		}
+	}
+
+	// 3. Reconcile pending cells
+	if pendingRaw, ok := payloadMap["pending"]; ok && pendingRaw != nil {
+		if pendingArr, ok := pendingRaw.([]interface{}); ok {
+			for _, item := range pendingArr {
+				cellMap, ok := item.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				assetIdRaw, ok1 := cellMap["assetId"]
+				keyStr, ok2 := cellMap["key"].(string)
+				valueStr, _ := cellMap["value"].(string)
+				if !ok1 || !ok2 || keyStr == "" {
+					continue
+				}
+
+				assetId := fmt.Sprintf("%v", assetIdRaw)
+				cellKey := assetId + ":" + keyStr
+
+				if added := c.hub.pendingCells.Add(cellKey, c.userID, assetId, keyStr, valueStr); added {
+					broadcastPayload := map[string]interface{}{
+						"assetId":   assetIdRaw,
+						"key":       keyStr,
+						"userId":    c.userID,
+						"firstname": c.userInfo.Firstname,
+						"lastname":  c.userInfo.Lastname,
+						"color":     c.userInfo.Color,
+					}
+					c.hub.BroadcastMessage("PENDING_BROADCAST", broadcastPayload, c)
+				} else {
+					// Blocked by another user
+					blocked, blocker := c.hub.pendingCells.IsBlockedByOther(cellKey, c.userID)
+					if blocked {
+						blockerInfo := c.hub.getUserInfo(blocker.UserID)
+						conflict := map[string]interface{}{
+							"type":    "pending",
+							"assetId": assetId,
+							"key":     keyStr,
+							"heldBy":  blocker.UserID,
+						}
+						if blockerInfo != nil {
+							conflict["firstname"] = blockerInfo.Firstname
+							conflict["lastname"] = blockerInfo.Lastname
+						}
+						conflicts = append(conflicts, conflict)
+					}
+				}
+			}
+		}
+	}
+
+	// 4. Send reconciliation result back to client
+	reconcileMsg := Message{
+		Type: "CLIENT_STATE_RECONCILED",
+		Payload: map[string]interface{}{
+			"conflicts": conflicts,
+		},
+	}
+	if jsonMsg, err := json.Marshal(reconcileMsg); err == nil {
+		select {
+		case c.send <- jsonMsg:
+		default:
+			log.Printf("Failed to send CLIENT_STATE_RECONCILED to %s (buffer full)", c.userInfo.Username)
+		}
+	}
+
+	if len(conflicts) > 0 {
+		log.Printf("[Reconcile] %s had %d conflicts on CLIENT_STATE", c.userInfo.Username, len(conflicts))
 	}
 }
 
@@ -556,13 +930,13 @@ func (h *Hub) registerClient(client *Client) {
 	}()
 }
 
-// Helper to get UserInfo from ANY active client for a given UserID
 func (h *Hub) getUserInfo(userID string) *UserInfo {
-	// We need to lock mainly because we are accessing the map
-	// Since this helper is called from inside already locked functions, we assume caller holds lock
-	// OR we split logic. 
-	// For simplicity in sendExistingUsers, we will rely on the caller's lock or minimal locking.
-	
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+	return h.getUserInfoUnlocked(userID)
+}
+
+func (h *Hub) getUserInfoUnlocked(userID string) *UserInfo {
 	if clients, ok := h.userClients[userID]; ok {
 		for client := range clients {
 			return client.userInfo
@@ -573,49 +947,75 @@ func (h *Hub) getUserInfo(userID string) *UserInfo {
 
 func (h *Hub) sendExistingUsers(client *Client) {
 	existingPositions := h.presence.GetAllExcept(client.userID)
+	allLocks := h.cellLocks.GetAll()
+	allPending := h.pendingCells.GetAll()
 
-	enhancedUsers := make(map[string]interface{})
 	h.mutex.RLock()
-	for userID, pos := range existingPositions {
-		// Look up metadata for this user from their active connections
-		if clients, ok := h.userClients[userID]; ok && len(clients) > 0 {
-			// Just pick the first client to get the user info
-			var info *UserInfo
-			for c := range clients {
-				info = c.userInfo
-				break
-			}
+	defer h.mutex.RUnlock()
 
-			if info != nil {
-				enhancedUsers[userID] = map[string]interface{}{
-					"row":       pos.Row,
-					"col":       pos.Col,
-					"userId":    info.UserID,
-					"username":  info.Username,
-					"firstname": info.Firstname,
-					"lastname":  info.Lastname,
-					"color":     info.Color,
-				}
+	// Enhanced user positions
+	enhancedUsers := make(map[string]interface{})
+	for userID, pos := range existingPositions {
+		info := h.getUserInfoUnlocked(userID)
+		if info != nil {
+			enhancedUsers[userID] = map[string]interface{}{
+				"row":       pos.Row,
+				"col":       pos.Col,
+				"userId":    info.UserID,
+				"username":  info.Username,
+				"firstname": info.Firstname,
+				"lastname":  info.Lastname,
+				"color":     info.Color,
 			}
 		}
 	}
-	h.mutex.RUnlock()
 
-	// Include current cell locks
-	allLocks := h.cellLocks.GetAll()
+	// Current cell locks
 	lockedCellsPayload := make(map[string]interface{})
 	for lockKey, lockInfo := range allLocks {
+		info := h.getUserInfoUnlocked(lockInfo.UserID)
+		firstname := ""
+		lastname := ""
+		color := "#6b7280"
+		if info != nil {
+			firstname = info.Firstname
+			lastname = info.Lastname
+			color = info.Color
+		}
 		lockedCellsPayload[lockKey] = map[string]interface{}{
 			"userId":    lockInfo.UserID,
-			"firstname": lockInfo.Firstname,
-			"lastname":  lockInfo.Lastname,
-			"color":     lockInfo.Color,
+			"firstname": firstname,
+			"lastname":  lastname,
+			"color":     color,
+		}
+	}
+
+	// Pending cells
+	pendingCellsPayload := make(map[string]interface{})
+	for cellKey, pendingInfo := range allPending {
+		info := h.getUserInfoUnlocked(pendingInfo.UserID)
+		firstname := ""
+		lastname := ""
+		color := "#6b7280"
+		if info != nil {
+			firstname = info.Firstname
+			lastname = info.Lastname
+			color = info.Color
+		}
+		pendingCellsPayload[cellKey] = map[string]interface{}{
+			"userId":    pendingInfo.UserID,
+			"assetId":   pendingInfo.AssetID,
+			"key":       pendingInfo.Key,
+			"firstname": firstname,
+			"lastname":  lastname,
+			"color":     color,
 		}
 	}
 
 	msg := Message{Type: "EXISTING_USERS", Payload: map[string]interface{}{
-		"users":       enhancedUsers,
-		"lockedCells": lockedCellsPayload,
+		"users":        enhancedUsers,
+		"lockedCells":  lockedCellsPayload,
+		"pendingCells": pendingCellsPayload,
 	}}
 	jsonMsg, err := json.Marshal(msg)
 	if err != nil {
@@ -700,6 +1100,30 @@ func (h *Hub) cleanupClient(client *Client) {
 			if err == nil {
 				h.broadcast <- BroadcastData{Message: jsonMsg, Sender: nil}
 			}
+		}
+	}
+
+	// Release all pending cells for this user
+	removedPending := h.pendingCells.RemoveAllForUser(client.userID)
+	if len(removedPending) > 0 {
+		cells := make([]map[string]interface{}, 0, len(removedPending))
+		for _, cellKey := range removedPending {
+			parts := strings.SplitN(cellKey, ":", 2)
+			if len(parts) == 2 {
+				cells = append(cells, map[string]interface{}{
+					"assetId": parts[0],
+					"key":     parts[1],
+				})
+			}
+		}
+		pendingPayload := map[string]interface{}{
+			"userId": client.userID,
+			"cells":  cells,
+		}
+		msg := Message{Type: "PENDING_CLEAR_BROADCAST", Payload: pendingPayload}
+		jsonMsg, err := json.Marshal(msg)
+		if err == nil {
+			h.broadcast <- BroadcastData{Message: jsonMsg, Sender: nil}
 		}
 	}
 }

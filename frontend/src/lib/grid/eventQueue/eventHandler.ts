@@ -5,7 +5,7 @@
 import { toastState } from '$lib/toast/toastState.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
 import { realtime } from '$lib/utils/realtimeManager.svelte';
-import type { PresenceContext } from '$lib/context/gridContext.svelte';
+import { presenceStore } from '$lib/data/presenceStore.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
 
@@ -84,20 +84,52 @@ export async function processEvent(
       break;
 
     case 'WS_CELL_LOCKED':
-      handleWsCellLocked(event.payload, contexts);
+      handleWsCellLocked(event.payload);
       break;
 
     case 'WS_CELL_UNLOCKED':
       handleWsCellUnlocked(event.payload, contexts);
       break;
 
+    case 'WS_PENDING_BROADCAST':
+      handleWsPendingBroadcast(event.payload);
+      break;
+
+    case 'WS_PENDING_CLEAR_BROADCAST':
+      handleWsPendingClearBroadcast(event.payload);
+      break;
+
+    case 'WS_CLIENT_STATE_RECONCILED':
+      handleWsClientStateReconciled(event.payload, contexts);
+      break;
+
     // ─── Outbound WS events ───────────────────────────────────────────────
+    case 'POSITION_UPDATE':
+      handlePositionUpdate(event.payload);
+      break;
+
+    case 'POSITION_DESELECT':
+      realtime.sendDeselect();
+      break;
+
     case 'CELL_EDIT_START':
       realtime.sendEditStart(event.payload.assetId, event.payload.key);
       break;
 
     case 'CELL_EDIT_END':
       realtime.sendEditEnd();
+      break;
+
+    case 'CELL_PENDING':
+      realtime.sendCellPending(event.payload.assetId, event.payload.key, event.payload.value);
+      break;
+
+    case 'CELL_PENDING_CLEAR':
+      realtime.sendCellPendingClear(event.payload.assetId, event.payload.key);
+      break;
+
+    case 'PENDING_CLEAR_ALL':
+      realtime.sendPendingClearAll();
       break;
 
     default:
@@ -114,14 +146,10 @@ async function handleCommitUpdate(
   contexts: Record<string, any>,
 ): Promise<void> {
   const { pendingCtx } = contexts;
-  const { changes, hasInvalidChanges, user } = payload;
+  const { changes, user } = payload;
 
   if (!user) {
     toastState.addToast('Log in to edit.', 'warning');
-    return;
-  }
-  if (hasInvalidChanges) {
-    toastState.addToast('Cannot commit: Fix all invalid values first.', 'error');
     return;
   }
   if (!changes || changes.length === 0) return;
@@ -148,6 +176,7 @@ async function handleCommitUpdate(
   }
 
   pendingCtx.edits = [];
+  realtime.sendPendingClearAll();
   toastState.addToast('Changes saved successfully.', 'success');
 }
 
@@ -227,6 +256,7 @@ function handleDiscard(
   pendingCtx.edits = [];
   newRowCtx.newRows = [];
   newRowCtx.hasNewRows = false;
+  realtime.sendPendingClearAll();
   toastState.addToast('Changes discarded.', 'info');
 }
 
@@ -242,13 +272,22 @@ function handleWsDelta(
   if (baseRow) baseRow[key] = value;
 }
 
+// ─── Outbound Presence ─────────────────────────────────────────────────────
+
+function handlePositionUpdate(payload: Record<string, any>): void {
+  const { assetId, key } = payload;
+  const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
+  const colIdx = keys.indexOf(key);
+  if (colIdx === -1) return;
+  realtime.sendPositionUpdate(assetId, colIdx, assetId);
+}
+
 // ─── WS Presence Handlers ──────────────────────────────────────────────────
 
 function handleWsExistingUsers(
   payload: Record<string, any>,
   contexts: Record<string, any>,
 ): void {
-  const { presenceCtx } = contexts;
   const users = payload.users || payload;
   const lockedCells = payload.lockedCells || {};
 
@@ -260,7 +299,7 @@ function handleWsExistingUsers(
   }
 
   const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
-  const entries: PresenceContext['users'] = [];
+  const entries: typeof presenceStore.users = [];
   for (const [, user] of Object.entries(users) as [string, any][]) {
     const lock = locksByUser.get(String(user.userId));
     entries.push({
@@ -273,31 +312,46 @@ function handleWsExistingUsers(
       isLocked: !!lock,
     });
   }
-  presenceCtx.users = entries;
+  presenceStore.users = entries;
   console.log('[Presence] EXISTING_USERS populated', entries.length, 'users');
+
+  // Hydrate pending cells from other users
+  const pendingCells = payload.pendingCells || {};
+  const pendingEntries: typeof presenceStore.pendingCells = [];
+  for (const [, cellInfo] of Object.entries(pendingCells) as [string, any][]) {
+    pendingEntries.push({
+      userId: Number(cellInfo.userId),
+      assetId: Number(cellInfo.assetId),
+      key: cellInfo.key,
+      firstname: cellInfo.firstname || '',
+      lastname: cellInfo.lastname || '',
+      color: cellInfo.color || '#6b7280',
+    });
+  }
+  presenceStore.pendingCells = pendingEntries;
 }
 
 function handleWsUserPositionUpdate(
   payload: Record<string, any>,
   contexts: Record<string, any>,
 ): void {
-  const { presenceCtx } = contexts;
   const userId = Number(payload.userId);
   const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
   const colKey = keys[payload.col] ?? '';
   const assetId = payload.assetId ?? payload.row ?? -1;
-  const existing = presenceCtx.users.find((u: any) => u.id === userId);
+  const existing = presenceStore.users.find((u: any) => u.id === userId);
 
-  console.log('[Presence] USER_POSITION_UPDATE', { userId, assetId, colKey, payload, currentUsers: presenceCtx.users.length });
+  console.log('[Presence] USER_POSITION_UPDATE', { userId, assetId, colKey, payload, currentUsers: presenceStore.users.length });
 
   if (existing) {
     existing.row = assetId;
     existing.col = colKey;
+    existing.isLocked = false;
     existing.firstname = payload.firstname || existing.firstname;
     existing.lastname = payload.lastname || existing.lastname;
     existing.color = payload.color || existing.color;
   } else {
-    presenceCtx.users.push({
+    presenceStore.users.push({
       id: userId,
       firstname: payload.firstname || '',
       lastname: payload.lastname || '',
@@ -313,34 +367,24 @@ function handleWsUserLeft(
   payload: Record<string, any>,
   contexts: Record<string, any>,
 ): void {
-  const { presenceCtx } = contexts;
   const userId = Number(payload.clientId);
-  const idx = presenceCtx.users.findIndex((u: any) => u.id === userId);
-  if (idx !== -1) presenceCtx.users.splice(idx, 1);
+  const idx = presenceStore.users.findIndex((u: any) => u.id === userId);
+  if (idx === -1) { console.warn('[Presence] USER_LEFT for unknown user', userId); return; }
+  presenceStore.users.splice(idx, 1);
 }
 
 function handleWsCellLocked(
   payload: Record<string, any>,
-  contexts: Record<string, any>,
 ): void {
-  const { presenceCtx, editingCtx } = contexts;
   const userId = Number(payload.userId);
   const assetId = Number(payload.assetId);
   const key = payload.key;
 
-  const user = presenceCtx.users.find((u: any) => u.id === userId);
+  const user = presenceStore.users.find((u: any) => u.id === userId);
   if (user) {
     user.isLocked = true;
     user.row = assetId;
     user.col = key;
-  }
-
-  // Rejection case: another user locked the cell we're editing
-  if (editingCtx && editingCtx.isEditing &&
-      editingCtx.editRow === assetId && editingCtx.editCol === key) {
-    editingCtx.isEditing = false;
-    const name = user ? `${user.firstname} ${user.lastname}`.trim() : 'another user';
-    toastState.addToast(`Cell is being edited by ${name}`, 'warning');
   }
 }
 
@@ -348,12 +392,83 @@ function handleWsCellUnlocked(
   payload: Record<string, any>,
   contexts: Record<string, any>,
 ): void {
-  const { presenceCtx } = contexts;
   const assetId = Number(payload.assetId);
   const key = payload.key;
 
-  const user = presenceCtx.users.find(
+  const user = presenceStore.users.find(
     (u: any) => u.isLocked && u.row === assetId && u.col === key,
   );
   if (user) user.isLocked = false;
+}
+
+function handleWsPendingBroadcast(
+  payload: Record<string, any>,
+): void {
+  const userId = Number(payload.userId);
+  const assetId = Number(payload.assetId);
+  const key = payload.key;
+
+  presenceStore.pendingCells = [
+    ...presenceStore.pendingCells.filter(
+      (p) => !(p.assetId === assetId && p.key === key),
+    ),
+    {
+      userId,
+      assetId,
+      key,
+      firstname: payload.firstname || '',
+      lastname: payload.lastname || '',
+      color: payload.color || '#6b7280',
+    },
+  ];
+}
+
+function handleWsPendingClearBroadcast(
+  payload: Record<string, any>,
+): void {
+  if (payload.cells) {
+    // Batch clear (from PENDING_CLEAR_ALL or disconnect cleanup)
+    const cellSet = new Set(
+      (payload.cells as any[]).map((c) => `${c.assetId}:${c.key}`),
+    );
+    presenceStore.pendingCells = presenceStore.pendingCells.filter(
+      (p) => !cellSet.has(`${p.assetId}:${p.key}`),
+    );
+  } else {
+    // Single cell clear
+    const assetId = Number(payload.assetId);
+    const key = payload.key;
+    presenceStore.pendingCells = presenceStore.pendingCells.filter(
+      (p) => !(p.assetId === assetId && p.key === key),
+    );
+  }
+}
+
+function handleWsClientStateReconciled(
+  payload: Record<string, any>,
+  contexts: Record<string, any>,
+): void {
+  const conflicts = payload.conflicts || [];
+  if (conflicts.length === 0) return;
+
+  const { pendingCtx } = contexts;
+
+  for (const conflict of conflicts) {
+    const name = conflict.firstname && conflict.lastname
+      ? `${conflict.firstname} ${conflict.lastname}`.trim()
+      : 'another user';
+    const cellRef = `${conflict.assetId}:${conflict.key}`;
+
+    if (conflict.type === 'lock') {
+      toastState.addToast(`Cell ${cellRef} is locked by ${name}`, 'warning');
+    } else if (conflict.type === 'pending') {
+      toastState.addToast(`Cell ${cellRef} has pending changes by ${name}`, 'warning');
+      // Revert the local pending edit for this cell
+      if (pendingCtx) {
+        pendingCtx.edits = pendingCtx.edits.filter(
+          (e: any) => !(e.row === Number(conflict.assetId) && e.col === conflict.key),
+        );
+      }
+    }
+  }
 }

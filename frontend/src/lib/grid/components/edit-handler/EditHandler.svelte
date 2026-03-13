@@ -1,8 +1,11 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { getEditingContext, getPendingContext, getHistoryContext, getSelectionContext, getClipboardContext, getColumnWidthContext, type HistoryAction } from '$lib/context/gridContext.svelte.ts';
+  import { getEditingContext, getPendingContext, getHistoryContext, getSelectionContext, getClipboardContext, getColumnWidthContext, resetEditing, type HistoryAction } from '$lib/context/gridContext.svelte.ts';
+  import { enqueue } from '$lib/grid/eventQueue/eventQueue';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+  import { presenceStore } from '$lib/data/presenceStore.svelte';
+  import { toastState } from '$lib/toast/toastState.svelte';
 
   let { scrollTop }: { scrollTop: number } = $props();
 
@@ -130,10 +133,14 @@
     // Remove existing entry
     pendingCtx.edits = pendingCtx.edits.filter((e) => !(e.row === assetId && e.col === colKey));
 
-    // If changed from baseline, track it
+    // If changed from baseline, track it and notify server
     if (newValue !== baseline) {
       const { isValid, error } = validateCell(assetId, colKey, newValue);
       pendingCtx.edits.push({ row: assetId, col: colKey, original: baseline, value: newValue, isValid, validationError: error });
+      enqueue({ type: 'CELL_PENDING', payload: { assetId, key: colKey, value: newValue } }, {});
+    } else {
+      // Reverted to baseline — clear pending on server
+      enqueue({ type: 'CELL_PENDING_CLEAR', payload: { assetId, key: colKey } }, {});
     }
   }
 
@@ -238,6 +245,14 @@
       ...newEdits,
     ];
 
+    for (const edit of newEdits) {
+      if (edit.value !== edit.original) {
+        enqueue({ type: 'CELL_PENDING', payload: { assetId: edit.row, key: edit.col, value: edit.value } }, {});
+      } else {
+        enqueue({ type: 'CELL_PENDING_CLEAR', payload: { assetId: edit.row, key: edit.col } }, {});
+      }
+    }
+
     if (historyBatch.length > 0) {
       historyCtx.undoStack = [...historyCtx.undoStack, historyBatch];
       historyCtx.redoStack = [];
@@ -305,10 +320,24 @@
     }
   });
 
+  // Reactive lock rejection — if another user locks our editing cell, cancel
+  $effect(() => {
+    if (!editingCtx.isEditing) return;
+    const lock = presenceStore.users.find(
+      u => u.row === editingCtx.editRow && u.col === editingCtx.editCol && u.isLocked
+    );
+    if (lock) {
+      cancelEdit();
+      toastState.addToast(
+        `Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(),
+        'warning',
+      );
+    }
+  });
+
   function cancelEdit() {
-    editingCtx.isEditing = false;
-    editingCtx.editRow = -1;
-    editingCtx.editCol = '';
+    resetEditing(editingCtx);
+    enqueue({ type: 'CELL_EDIT_END', payload: {} }, {});
     inputValue = '';
     autocomplete.clear();
     editDropdown.hide();
@@ -382,9 +411,7 @@
 
   function handleBlur() {
     autocomplete.clear();
-    setTimeout(() => {
-      if (editingCtx.isEditing) saveEdit();
-    }, 0);
+    saveEdit();
   }
 </script>
 

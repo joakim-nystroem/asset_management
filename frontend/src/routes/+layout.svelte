@@ -4,6 +4,7 @@
   import { beforeNavigate } from '$app/navigation';
   import { enhance } from '$app/forms';
   import { realtime } from '$lib/utils/realtimeManager.svelte.js';
+  import { connectionStore } from '$lib/data/connectionStore.svelte';
   import ToastContainer from '$lib/toast/ToastContainer.svelte';
   
   let { children, data } = $props();
@@ -12,7 +13,7 @@
   let showUserMenu = $state(false);
   let sessionColor: string = $derived(data.session_color || '#6b7280');
 
-  let isWsConnected = $derived(realtime.isConnected());
+  let isWsConnected = $derived(connectionStore.status === 'connected');
 
   // Manage WebSocket connection in layout (persists across navigation)
   $effect(() => {

@@ -1,13 +1,12 @@
 <script lang="ts">
-  import { getEditingContext, getClipboardContext, getUiContext, getPresenceContext } from '$lib/context/gridContext.svelte.ts';
+  import { getEditingContext, getClipboardContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
+  import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
   import { handleFilterByValue } from './contextMenu.svelte.ts';
 
   const editingCtx = getEditingContext();
   const clipCtx = getClipboardContext();
   const uiCtx = getUiContext();
-  const presenceCtx = getPresenceContext();
-
   function close() {
     uiCtx.contextMenu.visible = false;
   }
@@ -27,9 +26,15 @@
       onclick={() => {
         const row = uiCtx.contextMenu.row;
         const col = uiCtx.contextMenu.col;
-        const lock = presenceCtx.users.find(u => u.row === row && u.col === col && u.isLocked);
+        const lock = presenceStore.users.find(u => u.row === row && u.col === col && u.isLocked);
         if (lock) {
           toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');
+          close();
+          return;
+        }
+        const pending = presenceStore.pendingCells.find(p => p.assetId === row && p.key === col);
+        if (pending) {
+          toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
           close();
           return;
         }

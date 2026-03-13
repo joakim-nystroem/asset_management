@@ -4,10 +4,10 @@ import type {
   ClipboardContext,
   UiContext,
   ColumnWidthContext,
-  PresenceContext,
 } from '$lib/context/gridContext.svelte';
-import { getScrollSignalContext } from '$lib/context/gridContext.svelte';
-import { setOpenPanel } from '$lib/context/gridContext.svelte';
+import { presenceStore } from '$lib/data/presenceStore.svelte';
+import { getScrollSignalContext, setOpenPanel, resetEditing } from '$lib/context/gridContext.svelte';
+import { enqueue } from './eventQueue';
 import { assetStore } from '$lib/data/assetStore.svelte';
 import { toastState } from '$lib/toast/toastState.svelte';
 import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
@@ -18,11 +18,10 @@ type KeyboardContexts = {
   clipCtx: ClipboardContext;
   uiCtx: UiContext;
   colWidthCtx: ColumnWidthContext;
-  presenceCtx: PresenceContext;
 };
 
 export function createKeyboardHandler(ctxs: KeyboardContexts) {
-  const { editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx, presenceCtx } = ctxs;
+  const { editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx } = ctxs;
   const scrollSignalCtx = getScrollSignalContext();
 
   function getAssets() {
@@ -71,9 +70,14 @@ export function createKeyboardHandler(ctxs: KeyboardContexts) {
 
 
   function startCellEdit(row: number, col: string) {
-    const lock = presenceCtx.users.find(u => u.row === row && u.col === col && u.isLocked);
+    const lock = presenceStore.users.find(u => u.row === row && u.col === col && u.isLocked);
     if (lock) {
       toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');
+      return;
+    }
+    const pending = presenceStore.pendingCells.find(p => p.assetId === row && p.key === col);
+    if (pending) {
+      toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
       return;
     }
     editingCtx.isEditing = true;
@@ -110,7 +114,8 @@ export function createKeyboardHandler(ctxs: KeyboardContexts) {
 
     if (e.key === 'Escape') {
       if (editingCtx.isEditing) {
-        editingCtx.isEditing = false;
+        resetEditing(editingCtx);
+        enqueue({ type: 'CELL_EDIT_END', payload: {} }, {});
         return;
       }
       if (selCtx.selectionStart.row !== -1) {

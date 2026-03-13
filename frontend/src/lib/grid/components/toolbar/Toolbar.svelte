@@ -15,6 +15,8 @@
     setOpenPanel,
   } from '$lib/context/gridContext.svelte.ts';
   import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+  import { enqueue } from '$lib/grid/eventQueue/eventQueue';
+  import { toastState } from '$lib/toast/toastState.svelte';
 
   const pendingCtx = getPendingContext();
   const historyCtx = getHistoryContext();
@@ -77,6 +79,23 @@
     }
     newRowCtx.newRows = [...newRowCtx.newRows, newRow];
     newRowCtx.hasNewRows = true;
+  }
+
+  function handleDiscard() {
+    enqueue(
+      {
+        type: 'DISCARD',
+        payload: { user },
+      },
+      { pendingCtx, newRowCtx },
+    );
+    historyCtx.undoStack = [];
+    historyCtx.redoStack = [];
+    selCtx.selectionStart = { row: -1, col: '' };
+    selCtx.selectionEnd = { row: -1, col: '' };
+    selCtx.hideSelection = false;
+    clipCtx.copyStart = { row: -1, col: '' };
+    clipCtx.copyEnd = { row: -1, col: '' };
   }
 
   function navigateToError() {
@@ -171,22 +190,28 @@
         {#if pendingCtx.edits.length > 0 && user}
           <div class="flex gap-2 items-center">
             <button
-              onclick={() => uiCtx.commitRequested = true}
+              onclick={() => {
+                if (pendingCtx.edits.some((e) => !e.isValid)) {
+                  toastState.addToast('Fix invalid cells before committing', 'warning');
+                  return;
+                }
+                enqueue(
+                  {
+                    type: 'COMMIT_UPDATE',
+                    payload: {
+                      changes: $state.snapshot(pendingCtx.edits),
+                      user,
+                    },
+                  },
+                  { pendingCtx },
+                );
+              }}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
               Commit
             </button>
             <button
-              onclick={() => {
-                uiCtx.discardRequested = true;
-                historyCtx.undoStack = [];
-                historyCtx.redoStack = [];
-                selCtx.selectionStart = { row: -1, col: '' };
-                selCtx.selectionEnd = { row: -1, col: '' };
-                selCtx.hideSelection = false;
-                clipCtx.copyStart = { row: -1, col: '' };
-                clipCtx.copyEnd = { row: -1, col: '' };
-              }}
+              onclick={handleDiscard}
               class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
             >
               Discard
@@ -209,22 +234,22 @@
         {:else if newRowCtx.hasNewRows && user}
           <div class="flex gap-2 items-center">
             <button
-              onclick={() => uiCtx.commitCreateRequested = true}
+              onclick={() => enqueue(
+                {
+                  type: 'COMMIT_CREATE',
+                  payload: {
+                    rows: $state.snapshot(newRowCtx.newRows),
+                    user,
+                  },
+                },
+                { newRowCtx },
+              )}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
               Commit
             </button>
             <button
-              onclick={() => {
-                uiCtx.discardRequested = true;
-                historyCtx.undoStack = [];
-                historyCtx.redoStack = [];
-                selCtx.selectionStart = { row: -1, col: '' };
-                selCtx.selectionEnd = { row: -1, col: '' };
-                selCtx.hideSelection = false;
-                clipCtx.copyStart = { row: -1, col: '' };
-                clipCtx.copyEnd = { row: -1, col: '' };
-              }}
+              onclick={handleDiscard}
               class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
             >
               Discard
