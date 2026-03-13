@@ -72,7 +72,7 @@
 
           <div
             class="absolute top-0 w-full"
-            style="transform: translateY({visibleRange.startIndex * DEFAULT_ROW_HEIGHT - scrollTop}px);"
+            style="top: {visibleRange.startIndex * DEFAULT_ROW_HEIGHT - scrollTop}px;"
           >
             {#each visibleItems as asset, i (asset.id || visibleRange.startIndex + i)}
               <GridRow {asset} {keys} />

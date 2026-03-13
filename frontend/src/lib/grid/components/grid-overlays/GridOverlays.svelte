@@ -292,7 +292,7 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
   <!-- Selection overlay -->
   {#if selectionOverlay && selCtx.selectionStart.row !== -1 && !selCtx.hideSelection}
     <div
-      class="absolute pointer-events-none z-10 border-blue-600 dark:border-blue-500 bg-blue-900/10"
+      class="absolute pointer-events-none z-[91] border-blue-600 dark:border-blue-500 bg-blue-900/10"
       style="
           top: {selectionOverlay.top}px;
           left: {selectionOverlay.left}px;
