@@ -82,8 +82,13 @@
       e.preventDefault();
       setOpenPanel(uiCtx);
       selCtx.pasteRange = null;
-      selCtx.selectionStart = { row: asset.id, col: key };
-      selCtx.selectionEnd = { row: asset.id, col: key };
+
+      const isSingleCell = selCtx.selectionStart.row === selCtx.selectionEnd.row
+        && selCtx.selectionStart.col === selCtx.selectionEnd.col;
+      if (isSingleCell || selCtx.selectionStart.row === -1) {
+        selCtx.selectionStart = { row: asset.id, col: key };
+        selCtx.selectionEnd = { row: asset.id, col: key };
+      }
       selCtx.hideSelection = false;
       // Open context menu
       const estimatedWidth = 150;

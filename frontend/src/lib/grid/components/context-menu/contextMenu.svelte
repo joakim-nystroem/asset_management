@@ -1,11 +1,12 @@
 <script lang="ts">
-  import { getEditingContext, getClipboardContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
+  import { getEditingContext, getClipboardContext, getUiContext, getSelectionContext } from '$lib/context/gridContext.svelte.ts';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
   import { handleFilterByValue } from './contextMenu.svelte.ts';
 
   const editingCtx = getEditingContext();
   const clipCtx = getClipboardContext();
+  const selCtx = getSelectionContext();
   const uiCtx = getUiContext();
   function close() {
     uiCtx.contextMenu.visible = false;
@@ -39,6 +40,8 @@
           return;
         }
         close();
+        selCtx.selectionStart = { row, col };
+        selCtx.selectionEnd = { row, col };
         editingCtx.isEditing = true;
         editingCtx.editRow = row;
         editingCtx.editCol = col;
