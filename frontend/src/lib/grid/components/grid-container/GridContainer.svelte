@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getColumnWidthContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
+  import { getColumnWidthContext, getUiContext, getNewRowContext } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   import GridRow from '$lib/grid/components/grid-row/GridRow.svelte';
@@ -11,8 +11,9 @@
 
   const uiCtx = getUiContext();
   const colWidthCtx = getColumnWidthContext();
+  const newRowCtx = getNewRowContext();
 
-  const assets = $derived(assetStore.filteredAssets);
+  const assets = $derived([...assetStore.filteredAssets, ...newRowCtx.newRows]);
   const keys = $derived(Object.keys(assets[0] ?? {}));
 
   // Scroll state — bound to VirtualScrollManager

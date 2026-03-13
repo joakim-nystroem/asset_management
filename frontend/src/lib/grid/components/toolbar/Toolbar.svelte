@@ -73,20 +73,25 @@
     queryStore.view = viewName;
   }
 
-  // New row counter
-  let newRowCounter = 0;
   function addNewRow() {
-    newRowCounter++;
+    if (pendingCtx.edits.length > 0) {
+      toastState.addToast('Commit or discard pending changes before adding new rows.', 'warning');
+      return;
+    }
     const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
-    const newRow: Record<string, any> = { id: `NEW-${newRowCounter}` };
+    const newRow: Record<string, any> = { id: `NEW-${newRowCtx.newRows.length + 1}` };
     for (const key of keys) {
       if (key !== 'id') newRow[key] = '';
     }
     newRowCtx.newRows = [...newRowCtx.newRows, newRow];
     newRowCtx.hasNewRows = true;
+    scrollSignalCtx.scrollToRow = assetStore.filteredAssets.length + newRowCtx.newRows.length - 1;
   }
 
   function handleDiscard() {
+    if (newRowCtx.hasNewRows) {
+      scrollSignalCtx.scrollToRow = Math.max(0, assetStore.filteredAssets.length - 1);
+    }
     enqueue(
       {
         type: 'DISCARD',

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { getEditingContext, getPendingContext, getHistoryContext, getSelectionContext, getClipboardContext, getColumnWidthContext, resetEditing, type HistoryAction } from '$lib/context/gridContext.svelte.ts';
+  import { getEditingContext, getPendingContext, getHistoryContext, getNewRowContext, getSelectionContext, getClipboardContext, getColumnWidthContext, resetEditing, type HistoryAction } from '$lib/context/gridContext.svelte.ts';
   import { enqueue } from '$lib/grid/eventQueue/eventQueue';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
@@ -22,6 +22,7 @@
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
   const colWidthCtx = getColumnWidthContext();
+  const newRowCtx = getNewRowContext();
   const assets = $derived(assetStore.filteredAssets);
   const keys = $derived(Object.keys(assets[0] ?? {}));
 
@@ -190,8 +191,12 @@
   // --- Paste: triggered by isPasting flag, uses internal clipCtx.grid ---
   $effect(() => {
     if (editingCtx.isPasting) {
+      untrack(() => editingCtx.isPasting = false);
+      if (newRowCtx.hasNewRows) {
+        toastState.addToast('Commit or discard new rows before editing.', 'warning');
+        return;
+      }
       handlePaste();
-      editingCtx.isPasting = false;
     }
   });
 
@@ -309,6 +314,11 @@
   // Seed inputValue when editing starts (normal edit, not paste)
   // If cell already has a pending edit, use the pending value (not the optimistic asset value)
   $effect(() => {
+    if (editingCtx.isEditing && newRowCtx.hasNewRows) {
+      resetEditing(editingCtx);
+      toastState.addToast('Commit or discard new rows before editing.', 'warning');
+      return;
+    }
     if (editingCtx.isEditing) {
       const pending = pendingCtx.edits.find(
         (e) => e.row === editingCtx.editRow && e.col === editKey
