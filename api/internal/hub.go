@@ -464,6 +464,8 @@ func (c *Client) readPump() {
 			c.handleCellPendingClear(msg.Payload)
 		case "PENDING_CLEAR_ALL":
 			c.handlePendingClearAll()
+		case "COMMIT_BROADCAST":
+			c.handleCommitBroadcast(msg.Payload)
 		case "CLIENT_STATE":
 			c.handleClientState(msg.Payload)
 		case "PING":
@@ -695,6 +697,26 @@ func (c *Client) handlePendingClearAll() {
 		}
 		c.hub.BroadcastMessage("PENDING_CLEAR_BROADCAST", broadcastPayload, c)
 	}
+}
+
+func (c *Client) handleCommitBroadcast(payload interface{}) {
+	payloadMap, ok := payload.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	// Clear all pending cells for the committing user
+	c.hub.pendingCells.RemoveAllForUser(c.userID)
+
+	// Forward changes to all other clients
+	changes, _ := payloadMap["changes"].([]interface{})
+	broadcastPayload := map[string]interface{}{
+		"userId":  c.userID,
+		"changes": changes,
+	}
+	c.hub.BroadcastMessage("COMMIT_BROADCAST", broadcastPayload, c)
+
+	log.Printf("[Commit] %s broadcast %d changes", c.userInfo.Username, len(changes))
 }
 
 func (c *Client) handleClientState(payload interface{}) {

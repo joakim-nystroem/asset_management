@@ -17,9 +17,7 @@ function createRealtimeManager() {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let attempts = 0;
     let shouldReconnect = true;
-    let lastSentPos: { row: number; col: number; assetId?: number | string } | null = null;
     let session: { id: string; color?: string } | null = null;
-    let onAssetUpdate: ((data: any) => void) | null = null;
     let localStateProvider: (() => { position: any; lock: any; pending: any[] }) | null = null;
 
     // Message Queue for offline actions
@@ -27,25 +25,16 @@ function createRealtimeManager() {
 
     // --- ACTIONS ---
 
-    function setAssetUpdateHandler(handler: (data: any) => void) {
-        onAssetUpdate = handler;
-    }
-
     function setLocalStateProvider(fn: () => { position: any; lock: any; pending: any[] }) {
         localStateProvider = fn;
     }
 
     function sendPositionUpdate(row: number, col: number, assetId?: number | string) {
         if (row === -1) return sendDeselect();
-        if (lastSentPos?.row === row && lastSentPos?.col === col && lastSentPos?.assetId === assetId) return;
-
-        lastSentPos = { row, col, assetId };
         send('USER_POSITION_UPDATE', { row, col, assetId });
     }
 
     function sendDeselect() {
-        if (!lastSentPos) return;
-        lastSentPos = null;
         send('USER_DESELECTED', {});
     }
 
@@ -67,6 +56,10 @@ function createRealtimeManager() {
 
     function sendPendingClearAll() {
         send('PENDING_CLEAR_ALL', {});
+    }
+
+    function sendCommitBroadcast(changes: { assetId: number; key: string; value: string }[]) {
+        send('COMMIT_BROADCAST', { changes });
     }
 
     function send(type: string, payload: any) {
@@ -141,18 +134,12 @@ function createRealtimeManager() {
             attempts = 0;
             connectionStore.status = 'connected';
 
-            // 1. SEND CLIENT_STATE (bundles position, lock, pending for reconnect reconciliation)
+            // SEND CLIENT_STATE (bundles position, lock, pending for reconnect reconciliation)
             if (localStateProvider) {
                 const state = localStateProvider();
                 ws.send(JSON.stringify({
                     type: 'CLIENT_STATE',
                     payload: state
-                }));
-            } else if (lastSentPos) {
-                // Fallback: no provider registered yet, just restore position
-                ws.send(JSON.stringify({
-                    type: 'USER_POSITION_UPDATE',
-                    payload: lastSentPos
                 }));
             }
 
@@ -212,7 +199,7 @@ function createRealtimeManager() {
         messageQueue = [];
 
         // Send deselect ONLY if we are actually connected
-        if (socket?.readyState === WebSocket.OPEN && lastSentPos) {
+        if (socket?.readyState === WebSocket.OPEN) {
             sendDeselect();
         }
 
@@ -221,8 +208,6 @@ function createRealtimeManager() {
 
         // Clean State
         connectionStore.status = 'disconnected';
-        lastSentPos = null;
-        onAssetUpdate = null;
         localStateProvider = null;
     }
 
@@ -238,10 +223,6 @@ function createRealtimeManager() {
     }
 
     function handleMessage(type: string, payload: any) {
-        if (type === 'asset_update') {
-            onAssetUpdate?.(payload);
-            return;
-        }
         enqueue({ type: 'WS_' + type, payload }, {});
     }
 
@@ -274,7 +255,7 @@ function createRealtimeManager() {
         sendCellPending,
         sendCellPendingClear,
         sendPendingClearAll,
-        setAssetUpdateHandler,
+        sendCommitBroadcast,
         setLocalStateProvider,
     };
 

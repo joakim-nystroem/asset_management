@@ -232,31 +232,34 @@
         const oldValue = cellValue(asset.id, key);
         const original = String(asset[key] ?? '');
         pastedKeys.add(`${asset.id}:${key}`);
-        const { isValid, error } = validateCell(asset.id, key, newValue);
-        newEdits.push({ row: asset.id, col: key, original, value: newValue, isValid, validationError: error });
+
+        if (newValue !== original) {
+          // Changed from baseline — track as pending
+          const { isValid, error } = validateCell(asset.id, key, newValue);
+          newEdits.push({ row: asset.id, col: key, original, value: newValue, isValid, validationError: error });
+          enqueue({ type: 'CELL_PENDING', payload: { assetId: asset.id, key, value: newValue } }, {});
+        } else {
+          // Same as baseline — clear any server-side pending state
+          enqueue({ type: 'CELL_PENDING_CLEAR', payload: { assetId: asset.id, key } }, {});
+        }
+
         if (oldValue !== newValue) {
           historyBatch.push({ id: asset.id, key, oldValue, newValue });
         }
       }
     }
 
+    // Remove all prior pending in paste range, re-add only changed cells
     pendingCtx.edits = [
       ...pendingCtx.edits.filter((e) => !pastedKeys.has(`${e.row}:${e.col}`)),
       ...newEdits,
     ];
 
-    for (const edit of newEdits) {
-      if (edit.value !== edit.original) {
-        enqueue({ type: 'CELL_PENDING', payload: { assetId: edit.row, key: edit.col, value: edit.value } }, {});
-      } else {
-        enqueue({ type: 'CELL_PENDING_CLEAR', payload: { assetId: edit.row, key: edit.col } }, {});
-      }
-    }
-
     if (historyBatch.length > 0) {
       historyCtx.undoStack = [...historyCtx.undoStack, historyBatch];
       historyCtx.redoStack = [];
     }
+
     selCtx.hideSelection = true;
   }
 

@@ -63,10 +63,6 @@ export async function processEvent(
       handleDiscard(event.payload, contexts);
       break;
 
-    case 'WS_DELTA':
-      handleWsDelta(event.payload, contexts);
-      break;
-
     // ─── Incoming WS events ────────────────────────────────────────────────
     case 'WS_WELCOME':
       break;
@@ -97,6 +93,10 @@ export async function processEvent(
 
     case 'WS_PENDING_CLEAR_BROADCAST':
       handleWsPendingClearBroadcast(event.payload);
+      break;
+
+    case 'WS_COMMIT_BROADCAST':
+      handleWsCommitBroadcast(event.payload);
       break;
 
     case 'WS_CLIENT_STATE_RECONCILED':
@@ -176,7 +176,7 @@ async function handleCommitUpdate(
   }
 
   pendingCtx.edits = [];
-  realtime.sendPendingClearAll();
+  realtime.sendCommitBroadcast(changes.map((c: any) => ({ assetId: c.row, key: c.col, value: c.value })));
   toastState.addToast('Changes saved successfully.', 'success');
 }
 
@@ -258,18 +258,6 @@ function handleDiscard(
   newRowCtx.hasNewRows = false;
   realtime.sendPendingClearAll();
   toastState.addToast('Changes discarded.', 'info');
-}
-
-function handleWsDelta(
-  payload: Record<string, any>,
-  _contexts: Record<string, any>,
-): void {
-  const { id, key, value } = payload;
-  const row = assetStore.filteredAssets.find((a: any) => a.id === id);
-  if (row) row[key] = value;
-
-  const baseRow = assetStore.baseAssets.find((a: any) => a.id === id);
-  if (baseRow) baseRow[key] = value;
 }
 
 // ─── Outbound Presence ─────────────────────────────────────────────────────
@@ -442,6 +430,30 @@ function handleWsPendingClearBroadcast(
       (p) => !(p.assetId === assetId && p.key === key),
     );
   }
+}
+
+function handleWsCommitBroadcast(
+  payload: Record<string, any>,
+): void {
+  const userId = Number(payload.userId);
+  const changes = payload.changes || [];
+
+  // Apply each committed change to local assetStore
+  for (const change of changes) {
+    const assetId = Number(change.assetId);
+    const key = change.key;
+    const value = change.value;
+
+    const filtered = assetStore.filteredAssets.find((a: any) => a.id === assetId);
+    if (filtered) filtered[key] = value;
+    const base = assetStore.baseAssets.find((a: any) => a.id === assetId);
+    if (base) base[key] = value;
+  }
+
+  // Remove all pending entries for the committing user
+  presenceStore.pendingCells = presenceStore.pendingCells.filter(
+    (p) => p.userId !== userId,
+  );
 }
 
 function handleWsClientStateReconciled(
