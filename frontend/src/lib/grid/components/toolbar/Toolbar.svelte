@@ -30,6 +30,11 @@
   // Local search input — only pushed to queryStore on explicit action
   let searchInput = $state('');
 
+  // Sync from queryStore on page load (URL → store → input)
+  $effect(() => {
+    searchInput = queryStore.q;
+  });
+
   const VIEW_CONFIGS = [
     { name: 'default', label: 'Default' },
     { name: 'audit', label: 'Audit' },
