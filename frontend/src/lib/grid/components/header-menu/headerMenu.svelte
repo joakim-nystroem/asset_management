@@ -119,7 +119,12 @@
           </div>
 
           <div class="max-h-48 overflow-y-auto no-scrollbar">
-            {#each [...new Set(assetStore.baseAssets.map((a: Record<string, any>) => String(a[activeKey] ?? '')).filter(Boolean))]
+            {#each [...new Set(
+                (queryStore.filters.some(f => f.key !== activeKey)
+                  ? assetStore.filteredAssets
+                  : assetStore.baseAssets
+                ).map((a: Record<string, any>) => String(a[activeKey] ?? '')).filter(Boolean)
+              )]
               .filter((i: string) => i.toLowerCase().includes(filterSearchTerm.toLowerCase()))
               as item
             }
