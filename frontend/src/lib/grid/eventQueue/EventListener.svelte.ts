@@ -50,6 +50,7 @@ export function createKeyboardHandler(ctxs: KeyboardContexts) {
   }
 
   function selectCell(row: number, col: string) {
+    selCtx.pasteRange = null;
     selCtx.selectionStart = { row, col };
     selCtx.selectionEnd = { row, col };
     selCtx.isSelecting = false;
@@ -57,6 +58,7 @@ export function createKeyboardHandler(ctxs: KeyboardContexts) {
   }
 
   function resetSelection() {
+    selCtx.pasteRange = null;
     selCtx.selectionStart = { row: -1, col: '' };
     selCtx.selectionEnd = { row: -1, col: '' };
     selCtx.isSelecting = false;

@@ -91,6 +91,7 @@
     );
     historyCtx.undoStack = [];
     historyCtx.redoStack = [];
+    selCtx.pasteRange = null;
     selCtx.selectionStart = { row: -1, col: '' };
     selCtx.selectionEnd = { row: -1, col: '' };
     selCtx.hideSelection = false;

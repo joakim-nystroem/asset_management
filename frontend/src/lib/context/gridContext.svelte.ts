@@ -47,6 +47,7 @@ export type SelectionContext = {
   selectionEnd: GridCell;
   isSelecting: boolean;
   hideSelection: boolean;
+  pasteRange: { start: GridCell; end: GridCell } | null;
 };
 
 // 6. Copy/paste state

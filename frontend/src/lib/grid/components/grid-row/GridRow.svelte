@@ -43,6 +43,7 @@
       if (e.shiftKey) {
         selCtx.selectionEnd = { row: asset.id, col: key };
       } else {
+        selCtx.pasteRange = null;
         selCtx.selectionStart = { row: asset.id, col: key };
         selCtx.selectionEnd = { row: asset.id, col: key };
         selCtx.isSelecting = true;
@@ -69,6 +70,7 @@
         toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
         return;
       }
+      selCtx.pasteRange = null;
       selCtx.selectionStart = { row: asset.id, col: key };
       selCtx.selectionEnd = { row: asset.id, col: key };
       selCtx.hideSelection = false;
@@ -79,6 +81,7 @@
     oncontextmenu={(e) => {
       e.preventDefault();
       setOpenPanel(uiCtx);
+      selCtx.pasteRange = null;
       selCtx.selectionStart = { row: asset.id, col: key };
       selCtx.selectionEnd = { row: asset.id, col: key };
       selCtx.hideSelection = false;

@@ -55,6 +55,7 @@
     selectionEnd: { row: -1, col: '' },
     isSelecting: false,
     hideSelection: false,
+    pasteRange: null as { start: { row: number; col: string }; end: { row: number; col: string } } | null,
   });
   setSelectionContext(selectionCtx);
 

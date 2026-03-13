@@ -260,7 +260,15 @@
       historyCtx.redoStack = [];
     }
 
-    selCtx.hideSelection = true;
+    // Update selection to cover paste range
+    const pasteStartId = assets[minStartRow].id;
+    const pasteEndId = assets[minStartRow + maxRow - 1].id;
+    const pasteStartCol = keys[minStartCol];
+    const pasteEndCol = keys[minStartCol + maxCol - 1];
+    selCtx.selectionStart = { row: pasteStartId, col: pasteStartCol };
+    selCtx.selectionEnd = { row: pasteEndId, col: pasteEndCol };
+    selCtx.hideSelection = false;
+    selCtx.pasteRange = { start: { row: pasteStartId, col: pasteStartCol }, end: { row: pasteEndId, col: pasteEndCol } };
   }
 
   // --- Undo/Redo ---

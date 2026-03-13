@@ -130,6 +130,12 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
       : null
   );
 
+  const pasteOverlay = $derived(
+    selCtx.pasteRange
+      ? computeVisualOverlay(selCtx.pasteRange.start, selCtx.pasteRange.end)
+      : null
+  );
+
   const otherUserSelections = $derived(presenceStore.users);
 
   // --- Other users' pending cell overlays (blue shading) ---
@@ -242,6 +248,23 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
       border-bottom-style: {copyOverlay.showBottomBorder ? 'dashed' : 'none'};
       border-left-style: {copyOverlay.showLeftBorder ? 'dashed' : 'none'};
       border-right-style: {copyOverlay.showRightBorder ? 'dashed' : 'none'};
+      border-width: 2px;"
+    ></div>
+  {/if}
+
+  <!-- Paste range overlay -->
+  {#if pasteOverlay}
+    <div
+      class="absolute pointer-events-none z-[11] border-green-500 dark:border-green-400"
+      style="
+      top: {pasteOverlay.top}px;
+      left: {pasteOverlay.left}px;
+      width: {pasteOverlay.width}px;
+      height: {pasteOverlay.height}px;
+      border-top-style: {pasteOverlay.showTopBorder ? 'dashed' : 'none'};
+      border-bottom-style: {pasteOverlay.showBottomBorder ? 'dashed' : 'none'};
+      border-left-style: {pasteOverlay.showLeftBorder ? 'dashed' : 'none'};
+      border-right-style: {pasteOverlay.showRightBorder ? 'dashed' : 'none'};
       border-width: 2px;"
     ></div>
   {/if}
