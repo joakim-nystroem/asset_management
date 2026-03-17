@@ -3,17 +3,15 @@
   import { getEditingContext, getPendingContext, getHistoryContext, getNewRowContext, getSelectionContext, getClipboardContext, getColumnWidthContext, getUiContext, resetEditing, type HistoryAction } from '$lib/context/gridContext.svelte.ts';
   import { enqueue } from '$lib/grid/eventQueue/eventQueue';
   import { assetStore } from '$lib/data/assetStore.svelte';
-  import { columnConstraints, validateCell } from '$lib/grid/validation';
+  import { validateCell } from '$lib/grid/validation';
+  import { isConstrained, isValidOption } from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte.ts';
   import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
 
   let { scrollTop }: { scrollTop: number } = $props();
 
-  import EditDropdownComponent from '$lib/grid/components/edit-dropdown/editDropdown.svelte';
-  import AutocompleteComponent from '$lib/grid/components/suggestion-menu/autocomplete.svelte';
-  import { createEditDropdown } from '$lib/grid/components/edit-dropdown/editDropdown.svelte.ts';
-  import { createAutocomplete } from '$lib/grid/components/suggestion-menu/autocomplete.svelte.ts';
+  import SuggestionMenu from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte';
   import { computeEditorPosition } from './editHandler.svelte.ts';
   import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
@@ -39,10 +37,6 @@
 
   // --- Local state (owned by EditHandler, not in context) ---
   let textareaRef: HTMLTextAreaElement | null = $state(null);
-  const editDropdown = createEditDropdown();
-  const autocomplete = createAutocomplete();
-
-  const isDropdownColumn = $derived(editKey ? columnConstraints[editKey]?.type === 'dropdown' : false);
 
   // Compute absolute position within GridOverlays
   const editorStyle = $derived.by(() => {
@@ -255,16 +249,10 @@
     historyCtx.undoStack = [...historyCtx.undoStack, batch];
   }
 
-  // Show dropdown when editing starts on a dropdown column
+  // Show suggestion menu when editing starts
   $effect(() => {
-    if (editingCtx.isEditing && editKey) {
-      const constraint = columnConstraints[editKey];
-      if (constraint?.type === 'dropdown') {
-        untrack(() => {
-          editDropdown.open(editingCtx.editCol, editingCtx.editValue);
-          uiCtx.suggestionMenu.visible = true;
-        });
-      }
+    if (editingCtx.isEditing) {
+      uiCtx.suggestionMenu.visible = true;
     }
   });
 
@@ -294,16 +282,14 @@
   function cancelEdit() {
     resetEditing(editingCtx);
     enqueue({ type: 'CELL_EDIT_END', payload: {} }, {});
-    autocomplete.clear();
     uiCtx.suggestionMenu.visible = false;
   }
 
   function saveEdit() {
     if (!editKey || editingCtx.editRow === -1) { cancelEdit(); return; }
     const newValue = editingCtx.editValue.trim();
-    // Dropdown columns: reject invalid values, keep editor open
-    const constraint = editKey ? columnConstraints[editKey] : undefined;
-    if (isDropdownColumn && constraint?.type === 'dropdown' && !constraint.options().includes(newValue)) {
+    // Constrained columns: reject invalid values, keep editor open
+    if (isConstrained(editKey) && !isValidOption(editKey, newValue)) {
       toastState.addToast('Select a valid option', 'warning');
       return;
     }
@@ -318,29 +304,6 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    // Handle autocomplete navigation if visible
-    if (autocomplete.isVisible) {
-      if (e.key === 'ArrowDown') { e.preventDefault(); autocomplete.selectNext(); return; }
-      if (e.key === 'ArrowUp') { e.preventDefault(); autocomplete.selectPrevious(); return; }
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const v = autocomplete.getSelectedValue();
-        if (v) editingCtx.editValue = v;
-        autocomplete.clear();
-        return;
-      }
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        const v = autocomplete.getSelectedValue();
-        if (v !== null) editingCtx.editValue = v;
-        autocomplete.clear();
-        saveEdit();
-        return;
-      }
-      if (e.key === 'Escape') { e.preventDefault(); autocomplete.clear(); cancelEdit(); return; }
-    }
-
-    // Normal keyboard handling
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); }
     else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
   }
@@ -348,23 +311,17 @@
   function handleInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
     editingCtx.editValue = target.value;
-    if (isDropdownColumn) {
-      editDropdown.filter(editingCtx.editValue);
-    } else {
-      // Update suggestions only for plain text columns (not dropdown or unique)
-      const constraint = editKey ? columnConstraints[editKey] : undefined;
-      if ((!constraint || constraint.type === 'text') && !uiCtx.suggestionMenu.visible) {
-        autocomplete.updateSuggestions(assets, editKey ?? '', editingCtx.editValue);
-      }
-    }
   }
 
   function handleBlur() {
-    if (isDropdownColumn) {
-      cancelEdit();
+    if (editKey && isConstrained(editKey)) {
+      if (isValidOption(editKey, editingCtx.editValue.trim())) {
+        saveEdit();
+      } else {
+        cancelEdit();
+      }
       return;
     }
-    autocomplete.clear();
     saveEdit();
   }
 </script>
@@ -383,23 +340,8 @@
         style="overflow: hidden;"
       ></textarea>
       {#if uiCtx.suggestionMenu.visible}
-        <EditDropdownComponent
-          dropdown={editDropdown}
-          onSelect={(value) => {
-            editingCtx.editValue = value;
-            uiCtx.suggestionMenu.visible = false;
-            saveEdit();
-          }}
-        />
+        <SuggestionMenu />
       {/if}
-      <AutocompleteComponent
-        {autocomplete}
-        onSelect={(value) => {
-          editingCtx.editValue = value;
-          autocomplete.clear();
-          saveEdit();
-        }}
-      />
     </div>
   </div>
 {/if}
