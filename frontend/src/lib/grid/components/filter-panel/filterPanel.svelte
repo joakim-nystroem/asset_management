@@ -1,6 +1,7 @@
 <script lang="ts">
   import { queryStore } from '$lib/data/queryStore.svelte';
-  import { getUiContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
+  import { getUiContext } from '$lib/context/gridContext.svelte.ts';
+  import { clearAllFilters, removeFilter } from './filterPanel.svelte.ts';
 
   const uiCtx = getUiContext();
 </script>
@@ -17,10 +18,7 @@
     <h3 class="font-semibold text-sm text-neutral-900 dark:text-neutral-100">Active Filters</h3>
     {#if queryStore.filters.length > 0}
       <button
-        onclick={() => {
-          queryStore.filters = [];
-          setOpenPanel(uiCtx);
-        }}
+        onclick={() => clearAllFilters(uiCtx)}
         class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium cursor-pointer"
       >
         Clear All
@@ -47,9 +45,7 @@
               </div>
             </div>
             <button
-              onclick={() => {
-                queryStore.filters.splice(i, 1);
-              }}
+              onclick={() => removeFilter(i)}
               class="ml-2 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 cursor-pointer"
               aria-label="Remove filter"
             >

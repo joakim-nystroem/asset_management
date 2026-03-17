@@ -1,7 +1,7 @@
 <script lang="ts">
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
-  import { getUiContext, getSortContext } from '$lib/context/gridContext.svelte.ts';
+  import { getUiContext, getSortContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
 
   let {
     activeKey,
@@ -28,7 +28,7 @@
         (a, b) => String(a[key]).localeCompare(String(b[key])) * d
       );
     }
-    uiCtx.headerMenu.visible = false;
+    setOpenPanel(uiCtx);
   }
 
   // Local rendering state
@@ -37,18 +37,9 @@
   let menuElement: HTMLElement | undefined = $state(undefined);
   let submenuDirection = $state<'left' | 'right'>('right');
 
-  // Reset filter state when menu opens for a different column
-  $effect(() => {
-    if (activeKey) {
-      filterOpen = false;
-      filterSearchTerm = '';
-      submenuDirection = alignRight ? 'left' : 'right';
-    }
-  });
-
   // Refine submenu direction based on viewport
   $effect(() => {
-    if (activeKey && menuElement) {
+    if (menuElement) {
       const rect = menuElement.getBoundingClientRect();
       const SUBMENU_WIDTH = 192;
       if (rect.right + SUBMENU_WIDTH > window.innerWidth) {
@@ -58,9 +49,8 @@
   });
 </script>
 
-{#if activeKey}
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     bind:this={menuElement}
     data-panel="header-menu"
@@ -152,4 +142,3 @@
       {/if}
     </div>
   </div>
-{/if}
