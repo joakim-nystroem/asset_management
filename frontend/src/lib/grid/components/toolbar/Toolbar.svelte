@@ -18,6 +18,7 @@
   import { enqueue } from '$lib/grid/eventQueue/eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
   import { validateNewRow } from '$lib/grid/validation';
+  import { resetEditState } from './toolbar.svelte.ts';
 
   const pendingCtx = getPendingContext();
   const historyCtx = getHistoryContext();
@@ -101,14 +102,7 @@
       },
       { pendingCtx, newRowCtx },
     );
-    historyCtx.undoStack = [];
-    historyCtx.redoStack = [];
-    selCtx.pasteRange = null;
-    selCtx.selectionStart = { row: -1, col: '' };
-    selCtx.selectionEnd = { row: -1, col: '' };
-    selCtx.hideSelection = false;
-    clipCtx.copyStart = { row: -1, col: '' };
-    clipCtx.copyEnd = { row: -1, col: '' };
+    resetEditState(selCtx, clipCtx, historyCtx);
   }
 
   function navigateToError() {
@@ -230,6 +224,7 @@
                   },
                   { newRowCtx, pendingCtx },
                 );
+                resetEditState(selCtx, clipCtx, historyCtx);
               }}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
@@ -274,6 +269,7 @@
                   },
                   { pendingCtx },
                 );
+                resetEditState(selCtx, clipCtx, historyCtx);
               }}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
