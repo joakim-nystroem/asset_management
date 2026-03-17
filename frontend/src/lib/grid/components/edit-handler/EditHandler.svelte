@@ -304,6 +304,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Tab') { e.preventDefault(); return; }
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(); }
     else if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
   }
@@ -327,7 +328,7 @@
 </script>
 
 {#if editingCtx.isEditing}
-  <div class="absolute z-[60]" style={editorStyle}>
+  <div class="absolute z-[70]" style={editorStyle}>
     <div class="relative w-full h-full">
       <textarea
         bind:this={textareaRef}

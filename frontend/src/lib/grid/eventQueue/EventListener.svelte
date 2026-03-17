@@ -99,6 +99,7 @@
 
 <svelte:window
   onkeydown={(e) => {
+    if (e.key === 'Tab') { e.preventDefault(); }
     if (scrollSignalCtx.isAutoScrolling) {
       scrollSignalCtx.isAutoScrolling = false;
       return;

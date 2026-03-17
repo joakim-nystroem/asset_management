@@ -110,7 +110,7 @@
 {#if filteredOptions.length > 0}
   <div
     bind:this={menuRef}
-    class="absolute"
+    class="absolute bg-white dark:bg-slate-700 border border-blue-500 dark:border-blue-400 rounded shadow-lg"
     style="
       {showAbove ? 'bottom: 100%; margin-bottom: 2px;' : 'top: 100%; margin-top: 2px;'}
       left: 0;
