@@ -14,7 +14,7 @@
   // svelte-ignore state_referenced_locally
   assetStore.baseAssets = data.assets ?? [];
   // svelte-ignore state_referenced_locally
-  assetStore.filteredAssets = data.searchResults ?? data.assets ?? [];
+  assetStore.displayedAssets = data.searchResults ?? data.assets ?? [];
   // svelte-ignore state_referenced_locally
   assetStore.locations = data.locations ?? [];
   // svelte-ignore state_referenced_locally

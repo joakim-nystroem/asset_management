@@ -29,7 +29,7 @@ function createRealtimeManager() {
         localStateProvider = fn;
     }
 
-    function sendPositionUpdate(row: number, col: number, assetId?: number | string) {
+    function sendPositionUpdate(row: number, col: number, assetId?: number) {
         if (row === -1) return sendDeselect();
         send('USER_POSITION_UPDATE', { row, col, assetId });
     }
@@ -38,7 +38,7 @@ function createRealtimeManager() {
         send('USER_DESELECTED', {});
     }
 
-    function sendEditStart(assetId: number | string, key: string) {
+    function sendEditStart(assetId: number, key: string) {
         send('CELL_EDIT_START', { assetId, key });
     }
 
@@ -46,11 +46,11 @@ function createRealtimeManager() {
         send('CELL_EDIT_END', {});
     }
 
-    function sendCellPending(assetId: number | string, key: string, value: string) {
+    function sendCellPending(assetId: number, key: string, value: string) {
         send('CELL_PENDING', { assetId, key, value });
     }
 
-    function sendCellPendingClear(assetId: number | string, key: string) {
+    function sendCellPendingClear(assetId: number, key: string) {
         send('CELL_PENDING_CLEAR', { assetId, key });
     }
 

@@ -84,6 +84,7 @@ export function createKeyboardHandler(ctxs: KeyboardContexts) {
       toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
       return;
     }
+    setOpenPanel(uiCtx);
     const asset = getAssets().find((a: Record<string, any>) => a.id === row);
     const pendingEdit = pendingCtx.edits.find(e => e.row === row && e.col === col);
     editingCtx.editValue = pendingEdit ? pendingEdit.value : String(asset?.[col] ?? '');

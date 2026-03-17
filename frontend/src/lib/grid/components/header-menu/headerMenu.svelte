@@ -17,14 +17,14 @@
   function handleSort(key: string, direction: 'asc' | 'desc') {
     if (sortCtx.key === key && sortCtx.direction === direction) {
       sortCtx.key = null;
-      assetStore.filteredAssets = [...assetStore.filteredAssets].sort(
+      assetStore.displayedAssets = [...assetStore.displayedAssets].sort(
         (a, b) => Number(a.id) - Number(b.id)
       );
     } else {
       sortCtx.key = key;
       sortCtx.direction = direction;
       const d = direction === 'asc' ? 1 : -1;
-      assetStore.filteredAssets = [...assetStore.filteredAssets].sort(
+      assetStore.displayedAssets = [...assetStore.displayedAssets].sort(
         (a, b) => String(a[key]).localeCompare(String(b[key])) * d
       );
     }
@@ -121,7 +121,7 @@
           <div class="max-h-48 overflow-y-auto no-scrollbar">
             {#each [...new Set(
                 (queryStore.filters.some(f => f.key !== activeKey)
-                  ? assetStore.filteredAssets
+                  ? assetStore.displayedAssets
                   : assetStore.baseAssets
                 ).map((a: Record<string, any>) => String(a[activeKey] ?? '')).filter(Boolean)
               )]

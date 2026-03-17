@@ -24,7 +24,7 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
   let hoveredUser: number | null = $state(null);
 
   // --- Derived data ---
-  const assets = $derived(assetStore.filteredAssets);
+  const assets = $derived(assetStore.displayedAssets);
   const keys = $derived(Object.keys(assets[0] ?? {}));
 
   // --- Column width helper ---

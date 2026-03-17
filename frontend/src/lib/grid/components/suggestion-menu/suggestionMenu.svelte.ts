@@ -42,7 +42,7 @@ export function filterOptions(
     return allOptions.filter(opt => opt.toLowerCase().includes(lower));
   }
 
-  // Free text: exclude exact match, prioritize starts-with, limit results
+  // Free text: exclude exact match, prioritize starts-with
   return allOptions
     .filter(opt =>
       opt.toLowerCase().includes(lower) &&
@@ -54,8 +54,7 @@ export function filterOptions(
       if (aStarts && !bStarts) return -1;
       if (!aStarts && bStarts) return 1;
       return a.localeCompare(b);
-    })
-    .slice(0, 6);
+    });
 }
 
 /** Get tab-cycle matches from the original typed text. */

@@ -169,7 +169,7 @@ async function handleCommitUpdate(
 
   // Apply committed values to the live assets
   for (const change of changes) {
-    const filtered = assetStore.filteredAssets.find((a: any) => a.id === change.row);
+    const filtered = assetStore.displayedAssets.find((a: any) => a.id === change.row);
     if (filtered) filtered[change.col] = change.value;
     const base = assetStore.baseAssets.find((a: any) => a.id === change.row);
     if (base) base[change.col] = change.value;
@@ -198,15 +198,24 @@ async function handleCommitCreate(
     return fields;
   });
 
+  console.log('[CommitCreate] rows payload:', JSON.stringify(rows));
+  console.log('[CommitCreate] rowsToSave:', JSON.stringify(rowsToSave));
   const res = await apiPost('/api/create/asset', rowsToSave);
+  console.log('[CommitCreate] response:', JSON.stringify(res));
   if (!res.success) {
     toastState.addToast('Failed to save new rows.', 'error');
     return;
   }
 
+  const { pendingCtx } = contexts;
   newRowCtx.newRows = [];
   newRowCtx.hasNewRows = false;
-  assetStore.baseAssets = assetStore.filteredAssets.map((a: Record<string, any>) => ({ ...a }));
+  if (pendingCtx) pendingCtx.edits = [];
+
+  // Refetch full data — new rows stay visible until overwritten
+  const refetch = await apiFetch('/api/assets', new URLSearchParams({ view: 'default' }));
+  assetStore.baseAssets = refetch.success ? refetch.data.assets : assetStore.displayedAssets.filter((a: any) => a.id > 0);
+  assetStore.displayedAssets = refetch.success ? refetch.data.assets : assetStore.baseAssets;
   toastState.addToast(`${rows.length} new rows saved successfully.`, 'success');
 }
 
@@ -234,10 +243,10 @@ async function handleQuery(
   }
 
   if (hasFilters) {
-    assetStore.filteredAssets = res.data.assets;
+    assetStore.displayedAssets = res.data.assets;
   } else {
     assetStore.baseAssets = res.data.assets;
-    assetStore.filteredAssets = res.data.assets;
+    assetStore.displayedAssets = res.data.assets;
   }
 }
 
@@ -256,6 +265,7 @@ function handleDiscard(
   pendingCtx.edits = [];
   newRowCtx.newRows = [];
   newRowCtx.hasNewRows = false;
+  assetStore.displayedAssets = assetStore.displayedAssets.filter((a: any) => a.id > 0);
   realtime.sendPendingClearAll();
   toastState.addToast('Changes discarded.', 'info');
 }
@@ -264,7 +274,7 @@ function handleDiscard(
 
 function handlePositionUpdate(payload: Record<string, any>): void {
   const { assetId, key } = payload;
-  const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
+  const keys = Object.keys(assetStore.displayedAssets[0] ?? {});
   const colIdx = keys.indexOf(key);
   if (colIdx === -1) return;
   realtime.sendPositionUpdate(assetId, colIdx, assetId);
@@ -286,7 +296,7 @@ function handleWsExistingUsers(
     locksByUser.set(lock.userId, { assetId, key });
   }
 
-  const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
+  const keys = Object.keys(assetStore.displayedAssets[0] ?? {});
   const entries: typeof presenceStore.users = [];
   for (const [, user] of Object.entries(users) as [string, any][]) {
     const lock = locksByUser.get(String(user.userId));
@@ -324,7 +334,7 @@ function handleWsUserPositionUpdate(
   contexts: Record<string, any>,
 ): void {
   const userId = Number(payload.userId);
-  const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
+  const keys = Object.keys(assetStore.displayedAssets[0] ?? {});
   const colKey = keys[payload.col] ?? '';
   const assetId = payload.assetId ?? payload.row ?? -1;
   const existing = presenceStore.users.find((u: any) => u.id === userId);
@@ -444,7 +454,7 @@ function handleWsCommitBroadcast(
     const key = change.key;
     const value = change.value;
 
-    const filtered = assetStore.filteredAssets.find((a: any) => a.id === assetId);
+    const filtered = assetStore.displayedAssets.find((a: any) => a.id === assetId);
     if (filtered) filtered[key] = value;
     const base = assetStore.baseAssets.find((a: any) => a.id === assetId);
     if (base) base[key] = value;

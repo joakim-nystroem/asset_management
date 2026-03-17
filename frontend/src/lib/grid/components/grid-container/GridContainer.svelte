@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getColumnWidthContext, getUiContext, getNewRowContext } from '$lib/context/gridContext.svelte.ts';
+  import { getColumnWidthContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   import GridRow from '$lib/grid/components/grid-row/GridRow.svelte';
@@ -11,10 +11,8 @@
 
   const uiCtx = getUiContext();
   const colWidthCtx = getColumnWidthContext();
-  const newRowCtx = getNewRowContext();
 
-  const assets = $derived([...assetStore.filteredAssets, ...newRowCtx.newRows]);
-  const keys = $derived(Object.keys(assets[0] ?? {}));
+  const keys = $derived(Object.keys(assetStore.displayedAssets[0] ?? {}));
 
   // Scroll state — bound to VirtualScrollManager
   let scrollTop = $state(0);
@@ -41,12 +39,12 @@
 
   // Visible items slice
   const visibleItems = $derived(
-    assets.slice(visibleRange.startIndex, visibleRange.endIndex)
+    assetStore.displayedAssets.slice(visibleRange.startIndex, visibleRange.endIndex)
   );
 
 </script>
 
-{#if assets.length > 0}
+{#if assetStore.displayedAssets.length > 0}
   <div
     class="rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md relative select-none focus:outline-none overflow-hidden"
     tabindex="-1"
@@ -63,7 +61,7 @@
       bind:scrollTop
       bind:scrollLeft
       bind:visibleRange
-      rowCount={assets.length}
+      rowCount={assetStore.displayedAssets.length}
       {contentWidth}
       height="calc(100dvh - 8.9rem - 32px)"
     >
@@ -90,7 +88,7 @@
     {/if}
   </div>
   <p class="mt-2 ml-1 text-sm text-neutral-600 dark:text-neutral-300">
-    Showing {assets.length} items.
+    Showing {assetStore.displayedAssets.length} items.
   </p>
 {:else}
   <div

@@ -62,7 +62,6 @@
   // ─── WS BRIDGE: outbound edit lock ────────────────────────────────────────
   $effect(() => {
     if (editingCtx.isEditing && editingCtx.editRow !== -1 && editingCtx.editCol !== '') {
-      setOpenPanel(uiCtx);
       enqueue({ type: 'CELL_EDIT_START', payload: { assetId: editingCtx.editRow, key: editingCtx.editCol } }, {});
     }
   });

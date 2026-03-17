@@ -5,7 +5,7 @@
 
 export const assetStore = $state({
   baseAssets: [] as Record<string, any>[],
-  filteredAssets: [] as Record<string, any>[],
+  displayedAssets: [] as Record<string, any>[],
   locations: [] as string[],
   statuses: [] as string[],
   conditions: [] as string[],
