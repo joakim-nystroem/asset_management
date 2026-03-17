@@ -178,7 +178,7 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
     {@const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim()}
     {#if otherOverlay}
       <div
-        class="absolute pointer-events-none z-[15]"
+        class="absolute pointer-events-none z-[40]"
         style="
             top: {otherOverlay.top}px;
             left: {otherOverlay.left}px;
@@ -218,7 +218,7 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
   <!-- Other users' pending cells (blue shading + lock icon) -->
   {#each pendingCellOverlays as cell}
     <div
-      class="absolute pointer-events-none z-[14] flex items-center"
+      class="absolute pointer-events-none z-[41] flex items-center"
       style="
         top: {cell.top}px;
         left: {cell.left}px;
@@ -238,7 +238,7 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
   <!-- Copy overlay -->
   {#if copyOverlay}
     <div
-      class="absolute pointer-events-none z-10 border-blue-600 dark:border-blue-500"
+      class="absolute pointer-events-none z-[10] border-blue-600 dark:border-blue-500"
       style="
       top: {copyOverlay.top}px;
       left: {copyOverlay.left}px;
@@ -255,7 +255,7 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
   <!-- Paste range overlay -->
   {#if pasteOverlay}
     <div
-      class="absolute pointer-events-none z-[11] border-green-500 dark:border-green-400"
+      class="absolute pointer-events-none z-[30] border-green-500 dark:border-green-400"
       style="
       top: {pasteOverlay.top}px;
       left: {pasteOverlay.left}px;
@@ -272,11 +272,11 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
   <!-- Dirty cell overlays -->
   {#each dirtyCellOverlays as cell}
     <div
-      class="absolute pointer-events-none z-[89] bg-white dark:bg-slate-800"
+      class="absolute pointer-events-none z-[20] bg-white dark:bg-slate-800"
       style="top: {cell.top}px; left: {cell.left}px; width: {cell.width}px; height: {cell.height}px;"
     ></div>
     <div
-      class="absolute pointer-events-none flex items-center px-1.5 text-xs truncate text-neutral-700 dark:text-neutral-200 z-[90]
+      class="absolute pointer-events-none flex items-center px-1.5 text-xs truncate text-neutral-700 dark:text-neutral-200 z-[21]
         {cell.isValid ? 'bg-green-400/20 dark:bg-green-400/10' : 'bg-yellow-400/20 dark:bg-yellow-400/10'}
         {cell.borderTop ? (cell.isValid ? 'border-t-2 border-t-green-400 dark:border-t-green-600' : 'border-t-2 border-t-yellow-500 dark:border-t-yellow-600') : 'border-t border-t-neutral-200 dark:border-t-slate-700'}
         {cell.borderBottom ? (cell.isValid ? 'border-b-2 border-b-green-400 dark:border-b-green-600' : 'border-b-2 border-b-yellow-500 dark:border-b-yellow-600') : 'border-b border-b-neutral-200 dark:border-b-slate-700'}
@@ -292,7 +292,7 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
   <!-- Selection overlay -->
   {#if selectionOverlay && selCtx.selectionStart.row !== -1 && !selCtx.hideSelection}
     <div
-      class="absolute pointer-events-none z-[91] border-blue-600 dark:border-blue-500 bg-blue-900/10"
+      class="absolute pointer-events-none z-[31] border-blue-600 dark:border-blue-500 bg-blue-900/10"
       style="
           top: {selectionOverlay.top}px;
           left: {selectionOverlay.left}px;

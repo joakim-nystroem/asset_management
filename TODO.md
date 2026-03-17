@@ -97,28 +97,36 @@
 - wbd_tag
 - serial_number
 
-## Z-Index Map (cleanup needed)
+## Z-Index Map
 
-| z-index | Component | Element | Notes |
-|---------|-----------|---------|-------|
-| 10 | GridContainer | Header wrapper | `relative z-10` |
-| 10 | GridOverlays | Copy overlay | Dashed blue border |
-| 11 | GridOverlays | Paste range overlay | Dashed green border |
-| 14 | GridOverlays | Other users' pending cells | Blue shading + lock icon |
-| 15 | GridOverlays | Other user cursors | Border + initials badge |
-| 20 | GridHeader | Sticky header row | `sticky top-0 z-20` |
-| 40 | Toolbar | View dropdown backdrop | `fixed inset-0 z-40` |
-| 50 | Toolbar | View dropdown menu | |
-| 50 | GridHeader | Column resize handle | |
-| 50 | HeaderMenu | Menu + submenu | |
-| 50 | FilterPanel | Panel | |
-| 60 | ContextMenu | Fixed menu | `z-[60]` |
-| 89 | GridOverlays | Dirty cell opaque bg | Covers original cell text |
-| 90 | GridOverlays | Dirty cell value + border | Green/yellow overlay |
-| 91 | GridOverlays | Selection overlay | Blue border |
-| 95 | GridRow | Validation error tooltip | Red tooltip on hover |
-| 100 | EditHandler | Editor container | Textarea + dropdowns |
-| 200 | EditDropdown | Dropdown list | Inside editor |
-| 200 | Autocomplete | Suggestion list | Inside editor |
-| 200 | CustomScrollbar | Scrollbar tracks + corner | |
-| 9999 | VirtualScrollManager | Auto-scroll indicator | `fixed z-[9999]` |
+Groups separated by 10. Sub-items at +1 within group.
+
+### Inside grid (absolute, within overflow-hidden)
+| z | Group | Element | Component |
+|---|-------|---------|-----------|
+| 10 | Copy indicator | Copy overlay (dashed blue) | GridOverlays |
+| 20 | Local cell state | Dirty cell opaque bg | GridOverlays |
+| 21 | | Dirty cell value + border | GridOverlays |
+| 30 | Selection/paste | Paste overlay (dashed green) | GridOverlays |
+| 31 | | Selection overlay (blue) | GridOverlays |
+| 40 | Remote presence | Other user cursors | GridOverlays |
+| 41 | | Other users' pending cells | GridOverlays |
+| 50 | Cell UI | Validation error tooltip | GridRow |
+| 60 | Editor | EditHandler + SuggestionMenu | EditHandler |
+| 70 | Scrollbars | CustomScrollbar tracks + corner | CustomScrollbar |
+
+### Header (relative z-10, own stacking context)
+| z | Element | Component |
+|---|---------|-----------|
+| 20 | Sticky header row | GridHeader |
+| 50 | Column resize handle | GridHeader |
+| 50 | HeaderMenu + submenu | HeaderMenu |
+
+### Fixed (viewport-level)
+| z | Element | Component |
+|---|---------|-----------|
+| 40 | View dropdown backdrop | Toolbar |
+| 50 | View dropdown menu | Toolbar |
+| 50 | FilterPanel | FilterPanel |
+| 60 | ContextMenu | ContextMenu |
+| 100 | Auto-scroll indicator | VirtualScrollManager |

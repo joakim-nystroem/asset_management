@@ -106,7 +106,7 @@
   >
     <span class="truncate w-full">{key === 'id' && asset[key] < -1000 ? `NEW-${Math.abs(asset[key]) - 1000}` : asset[key]}</span>
     {#if getCellError(key)}
-      <div class="absolute top-full right-3 mt-1 z-[95] pointer-events-none opacity-0 group-hover/cell:opacity-100 transition-opacity whitespace-nowrap bg-red-600 text-white text-xs px-2 py-1 rounded shadow-lg">
+      <div class="absolute top-full right-3 mt-1 z-[50] pointer-events-none opacity-0 group-hover/cell:opacity-100 transition-opacity whitespace-nowrap bg-red-600 text-white text-xs px-2 py-1 rounded shadow-lg">
         {getCellError(key)}
         <div class="absolute bottom-full right-9 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-red-600"></div>
       </div>

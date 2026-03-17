@@ -327,7 +327,7 @@
 </script>
 
 {#if editingCtx.isEditing}
-  <div class="absolute z-[100]" style={editorStyle}>
+  <div class="absolute z-[60]" style={editorStyle}>
     <div class="relative w-full h-full">
       <textarea
         bind:this={textareaRef}

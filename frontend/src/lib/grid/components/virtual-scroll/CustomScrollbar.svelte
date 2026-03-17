@@ -151,7 +151,7 @@
   {#if vertical && scroll.vVisible}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="absolute top-0 right-0 z-[200] bg-neutral-200 dark:bg-slate-700"
+      class="absolute top-0 right-0 z-[70] bg-neutral-200 dark:bg-slate-700"
       style="width: {trackSize}px; height: {horizontal && scroll.hVisible ? `calc(100% - ${trackSize}px)` : '100%'};"
       onmousedown={onVTrackClick}
     >
@@ -169,7 +169,7 @@
   {#if horizontal && scroll.hVisible}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="absolute bottom-0 left-0 z-[200] bg-neutral-200 dark:bg-slate-700"
+      class="absolute bottom-0 left-0 z-[70] bg-neutral-200 dark:bg-slate-700"
       style="height: {trackSize}px; width: {vertical && scroll.vVisible ? `calc(100% - ${trackSize}px)` : '100%'};"
       onmousedown={onHTrackClick}
     >
@@ -186,7 +186,7 @@
   <!-- Corner square where both scrollbars meet -->
   {#if vertical && scroll.vVisible && horizontal && scroll.hVisible}
     <div
-      class="absolute bottom-0 right-0 z-[200] bg-neutral-200 dark:bg-slate-700"
+      class="absolute bottom-0 right-0 z-[70] bg-neutral-200 dark:bg-slate-700"
       style="width: {trackSize}px; height: {trackSize}px;"
     ></div>
   {/if}

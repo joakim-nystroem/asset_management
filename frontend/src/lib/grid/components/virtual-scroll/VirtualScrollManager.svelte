@@ -180,7 +180,7 @@
 
 {#if scrollSignalCtx.isAutoScrolling}
   <div
-    class="fixed z-[9999] pointer-events-none -translate-x-1/2 -translate-y-1/2
+    class="fixed z-[100] pointer-events-none -translate-x-1/2 -translate-y-1/2
       w-7 h-7 rounded-full border border-neutral-300 dark:border-slate-600
       bg-white/90 dark:bg-slate-800/90 shadow-md flex items-center justify-center"
     style="left: {autoScrollOriginX}px; top: {autoScrollOriginY}px;"
