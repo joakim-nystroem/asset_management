@@ -29,6 +29,7 @@
     isRedoing: false,
     editRow: -1,
     editCol: '',
+    editValue: '',
   });
   setEditingContext(editingCtx);
 
@@ -83,6 +84,7 @@
     filterPanel: { visible: false },
     headerMenu: { visible: false, activeKey: '' },
     contextMenu: { visible: false, x: 0, y: 0, row: -1, col: '', value: '' },
+    suggestionMenu: { visible: false },
   });
   setUiContext(uiCtx);
 

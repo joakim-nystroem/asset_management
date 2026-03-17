@@ -14,16 +14,17 @@ export type EditingContext = {
   isRedoing: boolean;
   editRow: number;
   editCol: string;
+  editValue: string;
 };
 
 // 2. Pending changes buffer (dirty edits between save and commit)
 export type PendingContext = {
-  edits: { row: number | string; col: string; original: string; value: string; isValid: boolean; validationError: string | null }[];
+  edits: { row: number; col: string; original: string; value: string; isValid: boolean; validationError: string | null }[];
 };
 
 // 3. Undo/Redo stack
 export type HistoryAction = {
-  id: number | string;
+  id: number;
   key: string;
   oldValue: string;
   newValue: string;
@@ -77,18 +78,21 @@ export type UiContext = {
   filterPanel: { visible: boolean };
   headerMenu: { visible: boolean; activeKey: string };
   contextMenu: { visible: boolean; x: number; y: number; row: number; col: string; value: string };
+  suggestionMenu: { visible: boolean };
 };
 
 export function resetEditing(ctx: EditingContext) {
   ctx.isEditing = false;
   ctx.editRow = -1;
   ctx.editCol = '';
+  ctx.editValue = '';
 }
 
-export function setOpenPanel(uiCtx: UiContext, panel?: 'contextMenu' | 'headerMenu' | 'filterPanel') {
+export function setOpenPanel(uiCtx: UiContext, panel?: 'contextMenu' | 'headerMenu' | 'filterPanel' | 'suggestionMenu') {
   if (panel !== 'contextMenu' && uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
   if (panel !== 'headerMenu' && uiCtx.headerMenu.visible) { uiCtx.headerMenu.activeKey = ''; uiCtx.headerMenu.visible = false; }
   if (panel !== 'filterPanel' && uiCtx.filterPanel.visible) uiCtx.filterPanel.visible = false;
+  if (panel !== 'suggestionMenu' && uiCtx.suggestionMenu.visible) uiCtx.suggestionMenu.visible = false;
 }
 
 // 11. Column width overrides (drag-resize)

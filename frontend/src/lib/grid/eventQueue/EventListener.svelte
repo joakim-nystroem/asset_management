@@ -28,7 +28,7 @@
   const scrollSignalCtx = getScrollSignalContext();
   const pendingCtx = getPendingContext();
   const handleKeyDown = createKeyboardHandler({
-    editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx,
+    editingCtx, pendingCtx, selCtx, clipCtx, uiCtx, colWidthCtx,
   });
 
   // ─── CLIENT_STATE provider for reconnect ─────────────────────────────────

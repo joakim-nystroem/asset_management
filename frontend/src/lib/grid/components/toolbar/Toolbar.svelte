@@ -17,6 +17,7 @@
   import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
   import { enqueue } from '$lib/grid/eventQueue/eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
+  import { validateNewRow } from '$lib/grid/validation';
 
   const pendingCtx = getPendingContext();
   const historyCtx = getHistoryContext();
@@ -78,19 +79,20 @@
       toastState.addToast('Commit or discard pending changes before adding new rows.', 'warning');
       return;
     }
-    const keys = Object.keys(assetStore.filteredAssets[0] ?? {});
-    const newRow: Record<string, any> = { id: `NEW-${newRowCtx.newRows.length + 1}` };
+    const keys = Object.keys(assetStore.displayedAssets[0] ?? {});
+    const newRow: Record<string, any> = { id: -(1001 + newRowCtx.newRows.length) };
     for (const key of keys) {
       if (key !== 'id') newRow[key] = '';
     }
     newRowCtx.newRows = [...newRowCtx.newRows, newRow];
     newRowCtx.hasNewRows = true;
-    scrollSignalCtx.scrollToRow = assetStore.filteredAssets.length + newRowCtx.newRows.length - 1;
+    assetStore.displayedAssets = [...assetStore.displayedAssets, newRow];
+    scrollSignalCtx.scrollToRow = assetStore.displayedAssets.length - 1;
   }
 
   function handleDiscard() {
     if (newRowCtx.hasNewRows) {
-      scrollSignalCtx.scrollToRow = Math.max(0, assetStore.filteredAssets.length - 1);
+      scrollSignalCtx.scrollToRow = Math.max(0, assetStore.displayedAssets.length - 1);
     }
     enqueue(
       {
@@ -113,7 +115,7 @@
     const invalidEdit = pendingCtx.edits.find((e) => !e.isValid);
     if (!invalidEdit) return;
 
-    const assets = assetStore.filteredAssets;
+    const assets = assetStore.displayedAssets;
     const rowIndex = assets.findIndex((a: any) => a.id === invalidEdit.row);
     if (rowIndex < 0) return;
 
@@ -198,23 +200,35 @@
             <span>New Row</span>
           </button>
         {/if}
-        {#if pendingCtx.edits.length > 0 && user}
+        {#if newRowCtx.hasNewRows && user}
           <div class="flex gap-2 items-center">
             <button
               onclick={() => {
-                if (pendingCtx.edits.some((e) => !e.isValid)) {
-                  toastState.addToast('Fix invalid cells before committing', 'warning');
-                  return;
+                // Merge pending edits into new row objects before sending
+                const newRows = newRowCtx.newRows.map((row: any) => {
+                  const merged = { ...row };
+                  for (const edit of pendingCtx.edits) {
+                    if (edit.row === row.id) merged[edit.col] = edit.value;
+                  }
+                  return merged;
+                });
+                // Validate each merged row before committing
+                for (const row of newRows) {
+                  const result = validateNewRow(row, pendingCtx.edits);
+                  if (!result.isValid) {
+                    toastState.addToast(`Fix invalid cells before committing: ${result.errors[0]}`, 'warning');
+                    return;
+                  }
                 }
                 enqueue(
                   {
-                    type: 'COMMIT_UPDATE',
+                    type: 'COMMIT_CREATE',
                     payload: {
-                      changes: $state.snapshot(pendingCtx.edits),
+                      rows: $state.snapshot(newRows),
                       user,
                     },
                   },
-                  { pendingCtx },
+                  { newRowCtx, pendingCtx },
                 );
               }}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
@@ -242,19 +256,25 @@
               </div>
             {/if}
           </div>
-        {:else if newRowCtx.hasNewRows && user}
+        {:else if pendingCtx.edits.length > 0 && user}
           <div class="flex gap-2 items-center">
             <button
-              onclick={() => enqueue(
-                {
-                  type: 'COMMIT_CREATE',
-                  payload: {
-                    rows: $state.snapshot(newRowCtx.newRows),
-                    user,
+              onclick={() => {
+                if (pendingCtx.edits.some((e) => !e.isValid)) {
+                  toastState.addToast('Fix invalid cells before committing', 'warning');
+                  return;
+                }
+                enqueue(
+                  {
+                    type: 'COMMIT_UPDATE',
+                    payload: {
+                      changes: $state.snapshot(pendingCtx.edits),
+                      user,
+                    },
                   },
-                },
-                { newRowCtx },
-              )}
+                  { pendingCtx },
+                );
+              }}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
               Commit

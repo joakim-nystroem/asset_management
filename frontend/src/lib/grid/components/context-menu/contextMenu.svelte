@@ -27,6 +27,11 @@
       onclick={() => {
         const row = uiCtx.contextMenu.row;
         const col = uiCtx.contextMenu.col;
+        if (col === 'id') {
+          toastState.addToast('ID column cannot be edited.', 'warning');
+          close();
+          return;
+        }
         const lock = presenceStore.users.find(u => u.row === row && u.col === col && u.isLocked);
         if (lock) {
           toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');
@@ -42,6 +47,7 @@
         close();
         selCtx.selectionStart = { row, col };
         selCtx.selectionEnd = { row, col };
+        editingCtx.editValue = uiCtx.contextMenu.value;
         editingCtx.isEditing = true;
         editingCtx.editRow = row;
         editingCtx.editCol = col;

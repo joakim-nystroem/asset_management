@@ -6,7 +6,7 @@ import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
  * Compute the absolute pixel position of EditHandler within the scroll viewport.
  *
  * @param editRowId - Asset ID (from editingCtx.editRow)
- * @param assets - Current filteredAssets array (for ID → index conversion)
+ * @param assets - Current displayedAssets array (for ID → index conversion)
  */
 export function computeEditorPosition(
   editRowId: number,

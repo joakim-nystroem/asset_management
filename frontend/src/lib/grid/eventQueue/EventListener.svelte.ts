@@ -1,5 +1,6 @@
 import type {
   EditingContext,
+  PendingContext,
   SelectionContext,
   ClipboardContext,
   UiContext,
@@ -14,6 +15,7 @@ import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
 type KeyboardContexts = {
   editingCtx: EditingContext;
+  pendingCtx: PendingContext;
   selCtx: SelectionContext;
   clipCtx: ClipboardContext;
   uiCtx: UiContext;
@@ -21,11 +23,11 @@ type KeyboardContexts = {
 };
 
 export function createKeyboardHandler(ctxs: KeyboardContexts) {
-  const { editingCtx, selCtx, clipCtx, uiCtx, colWidthCtx } = ctxs;
+  const { editingCtx, pendingCtx, selCtx, clipCtx, uiCtx, colWidthCtx } = ctxs;
   const scrollSignalCtx = getScrollSignalContext();
 
   function getAssets() {
-    return assetStore.filteredAssets;
+    return assetStore.displayedAssets;
   }
 
   function getKeys() {
@@ -82,6 +84,9 @@ export function createKeyboardHandler(ctxs: KeyboardContexts) {
       toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
       return;
     }
+    const asset = getAssets().find((a: Record<string, any>) => a.id === row);
+    const pendingEdit = pendingCtx.edits.find(e => e.row === row && e.col === col);
+    editingCtx.editValue = pendingEdit ? pendingEdit.value : String(asset?.[col] ?? '');
     editingCtx.isEditing = true;
     editingCtx.editRow = row;
     editingCtx.editCol = col;

@@ -74,6 +74,8 @@
       selCtx.selectionStart = { row: asset.id, col: key };
       selCtx.selectionEnd = { row: asset.id, col: key };
       selCtx.hideSelection = false;
+      const pendingEdit = pendingCtx.edits.find(e => e.row === asset.id && e.col === key);
+      editingCtx.editValue = pendingEdit ? pendingEdit.value : String(asset[key] ?? '');
       editingCtx.isEditing = true;
       editingCtx.editRow = asset.id;
       editingCtx.editCol = key;
@@ -98,10 +100,11 @@
       uiCtx.contextMenu.y = e.clientY + estimatedHeight > window.innerHeight ? Math.max(4, window.innerHeight - estimatedHeight - 8) : e.clientY;
       uiCtx.contextMenu.row = asset.id;
       uiCtx.contextMenu.col = key;
-      uiCtx.contextMenu.value = String(asset[key] ?? '');
+      const ctxPending = pendingCtx.edits.find(e => e.row === asset.id && e.col === key);
+      uiCtx.contextMenu.value = ctxPending ? ctxPending.value : String(asset[key] ?? '');
     }}
   >
-    <span class="truncate w-full">{asset[key]}</span>
+    <span class="truncate w-full">{key === 'id' && asset[key] < -1000 ? `NEW-${Math.abs(asset[key]) - 1000}` : asset[key]}</span>
     {#if getCellError(key)}
       <div class="absolute top-full right-3 mt-1 z-[95] pointer-events-none opacity-0 group-hover/cell:opacity-100 transition-opacity whitespace-nowrap bg-red-600 text-white text-xs px-2 py-1 rounded shadow-lg">
         {getCellError(key)}
