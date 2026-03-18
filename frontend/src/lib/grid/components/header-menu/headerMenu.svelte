@@ -1,6 +1,7 @@
 <script lang="ts">
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
+  import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { getUiContext, getSortContext, getPendingContext, getNewRowContext, getSelectionContext, getClipboardContext, getHistoryContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
   import { toggleFilter } from './headerMenu.svelte.ts';
 
@@ -45,12 +46,11 @@
 
   // Refine submenu direction based on viewport
   $effect(() => {
-    if (menuElement) {
+    const _scrollLeft = scrollStore.scrollLeft;
+    if (menuElement && !filterOpen) {
       const rect = menuElement.getBoundingClientRect();
       const SUBMENU_WIDTH = 192;
-      if (rect.right + SUBMENU_WIDTH > window.innerWidth) {
-        submenuDirection = 'left';
-      }
+      submenuDirection = rect.right + SUBMENU_WIDTH > window.innerWidth ? 'left' : 'right';
     }
   });
 </script>
@@ -102,7 +102,7 @@
       {#if filterOpen}
         {@const focusOnInit = (node: HTMLElement) => { node.focus(); }}
         <div
-          class="absolute z-50 top-0 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm min-w-48 {submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}"
+          class="absolute z-50 top-0 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm w-48 {submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}"
         >
           <div class="px-2 py-1 border-b border-neutral-200 dark:border-slate-700 mb-1">
             <input

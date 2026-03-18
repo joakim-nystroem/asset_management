@@ -1,9 +1,33 @@
 <script lang="ts">
   import { getUiContext, getSortContext, getColumnWidthContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
+  import { assetStore } from '$lib/data/assetStore.svelte';
   import HeaderMenu from '$lib/grid/components/header-menu/headerMenu.svelte';
 
   import { DEFAULT_WIDTH, MIN_COLUMN_WIDTH } from '$lib/grid/gridConfig';
+
+  // Offscreen canvas for auto-fit column width measurement.
+  // Font must match grid cell style: text-xs (12px) in GridRow.svelte
+  let measureCtx: CanvasRenderingContext2D | null = null;
+
+  function getMeasureCtx(): CanvasRenderingContext2D {
+    if (!measureCtx) {
+      measureCtx = document.createElement('canvas').getContext('2d')!;
+      measureCtx.font = '12px system-ui, -apple-system, sans-serif';
+    }
+    return measureCtx;
+  }
+
+  function autoFitWidth(key: string): number {
+    const ctx = getMeasureCtx();
+    let maxWidth = 0;
+    for (const asset of assetStore.displayedAssets) {
+      const w = ctx.measureText(String(asset[key] ?? '')).width;
+      if (w > maxWidth) maxWidth = w;
+    }
+    // px-2 padding (16px) + buffer for borders/sort icon
+    return Math.max(DEFAULT_WIDTH, Math.ceil(maxWidth + 36));
+  }
 
   const uiCtx = getUiContext();
   const sortCtx = getSortContext();
@@ -105,7 +129,11 @@
         onmousedown={(e) => startResize(key, e)}
         ondblclick={(e) => {
           e.stopPropagation();
-          colWidthCtx.widths.delete(key);
+          if (colWidthCtx.widths.has(key)) {
+            colWidthCtx.widths.delete(key);
+          } else {
+            colWidthCtx.widths.set(key, autoFitWidth(key));
+          }
         }}
       ></div>
 

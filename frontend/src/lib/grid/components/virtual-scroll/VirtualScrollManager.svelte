@@ -38,6 +38,10 @@
   // --- Keep scrollbar content dimensions in sync ---
   $effect(() => {
     scrollbar.setDimensions(contentWidth, contentHeight, scrollbar.viewportWidth, scrollbar.viewportHeight);
+    // Re-clamp scroll position after dimension change (e.g. column resize shrinks content)
+    scrollbar.setScroll(scrollbar.scrollTop, scrollbar.scrollLeft);
+    scrollStore.scrollTop = scrollbar.scrollTop;
+    scrollStore.scrollLeft = scrollbar.scrollLeft;
   });
 
   // --- Derive visible range ---
