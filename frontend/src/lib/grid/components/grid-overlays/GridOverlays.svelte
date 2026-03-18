@@ -5,10 +5,14 @@
     getClipboardContext,
     getColumnWidthContext,
   } from '$lib/context/gridContext.svelte.ts';
-import { presenceStore } from '$lib/data/presenceStore.svelte';
+  import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
-
-  import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+  import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+  import {
+    computeVisualOverlay,
+    computeLocalPendingOverlays,
+    computeRemotePendingOverlays,
+  } from './gridOverlays.svelte.ts';
 
   let { scrollTop, visibleRange }: {
     scrollTop: number;
@@ -25,146 +29,33 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
 
   // --- Derived data ---
   const assets = $derived(assetStore.displayedAssets);
-  const keys = $derived(Object.keys(assets[0] ?? {}));
-
-  // --- Column width helper ---
-  function getWidth(key: string): number {
-    return colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH;
-  }
-
-  // --- Asset ID → array index helper ---
-  function assetIndex(id: number): number {
-    return assets.findIndex((a: Record<string, any>) => a.id === id);
-  }
-
-  // --- Overlay computation ---
-  function computeVisualOverlay(
-    start: { row: number; col: string },
-    end: { row: number; col: string },
-  ) {
-    const { startIndex, endIndex } = visibleRange;
-    const rowHeight = DEFAULT_ROW_HEIGHT;
-
-    const startRowIdx = assetIndex(start.row);
-    const endRowIdx = assetIndex(end.row);
-    if (startRowIdx === -1 || endRowIdx === -1) return null;
-
-    const startColIdx = keys.indexOf(start.col);
-    const endColIdx = keys.indexOf(end.col);
-    if (startColIdx === -1 || endColIdx === -1) return null;
-
-    const minRow = Math.min(startRowIdx, endRowIdx);
-    const maxRow = Math.max(startRowIdx, endRowIdx);
-    const minCol = Math.min(startColIdx, endColIdx);
-    const maxCol = Math.max(startColIdx, endColIdx);
-
-    const clampedMinRow = Math.max(minRow, startIndex);
-    const clampedMaxRow = Math.min(maxRow, endIndex - 1);
-    if (clampedMinRow > clampedMaxRow) return null;
-
-    let left = 0;
-    for (let c = 0; c < minCol; c++) left += getWidth(keys[c]);
-    let width = 0;
-    for (let c = minCol; c <= maxCol; c++) width += getWidth(keys[c]);
-
-    const top = clampedMinRow * rowHeight - scrollTop;
-    const height = (clampedMaxRow - clampedMinRow + 1) * rowHeight;
-
-    return {
-      top, left, width, height,
-      showTopBorder: minRow >= startIndex,
-      showBottomBorder: maxRow < endIndex,
-      showLeftBorder: true,
-      showRightBorder: true,
-    };
-  }
 
   // --- Overlay derivations ---
   const selectionOverlay = $derived(
-    computeVisualOverlay(selCtx.selectionStart, selCtx.selectionEnd)
+    computeVisualOverlay(selCtx.selectionStart, selCtx.selectionEnd, visibleRange, scrollTop, colWidthCtx)
   );
 
-  const dirtyCellOverlays = $derived.by(() => {
-    if (pendingCtx.edits.length === 0) return [];
-    const { startIndex, endIndex } = visibleRange;
-    const rowHeight = DEFAULT_ROW_HEIGHT;
-
-    const editMap = new Map<string, typeof pendingCtx.edits[0]>();
-    for (const edit of pendingCtx.edits) {
-      const rowIdx = assets.findIndex((a: Record<string, any>) => a.id === edit.row);
-      if (rowIdx === -1) continue;
-      const colIdx = keys.indexOf(edit.col);
-      if (colIdx === -1) continue;
-      editMap.set(`${rowIdx},${colIdx}`, edit);
-    }
-
-    const overlays: { top: number; left: number; width: number; height: number; isValid: boolean; value: string; borderTop: boolean; borderBottom: boolean; borderLeft: boolean; borderRight: boolean }[] = [];
-
-    for (const [coord, edit] of editMap) {
-      const [rowIdx, colIdx] = coord.split(',').map(Number);
-      if (rowIdx < startIndex || rowIdx >= endIndex) continue;
-
-      let left = 0;
-      for (let c = 0; c < colIdx; c++) left += getWidth(keys[c]);
-      const w = getWidth(keys[colIdx]);
-      const top = rowIdx * rowHeight - scrollTop;
-
-      const sameAbove = editMap.get(`${rowIdx - 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx - 1},${colIdx}`);
-      const sameBelow = editMap.get(`${rowIdx + 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx + 1},${colIdx}`);
-      const sameLeft = editMap.get(`${rowIdx},${colIdx - 1}`)?.isValid === edit.isValid && editMap.has(`${rowIdx},${colIdx - 1}`);
-      const sameRight = editMap.get(`${rowIdx},${colIdx + 1}`)?.isValid === edit.isValid && editMap.has(`${rowIdx},${colIdx + 1}`);
-
-      overlays.push({
-        top, left, width: w, height: rowHeight,
-        isValid: edit.isValid, value: edit.value,
-        borderTop: !sameAbove, borderBottom: !sameBelow,
-        borderLeft: !sameLeft, borderRight: !sameRight,
-      });
-    }
-    return overlays;
-  });
+  const localPendingOverlays = $derived.by(() =>
+    computeLocalPendingOverlays(pendingCtx.edits, visibleRange, scrollTop, colWidthCtx)
+  );
 
   const copyOverlay = $derived(
     clipCtx.copyStart.row !== -1
-      ? computeVisualOverlay(clipCtx.copyStart, clipCtx.copyEnd)
+      ? computeVisualOverlay(clipCtx.copyStart, clipCtx.copyEnd, visibleRange, scrollTop, colWidthCtx)
       : null
   );
 
   const pasteOverlay = $derived(
     selCtx.pasteRange
-      ? computeVisualOverlay(selCtx.pasteRange.start, selCtx.pasteRange.end)
+      ? computeVisualOverlay(selCtx.pasteRange.start, selCtx.pasteRange.end, visibleRange, scrollTop, colWidthCtx)
       : null
   );
 
   const otherUserSelections = $derived(presenceStore.users);
 
-  // --- Other users' pending cell overlays (blue shading) ---
-  const pendingCellOverlays = $derived.by(() => {
-    if (presenceStore.pendingCells.length === 0) return [];
-    const { startIndex, endIndex } = visibleRange;
-    const rowHeight = DEFAULT_ROW_HEIGHT;
-
-    const overlays: { top: number; left: number; width: number; height: number; color: string; name: string }[] = [];
-
-    for (const cell of presenceStore.pendingCells) {
-      const rowIdx = assets.findIndex((a: Record<string, any>) => a.id === cell.assetId);
-      if (rowIdx === -1 || rowIdx < startIndex || rowIdx >= endIndex) continue;
-      const colIdx = keys.indexOf(cell.key);
-      if (colIdx === -1) continue;
-
-      let left = 0;
-      for (let c = 0; c < colIdx; c++) left += getWidth(keys[c]);
-      const w = getWidth(keys[colIdx]);
-      const top = rowIdx * rowHeight - scrollTop;
-
-      overlays.push({
-        top, left, width: w, height: rowHeight,
-        color: cell.color || '#6b7280',
-        name: `${cell.firstname || ''} ${cell.lastname || ''}`.trim(),
-      });
-    }
-    return overlays;
-  });
+  const remotePendingOverlays = $derived.by(() =>
+    computeRemotePendingOverlays(presenceStore.pendingCells, visibleRange, scrollTop, colWidthCtx)
+  );
 </script>
 
 <div
@@ -173,7 +64,7 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
 >
   <!-- Other user cursors -->
   {#each otherUserSelections as user (user.id)}
-    {@const otherOverlay = computeVisualOverlay(user, user)}
+    {@const otherOverlay = computeVisualOverlay(user, user, visibleRange, scrollTop, colWidthCtx)}
     {@const initials = ((user.firstname?.[0] || '') + (user.lastname?.[0] || '')).toUpperCase()}
     {@const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim()}
     {#if otherOverlay}
@@ -215,8 +106,8 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
     {/if}
   {/each}
 
-  <!-- Other users' pending cells (blue shading + lock icon) -->
-  {#each pendingCellOverlays as cell}
+  <!-- Other users' pending cells (colored shading + lock icon) -->
+  {#each remotePendingOverlays as cell}
     <div
       class="absolute pointer-events-none z-[41] flex items-center"
       style="
@@ -269,8 +160,8 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
     ></div>
   {/if}
 
-  <!-- Dirty cell overlays -->
-  {#each dirtyCellOverlays as cell}
+  <!-- Local pending cell overlays -->
+  {#each localPendingOverlays as cell}
     <div
       class="absolute pointer-events-none z-[20] bg-white dark:bg-slate-800"
       style="top: {cell.top}px; left: {cell.left}px; width: {cell.width}px; height: {cell.height}px;"
