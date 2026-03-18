@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getEditingContext, getClipboardContext, getUiContext, getSelectionContext } from '$lib/context/gridContext.svelte.ts';
+  import { page } from '$app/state';
+  import { getEditingContext, getClipboardContext, getUiContext, getSelectionContext, getPendingContext, getNewRowContext, getHistoryContext } from '$lib/context/gridContext.svelte.ts';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
   import { handleFilterByValue } from './contextMenu.svelte.ts';
@@ -8,9 +9,10 @@
   const clipCtx = getClipboardContext();
   const selCtx = getSelectionContext();
   const uiCtx = getUiContext();
-  function close() {
-    uiCtx.contextMenu.visible = false;
-  }
+  const pendingCtx = getPendingContext();
+  const newRowCtx = getNewRowContext();
+  const historyCtx = getHistoryContext();
+
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -25,26 +27,31 @@
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
       onclick={() => {
+        if (!page.data.user) {
+          toastState.addToast('Log in to edit.', 'warning');
+          uiCtx.contextMenu.visible = false;
+          return;
+        }
         const row = uiCtx.contextMenu.row;
         const col = uiCtx.contextMenu.col;
         if (col === 'id') {
           toastState.addToast('ID column cannot be edited.', 'warning');
-          close();
+          uiCtx.contextMenu.visible = false;
           return;
         }
         const lock = presenceStore.users.find(u => u.row === row && u.col === col && u.isLocked);
         if (lock) {
           toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');
-          close();
+          uiCtx.contextMenu.visible = false;
           return;
         }
         const pending = presenceStore.pendingCells.find(p => p.assetId === row && p.key === col);
         if (pending) {
           toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
-          close();
+          uiCtx.contextMenu.visible = false;
           return;
         }
-        close();
+        uiCtx.contextMenu.visible = false;
         selCtx.selectionStart = { row, col };
         selCtx.selectionEnd = { row, col };
         editingCtx.editValue = uiCtx.contextMenu.value;
@@ -66,7 +73,7 @@
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
       onclick={() => {
         clipCtx.isCopying = true;
-        close();
+        uiCtx.contextMenu.visible = false;
       }}
     >
       <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -79,7 +86,12 @@
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
       onclick={() => {
-        close();
+        if (!page.data.user) {
+          toastState.addToast('Log in to edit.', 'warning');
+          uiCtx.contextMenu.visible = false;
+          return;
+        }
+        uiCtx.contextMenu.visible = false;
         editingCtx.isPasting = true;
       }}
     >
@@ -94,7 +106,7 @@
     <!-- Filter by this value -->
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
-      onclick={() => handleFilterByValue(uiCtx.contextMenu.col, uiCtx.contextMenu.value)}
+      onclick={() => { handleFilterByValue(uiCtx.contextMenu.col, uiCtx.contextMenu.value, pendingCtx, newRowCtx, selCtx, clipCtx, historyCtx); uiCtx.contextMenu.visible = false; }}
     >
       <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>

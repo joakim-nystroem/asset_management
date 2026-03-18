@@ -99,6 +99,7 @@
   });
 
   function handleCopy() {
+    selCtx.pasteRange = null;
     const startIdx = assetIndex(selCtx.selectionStart.row);
     const endIdx = assetIndex(selCtx.selectionEnd.row);
     const startColIdx = keys.indexOf(selCtx.selectionStart.col);

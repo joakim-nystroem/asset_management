@@ -1,7 +1,8 @@
 <script lang="ts">
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
-  import { getUiContext, getSortContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
+  import { getUiContext, getSortContext, getPendingContext, getNewRowContext, getSelectionContext, getClipboardContext, getHistoryContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
+  import { toggleFilter } from './headerMenu.svelte.ts';
 
   let {
     activeKey,
@@ -13,6 +14,11 @@
 
   const uiCtx = getUiContext();
   const sortCtx = getSortContext();
+  const pendingCtx = getPendingContext();
+  const newRowCtx = getNewRowContext();
+  const selCtx = getSelectionContext();
+  const clipCtx = getClipboardContext();
+  const historyCtx = getHistoryContext();
 
   function handleSort(key: string, direction: 'asc' | 'desc') {
     if (sortCtx.key === key && sortCtx.direction === direction) {
@@ -120,14 +126,7 @@
             }
               <button
                 class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full"
-                onclick={() => {
-                  const idx = queryStore.filters.findIndex(f => f.key === activeKey && f.value === item);
-                  if (idx >= 0) {
-                    queryStore.filters.splice(idx, 1);
-                  } else {
-                    queryStore.filters.push({ key: activeKey, value: item });
-                  }
-                }}
+                onclick={() => toggleFilter(activeKey, item, pendingCtx, newRowCtx, selCtx, clipCtx, historyCtx)}
               >
                 <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
                   {#if queryStore.filters.some(f => f.key === activeKey && f.value === item)}✓{/if}

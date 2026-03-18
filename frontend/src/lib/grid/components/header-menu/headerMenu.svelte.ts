@@ -17,7 +17,7 @@ function resetEditState(
   clipCtx.copyEnd = { row: -1, col: '' };
 }
 
-export function handleFilterByValue(
+export function toggleFilter(
   key: string,
   value: string,
   pendingCtx: PendingContext,
@@ -33,8 +33,10 @@ export function handleFilterByValue(
     );
     resetEditState(selCtx, clipCtx, historyCtx);
   }
-  const alreadyExists = queryStore.filters.some(f => f.key === key && f.value === value);
-  if (!alreadyExists) {
+  const idx = queryStore.filters.findIndex(f => f.key === key && f.value === value);
+  if (idx >= 0) {
+    queryStore.filters.splice(idx, 1);
+  } else {
     queryStore.filters.push({ key, value });
   }
 }

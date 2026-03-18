@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { page } from '$app/state';
   import { getColumnWidthContext, getSelectionContext, getEditingContext, getUiContext, getPendingContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
@@ -56,6 +57,10 @@
       }
     }}
     ondblclick={() => {
+      if (!page.data.user) {
+        toastState.addToast('Log in to edit.', 'warning');
+        return;
+      }
       if (key === 'id') {
         toastState.addToast('ID column cannot be edited.', 'warning');
         return;

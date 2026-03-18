@@ -58,16 +58,37 @@
   let viewDropdownOpen = $state(false);
 
   function handleSearch() {
+    if (pendingCtx.edits.length > 0 || newRowCtx.hasNewRows) {
+      enqueue(
+        { type: 'DISCARD', payload: {} },
+        { pendingCtx, newRowCtx },
+      );
+      resetEditState(selCtx, clipCtx, historyCtx);
+    }
     queryStore.q = searchInput;
   }
 
   function handleClearSearch() {
+    if (pendingCtx.edits.length > 0 || newRowCtx.hasNewRows) {
+      enqueue(
+        { type: 'DISCARD', payload: {} },
+        { pendingCtx, newRowCtx },
+      );
+      resetEditState(selCtx, clipCtx, historyCtx);
+    }
     searchInput = '';
     queryStore.q = '';
   }
 
   function handleViewChange(viewName: string) {
     viewDropdownOpen = false;
+    if (pendingCtx.edits.length > 0 || newRowCtx.hasNewRows) {
+      enqueue(
+        { type: 'DISCARD', payload: {} },
+        { pendingCtx, newRowCtx },
+      );
+      resetEditState(selCtx, clipCtx, historyCtx);
+    }
     // View change resets search and filters
     searchInput = '';
     queryStore.q = '';
@@ -96,10 +117,7 @@
       scrollSignalCtx.scrollToRow = Math.max(0, assetStore.displayedAssets.length - 1);
     }
     enqueue(
-      {
-        type: 'DISCARD',
-        payload: { user },
-      },
+      { type: 'DISCARD', payload: {} },
       { pendingCtx, newRowCtx },
     );
     resetEditState(selCtx, clipCtx, historyCtx);

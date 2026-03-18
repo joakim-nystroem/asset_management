@@ -251,16 +251,10 @@ async function handleQuery(
 }
 
 function handleDiscard(
-  payload: Record<string, any>,
+  _payload: Record<string, any>,
   contexts: Record<string, any>,
 ): void {
   const { pendingCtx, newRowCtx } = contexts;
-  const { user } = payload;
-
-  if (!user) {
-    toastState.addToast('Log in to edit.', 'warning');
-    return;
-  }
 
   pendingCtx.edits = [];
   newRowCtx.newRows = [];
