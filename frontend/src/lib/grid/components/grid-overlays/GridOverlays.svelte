@@ -7,17 +7,13 @@
   } from '$lib/context/gridContext.svelte.ts';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
+  import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   import {
     computeVisualOverlay,
     computeLocalPendingOverlays,
     computeRemotePendingOverlays,
   } from './gridOverlays.svelte.ts';
-
-  let { scrollTop, visibleRange }: {
-    scrollTop: number;
-    visibleRange: { startIndex: number; endIndex: number };
-  } = $props();
 
   const pendingCtx = getPendingContext();
   const selCtx = getSelectionContext();
@@ -32,29 +28,29 @@
 
   // --- Overlay derivations ---
   const selectionOverlay = $derived(
-    computeVisualOverlay(selCtx.selectionStart, selCtx.selectionEnd, visibleRange, scrollTop, colWidthCtx)
+    computeVisualOverlay(selCtx.selectionStart, selCtx.selectionEnd, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)
   );
 
   const localPendingOverlays = $derived.by(() =>
-    computeLocalPendingOverlays(pendingCtx.edits, visibleRange, scrollTop, colWidthCtx)
+    computeLocalPendingOverlays(pendingCtx.edits, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)
   );
 
   const copyOverlay = $derived(
     clipCtx.copyStart.row !== -1
-      ? computeVisualOverlay(clipCtx.copyStart, clipCtx.copyEnd, visibleRange, scrollTop, colWidthCtx)
+      ? computeVisualOverlay(clipCtx.copyStart, clipCtx.copyEnd, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)
       : null
   );
 
   const pasteOverlay = $derived(
     selCtx.pasteRange
-      ? computeVisualOverlay(selCtx.pasteRange.start, selCtx.pasteRange.end, visibleRange, scrollTop, colWidthCtx)
+      ? computeVisualOverlay(selCtx.pasteRange.start, selCtx.pasteRange.end, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)
       : null
   );
 
   const otherUserSelections = $derived(presenceStore.users);
 
   const remotePendingOverlays = $derived.by(() =>
-    computeRemotePendingOverlays(presenceStore.pendingCells, visibleRange, scrollTop, colWidthCtx)
+    computeRemotePendingOverlays(presenceStore.pendingCells, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)
   );
 </script>
 
@@ -64,7 +60,7 @@
 >
   <!-- Other user cursors -->
   {#each otherUserSelections as user (user.id)}
-    {@const otherOverlay = computeVisualOverlay(user, user, visibleRange, scrollTop, colWidthCtx)}
+    {@const otherOverlay = computeVisualOverlay(user, user, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)}
     {@const initials = ((user.firstname?.[0] || '') + (user.lastname?.[0] || '')).toUpperCase()}
     {@const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim()}
     {#if otherOverlay}

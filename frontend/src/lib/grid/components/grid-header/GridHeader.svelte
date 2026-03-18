@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getUiContext, getSortContext, getColumnWidthContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
+  import { scrollStore } from '$lib/data/scrollStore.svelte';
   import HeaderMenu from '$lib/grid/components/header-menu/headerMenu.svelte';
 
   import { DEFAULT_WIDTH, MIN_COLUMN_WIDTH } from '$lib/grid/gridConfig';
@@ -18,6 +19,8 @@
   let menuAlignRight = $state(false);
 
   $effect(() => {
+    // Re-evaluate on horizontal scroll (scrollLeft changes the header's visual position)
+    const _scrollLeft = scrollStore.scrollLeft;
     if (uiCtx.headerMenu.visible) {
       const idx = keys.indexOf(uiCtx.headerMenu.activeKey);
       const el = document.querySelector(`[data-header-col="${idx}"]`);

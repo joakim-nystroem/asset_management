@@ -7,9 +7,8 @@
   import { isConstrained, isValidOption } from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte.ts';
   import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
+  import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
-
-  let { scrollTop }: { scrollTop: number } = $props();
 
   import SuggestionMenu from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte';
   import { computeEditorPosition } from './editHandler.svelte.ts';
@@ -51,7 +50,7 @@
       assets,
     );
     if (!pos) return 'display: none;';
-    return `top: ${pos.top - scrollTop}px; left: ${pos.left}px; width: ${pos.width}px; height: ${pos.height}px;`;
+    return `top: ${pos.top - scrollStore.scrollTop}px; left: ${pos.left}px; width: ${pos.width}px; height: ${pos.height}px;`;
   });
 
   // --- Shared helper: resolve the visible value for a cell (pending or asset) ---

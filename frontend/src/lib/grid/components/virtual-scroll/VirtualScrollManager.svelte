@@ -4,11 +4,9 @@
   import { createScrollbarState, type ScrollbarSize } from './customScrollbar.svelte.ts';
   import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   import { getScrollSignalContext } from '$lib/context/gridContext.svelte';
+  import { scrollStore } from '$lib/data/scrollStore.svelte';
 
   interface Props {
-    scrollTop?: number;
-    scrollLeft?: number;
-    visibleRange?: { startIndex: number; endIndex: number };
     rowCount: number;
     rowHeight?: number;
     contentWidth: number;
@@ -20,9 +18,6 @@
   }
 
   let {
-    scrollTop = $bindable(0),
-    scrollLeft = $bindable(0),
-    visibleRange = $bindable({ startIndex: 0, endIndex: 0 }),
     rowCount,
     rowHeight = DEFAULT_ROW_HEIGHT,
     contentWidth,
@@ -50,23 +45,15 @@
     const startIndex = Math.max(0, Math.floor(scrollbar.scrollTop / rowHeight) - overscan);
     const visibleCount = Math.ceil(scrollbar.viewportHeight / rowHeight);
     const endIndex = Math.min(startIndex + visibleCount + (overscan * 2), rowCount);
-    visibleRange = { startIndex, endIndex };
+    scrollStore.visibleRange = { startIndex, endIndex };
   });
 
-  // --- Sync scrollbar → bindable props ---
+  // --- Sync scrollbar → scrollStore ---
   function handleScrollbarScroll(top: number, left: number) {
     scrollbar.setScroll(top, left);
-    scrollTop = scrollbar.scrollTop;
-    scrollLeft = scrollbar.scrollLeft;
+    scrollStore.scrollTop = scrollbar.scrollTop;
+    scrollStore.scrollLeft = scrollbar.scrollLeft;
   }
-
-  // --- Watch external writes to scrollTop/scrollLeft (from parent binding) ---
-  $effect(() => {
-    // Touch scrollTop/scrollLeft to subscribe
-    const _top = scrollTop;
-    const _left = scrollLeft;
-    scrollbar.setScroll(_top, _left);
-  });
 
   // --- ScrollToRow signal ---
   $effect(() => {
@@ -84,7 +71,7 @@
       scrollbar.scrollTop = rowBottom - scrollbar.viewportHeight + 40;
     }
 
-    scrollTop = scrollbar.scrollTop;
+    scrollStore.scrollTop = scrollbar.scrollTop;
     scrollSignalCtx.scrollToRow = null;
   });
 
@@ -102,7 +89,7 @@
       scrollbar.scrollLeft = col.right - scrollbar.viewportWidth;
     }
 
-    scrollLeft = scrollbar.scrollLeft;
+    scrollStore.scrollLeft = scrollbar.scrollLeft;
     scrollSignalCtx.scrollToCol = null;
   });
 

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getColumnWidthContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
+  import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   import GridRow from '$lib/grid/components/grid-row/GridRow.svelte';
   import GridHeader from '$lib/grid/components/grid-header/GridHeader.svelte';
@@ -14,11 +15,6 @@
 
   const keys = $derived(Object.keys(assetStore.displayedAssets[0] ?? {}));
 
-  // Scroll state — bound to VirtualScrollManager
-  let scrollTop = $state(0);
-  let scrollLeft = $state(0);
-  let visibleRange = $state({ startIndex: 0, endIndex: 0 });
-
   // Total content width from column widths
   const contentWidth = $derived(
     keys.reduce((sum, key) => sum + (colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH), 0)
@@ -28,18 +24,17 @@
   let prevScrollTop = 0;
   let prevScrollLeft = 0;
   $effect(() => {
-    const top = scrollTop;
-    const left = scrollLeft;
+    const top = scrollStore.scrollTop;
+    const left = scrollStore.scrollLeft;
     if (top === prevScrollTop && left === prevScrollLeft) return;
     prevScrollTop = top;
     prevScrollLeft = left;
     if (uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
-    // if (uiCtx.headerMenu.visible) { uiCtx.headerMenu.visible = false; uiCtx.headerMenu.activeKey = ''; }
   });
 
   // Visible items slice
   const visibleItems = $derived(
-    assetStore.displayedAssets.slice(visibleRange.startIndex, visibleRange.endIndex)
+    assetStore.displayedAssets.slice(scrollStore.visibleRange.startIndex, scrollStore.visibleRange.endIndex)
   );
 
 </script>
@@ -51,34 +46,31 @@
   >
     <!-- Header: scrolls horizontally, stays pinned vertically -->
     <div class="relative z-10">
-      <div style="transform: translateX({-scrollLeft}px);">
+      <div style="transform: translateX({-scrollStore.scrollLeft}px);">
         <GridHeader {keys} />
       </div>
     </div>
 
     <!-- Scrollable grid body -->
     <VirtualScrollManager
-      bind:scrollTop
-      bind:scrollLeft
-      bind:visibleRange
       rowCount={assetStore.displayedAssets.length}
       {contentWidth}
       height="calc(100dvh - 8.9rem - 32px)"
     >
       <div class="relative h-full">
-        <div style="transform: translateX({-scrollLeft}px);">
-          <GridOverlays {scrollTop} {visibleRange} />
+        <div style="transform: translateX({-scrollStore.scrollLeft}px);">
+          <GridOverlays />
 
           <div
             class="absolute top-0 w-full"
-            style="top: {visibleRange.startIndex * DEFAULT_ROW_HEIGHT - scrollTop}px;"
+            style="top: {scrollStore.visibleRange.startIndex * DEFAULT_ROW_HEIGHT - scrollStore.scrollTop}px;"
           >
-            {#each visibleItems as asset, i (asset.id || visibleRange.startIndex + i)}
+            {#each visibleItems as asset, i (asset.id || scrollStore.visibleRange.startIndex + i)}
               <GridRow {asset} {keys} />
             {/each}
           </div>
 
-          <EditHandler {scrollTop} />
+          <EditHandler />
         </div>
       </div>
     </VirtualScrollManager>
