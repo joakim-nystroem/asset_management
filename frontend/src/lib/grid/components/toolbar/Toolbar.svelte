@@ -50,7 +50,7 @@
   );
 
   const hasInvalid = $derived(
-    pendingCtx.edits.some((e) => !e.isValid) || (newRowCtx.hasNewRows && !newRowCtx.isValid)
+    pendingCtx.edits.some((e) => !e.isValid)
   );
 
   const user = $derived(page.data.user);
@@ -66,6 +66,10 @@
       resetEditState(selCtx, clipCtx, historyCtx);
     }
     queryStore.q = searchInput;
+    enqueue(
+      { type: 'QUERY', payload: { view: queryStore.view, q: searchInput, filters: $state.snapshot(queryStore.filters) } },
+      {},
+    );
   }
 
   function handleClearSearch() {
@@ -78,6 +82,10 @@
     }
     searchInput = '';
     queryStore.q = '';
+    enqueue(
+      { type: 'QUERY', payload: { view: queryStore.view, q: '', filters: $state.snapshot(queryStore.filters) } },
+      {},
+    );
   }
 
   function handleViewChange(viewName: string) {
@@ -89,11 +97,14 @@
       );
       resetEditState(selCtx, clipCtx, historyCtx);
     }
-    // View change resets search and filters
     searchInput = '';
     queryStore.q = '';
     queryStore.filters = [];
     queryStore.view = viewName;
+    enqueue(
+      { type: 'VIEW_CHANGE', payload: { view: viewName } },
+      {},
+    );
   }
 
   function addNewRow() {

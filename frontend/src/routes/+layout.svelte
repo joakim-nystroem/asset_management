@@ -2,11 +2,10 @@
   import '../app.css';
   import favicon from '$lib/assets/favicon.svg';
   import { beforeNavigate } from '$app/navigation';
-  import { enhance } from '$app/forms';
+
   import { realtime } from '$lib/utils/realtimeManager.svelte.js';
   import { connectionStore } from '$lib/data/connectionStore.svelte';
   import ToastContainer from '$lib/toast/ToastContainer.svelte';
-  
   let { children, data } = $props();
   // svelte-ignore state_referenced_locally
   let darkMode = $state(data.theme === 'dark');
@@ -71,7 +70,6 @@
   beforeNavigate(() => {
     showUserMenu = false;
   });
-
 
 </script>
 
@@ -152,7 +150,7 @@
                 Admin Panel
               </a>
 
-              <form action="/logout" method="POST" use:enhance class="w-full">
+              <form action="/logout" method="POST" class="w-full">
                 <button
                   type="submit"
                   class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer"

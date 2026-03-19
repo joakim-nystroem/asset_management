@@ -6,8 +6,8 @@
 export const assetStore = $state({
   baseAssets: [] as Record<string, any>[],
   displayedAssets: [] as Record<string, any>[],
-  locations: [] as string[],
-  statuses: [] as string[],
-  conditions: [] as string[],
-  departments: [] as string[],
+  locations: [] as any[],
+  statuses: [] as any[],
+  conditions: [] as any[],
+  departments: [] as any[],
 });

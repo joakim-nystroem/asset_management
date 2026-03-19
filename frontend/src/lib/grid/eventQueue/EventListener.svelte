@@ -1,9 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { queryStore } from '$lib/data/queryStore.svelte';
   import {
     getUiContext,
-    getSortContext,
     getEditingContext,
     getSelectionContext,
     getClipboardContext,
@@ -14,8 +12,6 @@
     resetEditing,
   } from '$lib/context/gridContext.svelte';
   import { realtime } from '$lib/utils/realtimeManager.svelte';
-
-  import { replaceState } from '$app/navigation';
   import {
     startCellEdit,
     getArrowTarget,
@@ -33,7 +29,6 @@
   let { children } = $props();
 
   const uiCtx = getUiContext();
-  const sortCtx = getSortContext();
   const editingCtx = getEditingContext();
   const selCtx = getSelectionContext();
   const clipCtx = getClipboardContext();
@@ -76,36 +71,6 @@
     if (editingCtx.isEditing && editingCtx.editRow !== -1 && editingCtx.editCol !== '') {
       enqueue({ type: 'CELL_EDIT_START', payload: { assetId: editingCtx.editRow, key: editingCtx.editCol } }, {});
     }
-  });
-
-  // ─── QUERY: auto-fire on any queryStore change (view, search, filters) ──────
-  let queryInitialized = false;
-  $effect(() => {
-    const view = queryStore.view;
-    const q = queryStore.q;
-    const filters = $state.snapshot(queryStore.filters);
-
-    if (!queryInitialized) {
-      queryInitialized = true;
-      return;
-    }
-
-    sortCtx.key = null;
-    enqueue(
-      {
-        type: 'QUERY',
-        payload: { view, q, filters },
-      },
-      {},
-    );
-
-    // Sync URL to reflect current query state
-    const url = new URL(window.location.href);
-    url.searchParams.set('view', view);
-    if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
-    url.searchParams.delete('filter');
-    for (const f of filters) url.searchParams.append('filter', `${f.key}:${f.value}`);
-    replaceState(url, {});
   });
 
   // ─── Keyboard handler ──────────────────────────────────────────────────────
@@ -162,12 +127,14 @@
 
       if (k === 'z') {
         e.preventDefault();
+        if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
         editingCtx.isUndoing = true;
         return;
       }
 
       if (k === 'y') {
         e.preventDefault();
+        if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
         editingCtx.isRedoing = true;
         return;
       }

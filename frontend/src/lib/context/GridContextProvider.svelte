@@ -47,7 +47,6 @@
   let newRowCtx = $state({
     newRows: [],
     hasNewRows: false,
-    isValid: true,
   });
   setNewRowContext(newRowCtx);
 

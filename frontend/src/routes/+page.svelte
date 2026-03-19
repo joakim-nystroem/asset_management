@@ -1,13 +1,28 @@
 <script lang="ts">
   import type { PageProps } from './$types';
+  import { replaceState } from '$app/navigation';
+  import { onMount } from 'svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
+  import { urlStore } from '$lib/data/urlStore.svelte';
   import GridContextProvider from '$lib/context/GridContextProvider.svelte';
   import EventListener from '$lib/grid/eventQueue/EventListener.svelte';
   import Toolbar from '$lib/grid/components/toolbar/Toolbar.svelte';
   import GridContainer from '$lib/grid/components/grid-container/GridContainer.svelte';
 
   let { data }: PageProps = $props();
+
+  // Seed URL store from server data
+  // svelte-ignore state_referenced_locally
+  urlStore.url = data.initialUrl;
+
+  // Sync URL store changes to browser URL (skip initial — URL is already correct)
+  let urlSeeded = false;
+  $effect(() => {
+    const url = urlStore.url;
+    if (!urlSeeded) { urlSeeded = true; return; }
+    if (url) replaceState(url, {});
+  });
 
   // Seed the store with server load data
 
@@ -24,6 +39,7 @@
   // svelte-ignore state_referenced_locally
   assetStore.departments = data.departments ?? [];
 
+
   // Seed query store from URL params (server-resolved)
   // svelte-ignore state_referenced_locally
   queryStore.view = data.initialView ?? 'default';
@@ -34,6 +50,21 @@
     const i = f.indexOf(':');
     return i > 0 ? [{ key: f.slice(0, i), value: f.slice(i + 1) }] : [];
   });
+
+  // Staged load: fetch remaining assets after initial paint (disabled — full fetch is fast enough)
+  // onMount(async () => {
+  //   const res = await fetch(`/api/assets?view=${queryStore.view}`);
+  //   if (!res.ok) return;
+  //   const { assets } = await res.json();
+  //   if (assets?.length) {
+  //     assetStore.baseAssets = assets;
+  //     if (!queryStore.q && queryStore.filters.length === 0) {
+  //       assetStore.displayedAssets = assets;
+  //     }
+  //     assetStore.totalCount = assets.length;
+  //   }
+  // });
+
 </script>
 
 <GridContextProvider>

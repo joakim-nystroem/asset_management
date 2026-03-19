@@ -4,8 +4,10 @@
 
 import { toastState } from '$lib/toast/toastState.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
+import { queryStore } from '$lib/data/queryStore.svelte';
 import { realtime } from '$lib/utils/realtimeManager.svelte';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
+import { urlStore } from '$lib/data/urlStore.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
 
@@ -59,6 +61,10 @@ export async function processEvent(
       await handleQuery(event.payload, contexts);
       break;
 
+    case 'VIEW_CHANGE':
+      await handleViewChange(event.payload, contexts);
+      break;
+
     case 'DISCARD':
       handleDiscard(event.payload, contexts);
       break;
@@ -72,11 +78,11 @@ export async function processEvent(
       break;
 
     case 'WS_USER_POSITION_UPDATE':
-      handleWsUserPositionUpdate(event.payload, contexts);
+      handleWsUserPositionUpdate(event.payload);
       break;
 
     case 'WS_USER_LEFT':
-      handleWsUserLeft(event.payload, contexts);
+      handleWsUserLeft(event.payload);
       break;
 
     case 'WS_CELL_LOCKED':
@@ -84,7 +90,7 @@ export async function processEvent(
       break;
 
     case 'WS_CELL_UNLOCKED':
-      handleWsCellUnlocked(event.payload, contexts);
+      handleWsCellUnlocked(event.payload);
       break;
 
     case 'WS_PENDING_BROADCAST':
@@ -212,11 +218,37 @@ async function handleCommitCreate(
   newRowCtx.hasNewRows = false;
   if (pendingCtx) pendingCtx.edits = [];
 
-  // Refetch full data — new rows stay visible until overwritten
-  const refetch = await apiFetch('/api/assets', new URLSearchParams({ view: 'default' }));
-  assetStore.baseAssets = refetch.success ? refetch.data.assets : assetStore.displayedAssets.filter((a: any) => a.id > 0);
-  assetStore.displayedAssets = refetch.success ? refetch.data.assets : assetStore.baseAssets;
+  // Refetch using current view/search/filter state
+  const params = new URLSearchParams();
+  params.set('view', queryStore.view || 'default');
+  if (queryStore.q) params.set('q', queryStore.q);
+  for (const f of queryStore.filters) params.append('filter', `${f.key}:${f.value}`);
+  const hasFilters = queryStore.q || queryStore.filters.length > 0;
+
+  const refetch = await apiFetch('/api/assets', params);
+  if (refetch.success) {
+    if (hasFilters) {
+      assetStore.displayedAssets = refetch.data.assets;
+    } else {
+      assetStore.baseAssets = refetch.data.assets;
+      assetStore.displayedAssets = refetch.data.assets;
+    }
+
+  } else {
+    assetStore.displayedAssets = assetStore.displayedAssets.filter((a: any) => a.id > 0);
+
+  }
   toastState.addToast(`${rows.length} new rows saved successfully.`, 'success');
+}
+
+function buildQueryParams(view: string, q?: string, filters?: { key: string; value: string }[]): URLSearchParams {
+  const params = new URLSearchParams();
+  params.set('view', view || 'default');
+  if (q) params.set('q', q);
+  if (filters) {
+    for (const f of filters) params.append('filter', `${f.key}:${f.value}`);
+  }
+  return params;
 }
 
 async function handleQuery(
@@ -224,17 +256,16 @@ async function handleQuery(
   _contexts: Record<string, any>,
 ): Promise<void> {
   const { view, q, filters } = payload;
+  const hasFilters = q || (filters && filters.length > 0);
 
-  const params = new URLSearchParams();
-  params.set('view', view || 'default');
-  if (q) params.set('q', q);
-  if (filters) {
-    for (const f of filters) {
-      params.append('filter', `${f.key}:${f.value}`);
-    }
+  if (!hasFilters) {
+    assetStore.displayedAssets = assetStore.baseAssets;
+
+    urlStore.url = `?${buildQueryParams(view)}`;
+    return;
   }
 
-  const hasFilters = q || (filters && filters.length > 0);
+  const params = buildQueryParams(view, q, filters);
   const res = await apiFetch('/api/assets', params);
 
   if (!res.success) {
@@ -242,12 +273,28 @@ async function handleQuery(
     return;
   }
 
-  if (hasFilters) {
-    assetStore.displayedAssets = res.data.assets;
-  } else {
-    assetStore.baseAssets = res.data.assets;
-    assetStore.displayedAssets = res.data.assets;
+  assetStore.displayedAssets = res.data.assets;
+
+  urlStore.url = `?${params}`;
+}
+
+async function handleViewChange(
+  payload: Record<string, any>,
+  _contexts: Record<string, any>,
+): Promise<void> {
+  const { view } = payload;
+  const params = buildQueryParams(view);
+  const res = await apiFetch('/api/assets', params);
+
+  if (!res.success) {
+    toastState.addToast('Failed to load view. Please try again.', 'error');
+    return;
   }
+
+  assetStore.baseAssets = res.data.assets;
+  assetStore.displayedAssets = res.data.assets;
+
+  urlStore.url = `?${params}`;
 }
 
 function handleDiscard(
@@ -325,7 +372,6 @@ function handleWsExistingUsers(
 
 function handleWsUserPositionUpdate(
   payload: Record<string, any>,
-  contexts: Record<string, any>,
 ): void {
   const userId = Number(payload.userId);
   const keys = Object.keys(assetStore.displayedAssets[0] ?? {});
@@ -357,7 +403,6 @@ function handleWsUserPositionUpdate(
 
 function handleWsUserLeft(
   payload: Record<string, any>,
-  contexts: Record<string, any>,
 ): void {
   const userId = Number(payload.clientId);
   const idx = presenceStore.users.findIndex((u: any) => u.id === userId);
@@ -382,7 +427,6 @@ function handleWsCellLocked(
 
 function handleWsCellUnlocked(
   payload: Record<string, any>,
-  contexts: Record<string, any>,
 ): void {
   const assetId = Number(payload.assetId);
   const key = payload.key;

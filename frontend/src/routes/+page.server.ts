@@ -10,6 +10,30 @@ import { getDepartments } from '$lib/db/select/getDepartments';
 
 const MOBILE_UA_REGEX = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
 
+function parseFilters(filterParams: string[]): Record<string, string[]> {
+  const filterMap: Record<string, string[]> = {};
+
+  for (const filter of filterParams) {
+    const colonIndex = filter.indexOf(':');
+    if (colonIndex === -1) continue;
+
+    const key = filter.slice(0, colonIndex);
+    const value = filter.slice(colonIndex + 1);
+
+    if (key && value) {
+      if (!filterMap[key]) filterMap[key] = [];
+      filterMap[key].push(value);
+    }
+  }
+
+  return filterMap;
+}
+
+const VALID_VIEWS = ['default', 'audit', 'ped', 'galaxy', 'network'] as const;
+function resolveView(param: string): string {
+  return VALID_VIEWS.includes(param as any) ? param : 'default';
+}
+
 export const load: PageServerLoad = async ({ request, url }) => {
   // Redirect mobile users to the mobile page
   const userAgent = request.headers.get('user-agent') || '';
@@ -27,64 +51,36 @@ export const load: PageServerLoad = async ({ request, url }) => {
   const viewParam = url.searchParams.get('view') || 'default';
   const qParam = url.searchParams.get('q') || '';
   const filterParams = url.searchParams.getAll('filter');
-
-  const validViews = ['default', 'audit', 'ped', 'galaxy', 'network'];
-  const resolvedView = validViews.includes(viewParam) ? viewParam : 'default';
-
-  let assets: Record<string, any>[] = [];
-  let dbError: string | null = null;
-  let locations: any[] = [];
-  let statuses: any[] = [];
-  let conditions: any[] = [];
-  let departments: any[] = [];
-
+  const resolvedView = resolveView(viewParam);
+  
   try {
-    // Load the correct view's assets based on URL
-    assets = await queryAssets(null, {}, resolvedView);
+    const hasSearch = qParam || filterParams.length > 0;
 
-    // Load metadata in parallel
-    [locations, statuses, conditions, departments] = await Promise.all([
+    // Build filterMap before await
+    const filterMap = parseFilters(filterParams);
+
+    // Load everything in parallel — full asset list, metadata, and filtered results if needed
+    const [assets, locations, statuses, conditions, departments, searchResults] = await Promise.all([
+      queryAssets(null, {}, resolvedView),
       getLocations(),
       getStatuses(),
       getConditions(),
       getDepartments(),
+      hasSearch ? queryAssets(qParam || null, filterMap, resolvedView) : null,
     ]);
 
-    // If there are search/filter params, also fetch filtered results
-    if (qParam || filterParams.length > 0) {
-      const filterMap: Record<string, string[]> = {};
-      for (const filter of filterParams) {
-        const colonIndex = filter.indexOf(':');
-        if (colonIndex === -1) continue;
-        const key = filter.slice(0, colonIndex);
-        const value = filter.slice(colonIndex + 1);
-        if (key && value) {
-          if (!filterMap[key]) filterMap[key] = [];
-          filterMap[key].push(value);
-        }
-      }
-      const searchResults = await queryAssets(qParam || null, filterMap, resolvedView);
-      return {
-        assets,
-        searchResults,
-        dbError,
-        locations,
-        statuses,
-        conditions,
-        departments,
-        initialView: resolvedView,
-        initialQ: qParam,
-        initialFilters: filterParams,
-      };
-    }
-  } catch (err: unknown) {
-    if (err instanceof Error) {
-      dbError = err.message;
-      console.error('API request failed:', err);
-    } else {
-      dbError = 'An unknown error occurred.';
-    }
-  }
+    return { assets, locations, statuses, conditions, departments, initialView: resolvedView, initialQ: qParam, initialFilters: filterParams, searchResults, initialUrl: url.search };
 
-  return { assets, dbError, locations, statuses, conditions, departments, initialView: resolvedView, initialQ: qParam, initialFilters: filterParams };
+  } catch (err: unknown) {
+    const dbError = err instanceof Error ? err.message : 'An unknown error occurred.';
+    console.error('API request failed:', err);
+
+    return {
+      assets: [], dbError, locations: [], statuses: [],
+      conditions: [], departments: [],
+      initialView: resolvedView, initialQ: qParam,
+      initialFilters: filterParams, searchResults: null,
+      url: url.pathname, initialUrl: url.search,
+    };
+  }
 };

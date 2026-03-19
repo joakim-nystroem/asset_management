@@ -39,7 +39,6 @@ export type HistoryContext = {
 export type NewRowContext = {
   newRows: any[];
   hasNewRows: boolean;
-  isValid: boolean;
 };
 
 // 5. Grid selection state
@@ -104,17 +103,6 @@ export type ColumnWidthContext = {
 export type SortContext = {
   key: string | null;
   direction: 'asc' | 'desc';
-};
-
-// 13. Presence — other users' positions and cell locks
-export type PresenceEntry = {
-  id: number;
-  firstname: string;
-  lastname: string;
-  color: string;
-  row: number;
-  col: string;
-  isLocked: boolean;
 };
 
 // ─── Domain context pairs ─────────────────────────────────────────────────────

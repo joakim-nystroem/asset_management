@@ -34,6 +34,10 @@ export function clearAllFilters(
   }
   queryStore.filters = [];
   setOpenPanel(uiCtx);
+  enqueue(
+    { type: 'QUERY', payload: { view: queryStore.view, q: queryStore.q, filters: [] } },
+    {},
+  );
 }
 
 export function removeFilter(
@@ -52,4 +56,8 @@ export function removeFilter(
     resetEditState(selCtx, clipCtx, historyCtx);
   }
   queryStore.filters.splice(index, 1);
+  enqueue(
+    { type: 'QUERY', payload: { view: queryStore.view, q: queryStore.q, filters: $state.snapshot(queryStore.filters) } },
+    {},
+  );
 }

@@ -37,4 +37,8 @@ export function handleFilterByValue(
   if (!alreadyExists) {
     queryStore.filters.push({ key, value });
   }
+  enqueue(
+    { type: 'QUERY', payload: { view: queryStore.view, q: queryStore.q, filters: $state.snapshot(queryStore.filters) } },
+    {},
+  );
 }

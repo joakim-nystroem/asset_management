@@ -1,6 +1,14 @@
-import type { PresenceEntry } from '$lib/context/gridContext.svelte';
+type PresenceEntry = {
+  id: number;
+  firstname: string;
+  lastname: string;
+  color: string;
+  row: number;
+  col: string;
+  isLocked: boolean;
+};
 
-export type PendingCellEntry = {
+type PendingCellEntry = {
   userId: number;
   assetId: number;
   key: string;
