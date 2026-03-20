@@ -155,7 +155,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-2 mb-3">
+<div class="flex flex-col">
   <div class="flex flex-row gap-4 items-center">
 
     <div class="flex gap-4 items-center">

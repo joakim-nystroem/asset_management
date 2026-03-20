@@ -1,6 +1,6 @@
 // src/routes/+page.server.ts
 import { queryAssets } from '$lib/db/select/queryAssets';
-import type { PageServerLoad, Actions } from './$types';
+import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
 import { getLocations } from '$lib/db/select/getLocations';

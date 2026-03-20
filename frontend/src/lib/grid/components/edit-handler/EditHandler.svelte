@@ -249,8 +249,8 @@
     historyCtx.undoStack = [...historyCtx.undoStack, batch];
   }
 
-  // Show suggestion menu when editing starts
-  $effect(() => {
+  // Show suggestion menu when editing starts (pre so it mounts in same render pass as textarea)
+  $effect.pre(() => {
     if (editingCtx.isEditing) {
       uiCtx.suggestionMenu.visible = true;
     }

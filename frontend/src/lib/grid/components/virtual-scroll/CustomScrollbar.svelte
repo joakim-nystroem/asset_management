@@ -1,193 +1,101 @@
 <script lang="ts">
-  import type { ScrollbarState, ScrollbarSize } from './customScrollbar.svelte.ts';
-  import type { Snippet } from 'svelte';
+  const TRACK_SIZES = { thin: 6, wide: 10 } as const;
+  type ScrollbarSize = 'thin' | 'wide';
 
   interface Props {
-    scroll: ScrollbarState;
-    height: string;
+    orientation: 'vertical' | 'horizontal';
+    visible?: boolean;
     size?: ScrollbarSize;
-    vertical?: boolean;
-    horizontal?: boolean;
-    children: Snippet;
-    onscroll?: (scrollTop: number, scrollLeft: number) => void;
+    thumbSize: number;
+    thumbPosition: number;
+    trackSpace: number;
+    maxScroll: number;
+    onscroll: (position: number) => void;
   }
 
   let {
-    scroll,
-    height,
+    orientation,
+    visible = true,
     size = 'thin',
-    vertical = true,
-    horizontal = true,
-    children,
+    thumbSize,
+    thumbPosition,
+    trackSpace,
+    maxScroll,
     onscroll,
   }: Props = $props();
 
-  const trackSize = $derived(scroll.TRACK_SIZES[size]);
+  const trackSize = $derived(TRACK_SIZES[size]);
 
-  // Clamp thumb positions so they stop before the corner square
-  const bothVisible = $derived(vertical && scroll.vVisible && horizontal && scroll.hVisible);
-  const vThumbTop = $derived(bothVisible
-    ? Math.min(scroll.vThumbTop, scroll.viewportHeight - trackSize - scroll.vThumbHeight)
-    : scroll.vThumbTop);
-  const hThumbLeft = $derived(bothVisible
-    ? Math.min(scroll.hThumbLeft, scroll.viewportWidth - trackSize - scroll.hThumbWidth)
-    : scroll.hThumbLeft);
+  let isDragging = $state(false);
+  let dragStart = $state(0);
+  let dragStartScroll = $state(0);
 
-  let containerRef: HTMLDivElement | null = $state(null);
-  let isDraggingV = $state(false);
-  let isDraggingH = $state(false);
-  let dragStartY = $state(0);
-  let dragStartX = $state(0);
-  let dragStartScrollTop = $state(0);
-  let dragStartScrollLeft = $state(0);
-
-  // Observe container dimensions
-  $effect(() => {
-    if (!containerRef) return;
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        scroll.setDimensions(
-          scroll.contentWidth,
-          scroll.contentHeight,
-          entry.contentRect.width,
-          entry.contentRect.height
-        );
-      }
-    });
-    ro.observe(containerRef);
-    return () => ro.disconnect();
-  });
-
-  // Wheel handler
-  function handleWheel(e: WheelEvent) {
-    e.preventDefault();
-    const newTop = scroll.scrollTop + e.deltaY;
-    const newLeft = scroll.scrollLeft + e.deltaX;
-    scroll.setScroll(newTop, newLeft);
-    onscroll?.(scroll.scrollTop, scroll.scrollLeft);
+  function trackToScroll(trackPos: number): number {
+    if (trackSpace <= 0) return 0;
+    return Math.max(0, Math.min(trackPos / trackSpace, 1)) * maxScroll;
   }
 
-  // --- Vertical thumb drag ---
-  function onVThumbDown(e: MouseEvent) {
+  function onThumbDown(e: MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    isDraggingV = true;
-    dragStartY = e.clientY;
-    dragStartScrollTop = scroll.scrollTop;
-    window.addEventListener('mousemove', onVDrag);
-    window.addEventListener('mouseup', onVDragEnd);
+    isDragging = true;
+    dragStart = orientation === 'vertical' ? e.clientY : e.clientX;
+    dragStartScroll = thumbPosition;
+    window.addEventListener('mousemove', onDrag);
+    window.addEventListener('mouseup', onDragEnd);
   }
 
-  function onVDrag(e: MouseEvent) {
-    const deltaY = e.clientY - dragStartY;
-    const newTop = scroll.vTrackToScroll(
-      (dragStartScrollTop / (scroll.vMaxScroll || 1)) * (scroll.viewportHeight - scroll.vThumbHeight) + deltaY
-    );
-    scroll.scrollTop = newTop;
-    onscroll?.(scroll.scrollTop, scroll.scrollLeft);
+  function onDrag(e: MouseEvent) {
+    const delta = (orientation === 'vertical' ? e.clientY : e.clientX) - dragStart;
+    onscroll(trackToScroll(dragStartScroll + delta));
   }
 
-  function onVDragEnd() {
-    isDraggingV = false;
-    window.removeEventListener('mousemove', onVDrag);
-    window.removeEventListener('mouseup', onVDragEnd);
+  function onDragEnd() {
+    isDragging = false;
+    window.removeEventListener('mousemove', onDrag);
+    window.removeEventListener('mouseup', onDragEnd);
   }
 
-  // Vertical track click
-  function onVTrackClick(e: MouseEvent) {
+  function onTrackClick(e: MouseEvent) {
     const track = e.currentTarget as HTMLElement;
     const rect = track.getBoundingClientRect();
-    const clickY = e.clientY - rect.top - scroll.vThumbHeight / 2;
-    scroll.scrollTop = scroll.vTrackToScroll(clickY);
-    onscroll?.(scroll.scrollTop, scroll.scrollLeft);
-  }
-
-  // --- Horizontal thumb drag ---
-  function onHThumbDown(e: MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    isDraggingH = true;
-    dragStartX = e.clientX;
-    dragStartScrollLeft = scroll.scrollLeft;
-    window.addEventListener('mousemove', onHDrag);
-    window.addEventListener('mouseup', onHDragEnd);
-  }
-
-  function onHDrag(e: MouseEvent) {
-    const deltaX = e.clientX - dragStartX;
-    const newLeft = scroll.hTrackToScroll(
-      (dragStartScrollLeft / (scroll.hMaxScroll || 1)) * (scroll.viewportWidth - scroll.hThumbWidth) + deltaX
-    );
-    scroll.scrollLeft = newLeft;
-    onscroll?.(scroll.scrollTop, scroll.scrollLeft);
-  }
-
-  function onHDragEnd() {
-    isDraggingH = false;
-    window.removeEventListener('mousemove', onHDrag);
-    window.removeEventListener('mouseup', onHDragEnd);
-  }
-
-  // Horizontal track click
-  function onHTrackClick(e: MouseEvent) {
-    const track = e.currentTarget as HTMLElement;
-    const rect = track.getBoundingClientRect();
-    const clickX = e.clientX - rect.left - scroll.hThumbWidth / 2;
-    scroll.scrollLeft = scroll.hTrackToScroll(clickX);
-    onscroll?.(scroll.scrollTop, scroll.scrollLeft);
+    const clickPos = (orientation === 'vertical' ? e.clientY - rect.top : e.clientX - rect.left) - thumbSize / 2;
+    onscroll(trackToScroll(clickPos));
   }
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div
-  bind:this={containerRef}
-  onwheel={handleWheel}
-  class="relative overflow-hidden"
-  style="height: {height};"
->
-  {@render children()}
-
-  <!-- Vertical scrollbar -->
-  {#if vertical && scroll.vVisible}
+{#if orientation === 'vertical'}
+  {#if visible}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="absolute top-0 right-0 z-[60] bg-neutral-200 dark:bg-slate-700"
-      style="width: {trackSize}px; height: {horizontal && scroll.hVisible ? `calc(100% - ${trackSize}px)` : '100%'};"
-      onmousedown={onVTrackClick}
+      class="absolute z-[60] bg-neutral-200 dark:bg-slate-700"
+      style="top: 0; right: 0; width: {trackSize}px; height: 100%;"
+      onmousedown={onTrackClick}
     >
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
-        class="absolute w-full rounded-full transition-colors
-          {isDraggingV ? 'bg-neutral-600 dark:bg-slate-300' : 'bg-neutral-400 dark:bg-slate-400 hover:bg-neutral-500 dark:hover:bg-slate-300'}"
-        style="top: {vThumbTop}px; height: {scroll.vThumbHeight}px;"
-        onmousedown={onVThumbDown}
+        class="absolute rounded-full transition-colors
+          {isDragging ? 'bg-neutral-600 dark:bg-slate-300' : 'bg-neutral-400 dark:bg-slate-400 hover:bg-neutral-500 dark:hover:bg-slate-300'}"
+        style="top: {thumbPosition}px; height: {thumbSize}px; width: 100%;"
+        onmousedown={onThumbDown}
       ></div>
     </div>
   {/if}
-
-  <!-- Horizontal scrollbar -->
-  {#if horizontal && scroll.hVisible}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="absolute bottom-0 left-0 z-[60] bg-neutral-200 dark:bg-slate-700"
-      style="height: {trackSize}px; width: {vertical && scroll.vVisible ? `calc(100% - ${trackSize}px)` : '100%'};"
-      onmousedown={onHTrackClick}
-    >
+{:else}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="relative z-[60] bg-neutral-200 dark:bg-slate-700"
+    style="height: {trackSize}px;"
+    onmousedown={visible ? onTrackClick : undefined}
+  >
+    {#if visible}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
-        class="absolute h-full rounded-full transition-colors
-          {isDraggingH ? 'bg-neutral-600 dark:bg-slate-300' : 'bg-neutral-400 dark:bg-slate-400 hover:bg-neutral-500 dark:hover:bg-slate-300'}"
-        style="left: {hThumbLeft}px; width: {scroll.hThumbWidth}px;"
-        onmousedown={onHThumbDown}
+        class="absolute rounded-full transition-colors
+          {isDragging ? 'bg-neutral-600 dark:bg-slate-300' : 'bg-neutral-400 dark:bg-slate-400 hover:bg-neutral-500 dark:hover:bg-slate-300'}"
+        style="left: {thumbPosition}px; width: {thumbSize}px; height: 100%;"
+        onmousedown={onThumbDown}
       ></div>
-    </div>
-  {/if}
-
-  <!-- Corner square where both scrollbars meet -->
-  {#if vertical && scroll.vVisible && horizontal && scroll.hVisible}
-    <div
-      class="absolute bottom-0 right-0 z-[60] bg-neutral-200 dark:bg-slate-700"
-      style="width: {trackSize}px; height: {trackSize}px;"
-    ></div>
-  {/if}
-</div>
+    {/if}
+  </div>
+{/if}

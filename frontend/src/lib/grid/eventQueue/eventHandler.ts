@@ -204,10 +204,7 @@ async function handleCommitCreate(
     return fields;
   });
 
-  console.log('[CommitCreate] rows payload:', JSON.stringify(rows));
-  console.log('[CommitCreate] rowsToSave:', JSON.stringify(rowsToSave));
   const res = await apiPost('/api/create/asset', rowsToSave);
-  console.log('[CommitCreate] response:', JSON.stringify(res));
   if (!res.success) {
     toastState.addToast('Failed to save new rows.', 'error');
     return;
@@ -219,11 +216,8 @@ async function handleCommitCreate(
   if (pendingCtx) pendingCtx.edits = [];
 
   // Refetch using current view/search/filter state
-  const params = new URLSearchParams();
-  params.set('view', queryStore.view || 'default');
-  if (queryStore.q) params.set('q', queryStore.q);
-  for (const f of queryStore.filters) params.append('filter', `${f.key}:${f.value}`);
   const hasFilters = queryStore.q || queryStore.filters.length > 0;
+  const params = buildQueryParams(queryStore.view, queryStore.q, queryStore.filters);
 
   const refetch = await apiFetch('/api/assets', params);
   if (refetch.success) {
@@ -352,7 +346,6 @@ function handleWsExistingUsers(
     });
   }
   presenceStore.users = entries;
-  console.log('[Presence] EXISTING_USERS populated', entries.length, 'users');
 
   // Hydrate pending cells from other users
   const pendingCells = payload.pendingCells || {};
@@ -378,8 +371,6 @@ function handleWsUserPositionUpdate(
   const colKey = keys[payload.col] ?? '';
   const assetId = payload.assetId ?? payload.row ?? -1;
   const existing = presenceStore.users.find((u: any) => u.id === userId);
-
-  console.log('[Presence] USER_POSITION_UPDATE', { userId, assetId, colKey, payload, currentUsers: presenceStore.users.length });
 
   if (existing) {
     existing.row = assetId;

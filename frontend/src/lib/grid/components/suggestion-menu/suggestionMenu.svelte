@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { getEditingContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
   import { isConstrained as checkConstrained, getOptionsForColumn, filterOptions, getTabMatches } from './suggestionMenu.svelte.ts';
   import CustomScrollbar from '$lib/grid/components/virtual-scroll/CustomScrollbar.svelte';
@@ -24,9 +25,13 @@
   const contentHeight = $derived(filteredOptions.length * itemHeight);
   const viewportHeight = $derived(Math.min(filteredOptions.length, maxVisibleItems) * itemHeight);
 
-  $effect(() => {
-    scroll.setDimensions(0, contentHeight, 0, viewportHeight);
-  });
+  // Scrollbar thumb calculations
+  const THUMB_MIN = 24;
+  let showVScroll = $derived(contentHeight > viewportHeight);
+  let vMaxScroll = $derived(Math.max(0, contentHeight - viewportHeight));
+  let vThumbSize = $derived(showVScroll ? Math.max(THUMB_MIN, (viewportHeight / contentHeight) * viewportHeight) : 0);
+  let vTrackSpace = $derived(viewportHeight - vThumbSize);
+  let vThumbPos = $derived(vMaxScroll > 0 ? (scroll.scrollTop / vMaxScroll) * vTrackSpace : 0);
 
   // --- Direction: computed once on mount ---
   let menuRef: HTMLDivElement | null = $state(null);
@@ -45,10 +50,11 @@
     if (selectedIndex >= 0) {
       const itemTop = selectedIndex * itemHeight;
       const itemBottom = itemTop + itemHeight;
-      if (itemTop < scroll.scrollTop) {
-        scroll.setScroll(itemTop, 0);
-      } else if (itemBottom > scroll.scrollTop + viewportHeight) {
-        scroll.setScroll(itemBottom - viewportHeight, 0);
+      const currentScroll = untrack(() => scroll.scrollTop);
+      if (itemTop < currentScroll) {
+        scroll.setScroll(itemTop, 0, Math.max(0, contentHeight - viewportHeight), 0);
+      } else if (itemBottom > currentScroll + viewportHeight) {
+        scroll.setScroll(itemBottom - viewportHeight, 0, Math.max(0, contentHeight - viewportHeight), 0);
       }
     }
   });
@@ -60,7 +66,7 @@
     tabAnchor = text;
     filteredOptions = filterOptions(allOptions, text, constrained);
     selectedIndex = filteredOptions.length > 0 ? 0 : -1;
-    scroll.setScroll(0, 0);
+    scroll.setScroll(0, 0, 0, 0);
   }
 
   // --- Keyboard navigation ---
@@ -110,39 +116,50 @@
 {#if filteredOptions.length > 0}
   <div
     bind:this={menuRef}
-    class="absolute bg-white dark:bg-slate-700 border border-blue-500 dark:border-blue-400 rounded shadow-lg"
+    class="absolute bg-white dark:bg-slate-700 border border-blue-500 dark:border-blue-400 rounded shadow-lg overflow-hidden"
     style="
       {showAbove ? 'bottom: 100%; margin-bottom: 2px;' : 'top: 100%; margin-top: 2px;'}
       left: 0;
       right: 0;
+      height: {viewportHeight}px;
     "
+    onwheel={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const max = Math.max(0, contentHeight - viewportHeight);
+      scroll.setScroll(scroll.scrollTop + e.deltaY, 0, max, 0);
+    }}
   >
+    <div style="height: {contentHeight}px; position: relative;">
+      {#each filteredOptions as option, idx}
+        <!-- svelte-ignore a11y_click_events_have_key_events -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="px-2 py-1.5 text-xs cursor-pointer {idx === selectedIndex
+            ? 'bg-blue-500 text-white'
+            : 'text-neutral-900 dark:text-neutral-100 hover:bg-blue-100 dark:hover:bg-slate-600'}"
+          style="position: absolute; top: {idx * itemHeight - scroll.scrollTop}px; left: 0; right: 0; height: {itemHeight}px; display: flex; align-items: center;"
+          onmousedown={() => {
+            editingCtx.editValue = option;
+          }}
+          onmouseenter={() => {
+            selectedIndex = idx;
+          }}
+        >
+          {option}
+        </div>
+      {/each}
+    </div>
+
     <CustomScrollbar
-      {scroll}
-      height="{viewportHeight}px"
+      orientation="vertical"
+      visible={showVScroll}
       size="thin"
-      horizontal={false}
-    >
-      <div style="height: {contentHeight}px; position: relative;">
-        {#each filteredOptions as option, idx}
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div
-            class="px-2 py-1.5 text-xs cursor-pointer {idx === selectedIndex
-              ? 'bg-blue-500 text-white'
-              : 'text-neutral-900 dark:text-neutral-100 hover:bg-blue-100 dark:hover:bg-slate-600'}"
-            style="position: absolute; top: {idx * itemHeight - scroll.scrollTop}px; left: 0; right: 0; height: {itemHeight}px; display: flex; align-items: center;"
-            onmousedown={() => {
-              editingCtx.editValue = option;
-            }}
-            onmouseenter={() => {
-              selectedIndex = idx;
-            }}
-          >
-            {option}
-          </div>
-        {/each}
-      </div>
-    </CustomScrollbar>
+      thumbSize={vThumbSize}
+      thumbPosition={vThumbPos}
+      trackSpace={vTrackSpace}
+      maxScroll={vMaxScroll}
+      onscroll={(pos) => scroll.setScroll(pos, 0, vMaxScroll, 0)}
+    />
   </div>
 {/if}

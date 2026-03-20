@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { PageProps } from './$types';
   import { replaceState } from '$app/navigation';
-  import { onMount } from 'svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
   import { urlStore } from '$lib/data/urlStore.svelte';
@@ -51,27 +50,16 @@
     return i > 0 ? [{ key: f.slice(0, i), value: f.slice(i + 1) }] : [];
   });
 
-  // Staged load: fetch remaining assets after initial paint (disabled — full fetch is fast enough)
-  // onMount(async () => {
-  //   const res = await fetch(`/api/assets?view=${queryStore.view}`);
-  //   if (!res.ok) return;
-  //   const { assets } = await res.json();
-  //   if (assets?.length) {
-  //     assetStore.baseAssets = assets;
-  //     if (!queryStore.q && queryStore.filters.length === 0) {
-  //       assetStore.displayedAssets = assets;
-  //     }
-  //     assetStore.totalCount = assets.length;
-  //   }
-  // });
 
 </script>
 
 <GridContextProvider>
-  <div class="px-4 py-2 flex-grow flex flex-col">
+  <div class="px-4 py-2 h-full">
     <EventListener>
-      <Toolbar />
-      <GridContainer />
+      <div class="flex flex-col gap-2">
+        <Toolbar />
+        <GridContainer />
+      </div>
     </EventListener>
   </div>
 </GridContextProvider>
