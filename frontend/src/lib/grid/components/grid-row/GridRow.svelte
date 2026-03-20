@@ -1,17 +1,13 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { getColumnWidthContext, getSelectionContext, getEditingContext, getUiContext, getPendingContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
+  import { columnWidthStore, uiStore, setOpenPanel } from '$lib/data/uiStore.svelte';
+  import { selectionStore, editingStore, pendingStore } from '$lib/data/cellStore.svelte';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
 
   import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
-  const colWidthCtx = getColumnWidthContext();
-  const selCtx = getSelectionContext();
-  const editingCtx = getEditingContext();
-  const uiCtx = getUiContext();
-  const pendingCtx = getPendingContext();
   function getCellError(key: string): string | null {
-    const edit = pendingCtx.edits.find(e => e.row === asset.id && e.col === key && !e.isValid);
+    const edit = pendingStore.edits.find(e => e.row === asset.id && e.col === key && !e.isValid);
     return edit?.validationError ?? null;
   }
 
@@ -36,24 +32,24 @@
       border-r border-b border-neutral-200 dark:border-slate-700 last:border-r-0
       px-2 cursor-cell group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600
     "
-    style="width: {colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH}px; min-width: {colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH}px;"
+    style="width: {columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH}px; min-width: {columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH}px;"
     onmousedown={(e) => {
       if (e.button !== 0) return;
-      setOpenPanel(uiCtx);
+      setOpenPanel();
 
       if (e.shiftKey) {
-        selCtx.selectionEnd = { row: asset.id, col: key };
+        selectionStore.selectionEnd = { row: asset.id, col: key };
       } else {
-        selCtx.pasteRange = null;
-        selCtx.selectionStart = { row: asset.id, col: key };
-        selCtx.selectionEnd = { row: asset.id, col: key };
-        selCtx.isSelecting = true;
-        selCtx.hideSelection = false;
+        selectionStore.pasteRange = null;
+        selectionStore.selectionStart = { row: asset.id, col: key };
+        selectionStore.selectionEnd = { row: asset.id, col: key };
+        selectionStore.isSelecting = true;
+        selectionStore.hideSelection = false;
       }
     }}
     onmouseenter={() => {
-      if (selCtx.isSelecting) {
-        selCtx.selectionEnd = { row: asset.id, col: key };
+      if (selectionStore.isSelecting) {
+        selectionStore.selectionEnd = { row: asset.id, col: key };
       }
     }}
     ondblclick={() => {
@@ -75,38 +71,38 @@
         toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
         return;
       }
-      selCtx.pasteRange = null;
-      selCtx.selectionStart = { row: asset.id, col: key };
-      selCtx.selectionEnd = { row: asset.id, col: key };
-      selCtx.hideSelection = false;
-      const pendingEdit = pendingCtx.edits.find(e => e.row === asset.id && e.col === key);
-      editingCtx.editValue = pendingEdit ? pendingEdit.value : String(asset[key] ?? '');
-      editingCtx.isEditing = true;
-      editingCtx.editRow = asset.id;
-      editingCtx.editCol = key;
+      selectionStore.pasteRange = null;
+      selectionStore.selectionStart = { row: asset.id, col: key };
+      selectionStore.selectionEnd = { row: asset.id, col: key };
+      selectionStore.hideSelection = false;
+      const pendingEdit = pendingStore.edits.find(e => e.row === asset.id && e.col === key);
+      editingStore.editValue = pendingEdit ? pendingEdit.value : String(asset[key] ?? '');
+      editingStore.isEditing = true;
+      editingStore.editRow = asset.id;
+      editingStore.editCol = key;
     }}
     oncontextmenu={(e) => {
       e.preventDefault();
-      setOpenPanel(uiCtx);
-      selCtx.pasteRange = null;
+      setOpenPanel();
+      selectionStore.pasteRange = null;
 
-      const isSingleCell = selCtx.selectionStart.row === selCtx.selectionEnd.row
-        && selCtx.selectionStart.col === selCtx.selectionEnd.col;
-      if (isSingleCell || selCtx.selectionStart.row === -1) {
-        selCtx.selectionStart = { row: asset.id, col: key };
-        selCtx.selectionEnd = { row: asset.id, col: key };
+      const isSingleCell = selectionStore.selectionStart.row === selectionStore.selectionEnd.row
+        && selectionStore.selectionStart.col === selectionStore.selectionEnd.col;
+      if (isSingleCell || selectionStore.selectionStart.row === -1) {
+        selectionStore.selectionStart = { row: asset.id, col: key };
+        selectionStore.selectionEnd = { row: asset.id, col: key };
       }
-      selCtx.hideSelection = false;
+      selectionStore.hideSelection = false;
       // Open context menu
       const estimatedWidth = 150;
       const estimatedHeight = 200;
-      uiCtx.contextMenu.visible = true;
-      uiCtx.contextMenu.x = e.clientX + estimatedWidth > window.innerWidth ? e.clientX - estimatedWidth : e.clientX;
-      uiCtx.contextMenu.y = e.clientY + estimatedHeight > window.innerHeight ? Math.max(4, window.innerHeight - estimatedHeight - 8) : e.clientY;
-      uiCtx.contextMenu.row = asset.id;
-      uiCtx.contextMenu.col = key;
-      const ctxPending = pendingCtx.edits.find(e => e.row === asset.id && e.col === key);
-      uiCtx.contextMenu.value = ctxPending ? ctxPending.value : String(asset[key] ?? '');
+      uiStore.contextMenu.visible = true;
+      uiStore.contextMenu.x = e.clientX + estimatedWidth > window.innerWidth ? e.clientX - estimatedWidth : e.clientX;
+      uiStore.contextMenu.y = e.clientY + estimatedHeight > window.innerHeight ? Math.max(4, window.innerHeight - estimatedHeight - 8) : e.clientY;
+      uiStore.contextMenu.row = asset.id;
+      uiStore.contextMenu.col = key;
+      const ctxPending = pendingStore.edits.find(e => e.row === asset.id && e.col === key);
+      uiStore.contextMenu.value = ctxPending ? ctxPending.value : String(asset[key] ?? '');
     }}
   >
     <span class="truncate w-full">{key === 'id' && asset[key] < -1000 ? `NEW-${Math.abs(asset[key]) - 1000}` : asset[key]}</span>

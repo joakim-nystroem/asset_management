@@ -1,10 +1,5 @@
 <script lang="ts">
-  import {
-    getPendingContext,
-    getSelectionContext,
-    getClipboardContext,
-    getColumnWidthContext,
-  } from '$lib/context/gridContext.svelte.ts';
+  import { pendingStore, selectionStore, clipboardStore } from '$lib/data/cellStore.svelte';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
@@ -15,11 +10,6 @@
     computeRemotePendingOverlays,
   } from './gridOverlays.svelte.ts';
 
-  const pendingCtx = getPendingContext();
-  const selCtx = getSelectionContext();
-  const clipCtx = getClipboardContext();
-  const colWidthCtx = getColumnWidthContext();
-
   // --- Local UI state ---
   let hoveredUser: number | null = $state(null);
 
@@ -28,29 +18,29 @@
 
   // --- Overlay derivations ---
   const selectionOverlay = $derived(
-    computeVisualOverlay(selCtx.selectionStart, selCtx.selectionEnd, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)
+    computeVisualOverlay(selectionStore.selectionStart, selectionStore.selectionEnd, scrollStore.visibleRange, scrollStore.scrollTop)
   );
 
   const localPendingOverlays = $derived.by(() =>
-    computeLocalPendingOverlays(pendingCtx.edits, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)
+    computeLocalPendingOverlays(pendingStore.edits, scrollStore.visibleRange, scrollStore.scrollTop)
   );
 
   const copyOverlay = $derived(
-    clipCtx.copyStart.row !== -1
-      ? computeVisualOverlay(clipCtx.copyStart, clipCtx.copyEnd, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)
+    clipboardStore.copyStart.row !== -1
+      ? computeVisualOverlay(clipboardStore.copyStart, clipboardStore.copyEnd, scrollStore.visibleRange, scrollStore.scrollTop)
       : null
   );
 
   const pasteOverlay = $derived(
-    selCtx.pasteRange
-      ? computeVisualOverlay(selCtx.pasteRange.start, selCtx.pasteRange.end, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)
+    selectionStore.pasteRange
+      ? computeVisualOverlay(selectionStore.pasteRange.start, selectionStore.pasteRange.end, scrollStore.visibleRange, scrollStore.scrollTop)
       : null
   );
 
   const otherUserSelections = $derived(presenceStore.users);
 
   const remotePendingOverlays = $derived.by(() =>
-    computeRemotePendingOverlays(presenceStore.pendingCells, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)
+    computeRemotePendingOverlays(presenceStore.pendingCells, scrollStore.visibleRange, scrollStore.scrollTop)
   );
 </script>
 
@@ -60,7 +50,7 @@
 >
   <!-- Other user cursors -->
   {#each otherUserSelections as user (user.id)}
-    {@const otherOverlay = computeVisualOverlay(user, user, scrollStore.visibleRange, scrollStore.scrollTop, colWidthCtx)}
+    {@const otherOverlay = computeVisualOverlay(user, user, scrollStore.visibleRange, scrollStore.scrollTop)}
     {@const initials = ((user.firstname?.[0] || '') + (user.lastname?.[0] || '')).toUpperCase()}
     {@const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim()}
     {#if otherOverlay}
@@ -177,7 +167,7 @@
   {/each}
 
   <!-- Selection overlay -->
-  {#if selectionOverlay && selCtx.selectionStart.row !== -1 && !selCtx.hideSelection}
+  {#if selectionOverlay && selectionStore.selectionStart.row !== -1 && !selectionStore.hideSelection}
     <div
       class="absolute pointer-events-none z-[31] border-blue-600 dark:border-blue-500 bg-blue-900/10"
       style="

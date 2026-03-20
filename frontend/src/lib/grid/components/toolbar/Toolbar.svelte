@@ -3,31 +3,15 @@
   import FilterPanel from "$lib/grid/components/filter-panel/filterPanel.svelte";
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
-  import {
-    getPendingContext,
-    getNewRowContext,
-    getUiContext,
-    getSelectionContext,
-    getClipboardContext,
-    getHistoryContext,
-    getColumnWidthContext,
-    getScrollSignalContext,
-    setOpenPanel,
-  } from '$lib/context/gridContext.svelte.ts';
+  import { uiStore, setOpenPanel, columnWidthStore } from '$lib/data/uiStore.svelte';
+  import { pendingStore, selectionStore, clipboardStore, historyStore } from '$lib/data/cellStore.svelte';
+  import { newRowStore } from '$lib/data/newRowStore.svelte';
+  import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
   import { enqueue } from '$lib/grid/eventQueue/eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
   import { validateNewRow } from '$lib/grid/validation';
   import { resetEditState } from './toolbar.svelte.ts';
-
-  const pendingCtx = getPendingContext();
-  const historyCtx = getHistoryContext();
-  const newRowCtx = getNewRowContext();
-  const uiCtx = getUiContext();
-  const selCtx = getSelectionContext();
-  const clipCtx = getClipboardContext();
-  const colWidthCtx = getColumnWidthContext();
-  const scrollSignalCtx = getScrollSignalContext();
 
   // Local search input — only pushed to queryStore on explicit action
   let searchInput = $state('');
@@ -50,7 +34,7 @@
   );
 
   const hasInvalid = $derived(
-    pendingCtx.edits.some((e) => !e.isValid)
+    pendingStore.edits.some((e) => !e.isValid)
   );
 
   const user = $derived(page.data.user);
@@ -58,12 +42,12 @@
   let viewDropdownOpen = $state(false);
 
   function handleSearch() {
-    if (pendingCtx.edits.length > 0 || newRowCtx.hasNewRows) {
+    if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
       enqueue(
         { type: 'DISCARD', payload: {} },
-        { pendingCtx, newRowCtx },
+        { pendingCtx: pendingStore, newRowCtx: newRowStore },
       );
-      resetEditState(selCtx, clipCtx, historyCtx);
+      resetEditState();
     }
     queryStore.q = searchInput;
     enqueue(
@@ -73,12 +57,12 @@
   }
 
   function handleClearSearch() {
-    if (pendingCtx.edits.length > 0 || newRowCtx.hasNewRows) {
+    if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
       enqueue(
         { type: 'DISCARD', payload: {} },
-        { pendingCtx, newRowCtx },
+        { pendingCtx: pendingStore, newRowCtx: newRowStore },
       );
-      resetEditState(selCtx, clipCtx, historyCtx);
+      resetEditState();
     }
     searchInput = '';
     queryStore.q = '';
@@ -90,12 +74,12 @@
 
   function handleViewChange(viewName: string) {
     viewDropdownOpen = false;
-    if (pendingCtx.edits.length > 0 || newRowCtx.hasNewRows) {
+    if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
       enqueue(
         { type: 'DISCARD', payload: {} },
-        { pendingCtx, newRowCtx },
+        { pendingCtx: pendingStore, newRowCtx: newRowStore },
       );
-      resetEditState(selCtx, clipCtx, historyCtx);
+      resetEditState();
     }
     searchInput = '';
     queryStore.q = '';
@@ -108,49 +92,49 @@
   }
 
   function addNewRow() {
-    if (pendingCtx.edits.length > 0) {
+    if (pendingStore.edits.length > 0) {
       toastState.addToast('Commit or discard pending changes before adding new rows.', 'warning');
       return;
     }
     const keys = Object.keys(assetStore.displayedAssets[0] ?? {});
-    const newRow: Record<string, any> = { id: -(1001 + newRowCtx.newRows.length) };
+    const newRow: Record<string, any> = { id: -(1001 + newRowStore.newRows.length) };
     for (const key of keys) {
       if (key !== 'id') newRow[key] = '';
     }
-    newRowCtx.newRows = [...newRowCtx.newRows, newRow];
-    newRowCtx.hasNewRows = true;
+    newRowStore.newRows = [...newRowStore.newRows, newRow];
+    newRowStore.hasNewRows = true;
     assetStore.displayedAssets = [...assetStore.displayedAssets, newRow];
-    scrollSignalCtx.scrollToRow = assetStore.displayedAssets.length - 1;
+    scrollStore.scrollToRow = assetStore.displayedAssets.length - 1;
   }
 
   function handleDiscard() {
-    if (newRowCtx.hasNewRows) {
-      scrollSignalCtx.scrollToRow = Math.max(0, assetStore.displayedAssets.length - 1);
+    if (newRowStore.hasNewRows) {
+      scrollStore.scrollToRow = Math.max(0, assetStore.displayedAssets.length - 1);
     }
     enqueue(
       { type: 'DISCARD', payload: {} },
-      { pendingCtx, newRowCtx },
+      { pendingCtx: pendingStore, newRowCtx: newRowStore },
     );
-    resetEditState(selCtx, clipCtx, historyCtx);
+    resetEditState();
   }
 
   function navigateToError() {
-    const invalidEdit = pendingCtx.edits.find((e) => !e.isValid);
+    const invalidEdit = pendingStore.edits.find((e) => !e.isValid);
     if (!invalidEdit) return;
 
     const assets = assetStore.displayedAssets;
     const rowIndex = assets.findIndex((a: any) => a.id === invalidEdit.row);
     if (rowIndex < 0) return;
 
-    scrollSignalCtx.scrollToRow = rowIndex;
+    scrollStore.scrollToRow = rowIndex;
 
     // Compute column bounds for horizontal scroll
     const keys = Object.keys(assets[0] ?? {});
     const colIdx = keys.indexOf(invalidEdit.col);
     if (colIdx >= 0) {
       let left = 0;
-      for (let c = 0; c < colIdx; c++) left += colWidthCtx.widths.get(keys[c]) ?? DEFAULT_WIDTH + 5;
-      scrollSignalCtx.scrollToCol = { left, right: left + (colWidthCtx.widths.get(invalidEdit.col) ?? DEFAULT_WIDTH + 5) };
+      for (let c = 0; c < colIdx; c++) left += columnWidthStore.widths.get(keys[c]) ?? DEFAULT_WIDTH + 5;
+      scrollStore.scrollToCol = { left, right: left + (columnWidthStore.widths.get(invalidEdit.col) ?? DEFAULT_WIDTH + 5) };
     }
   }
 </script>
@@ -191,11 +175,11 @@
           <button
             onclick={(e) => {
               e.stopPropagation();
-              if (uiCtx.filterPanel.visible) {
-                setOpenPanel(uiCtx);
+              if (uiStore.filterPanel.visible) {
+                setOpenPanel();
               } else {
-                setOpenPanel(uiCtx, 'filterPanel');
-                uiCtx.filterPanel.visible = true;
+                setOpenPanel('filterPanel');
+                uiStore.filterPanel.visible = true;
               }
             }}
             class="flex items-center gap-2 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
@@ -210,7 +194,7 @@
               </span>
             {/if}
           </button>
-          {#if uiCtx.filterPanel.visible}
+          {#if uiStore.filterPanel.visible}
             <FilterPanel />
           {/if}
         </div>
@@ -223,21 +207,21 @@
             <span>New Row</span>
           </button>
         {/if}
-        {#if newRowCtx.hasNewRows && user}
+        {#if newRowStore.hasNewRows && user}
           <div class="flex gap-2 items-center">
             <button
               onclick={() => {
                 // Merge pending edits into new row objects before sending
-                const newRows = newRowCtx.newRows.map((row: any) => {
+                const newRows = newRowStore.newRows.map((row: any) => {
                   const merged = { ...row };
-                  for (const edit of pendingCtx.edits) {
+                  for (const edit of pendingStore.edits) {
                     if (edit.row === row.id) merged[edit.col] = edit.value;
                   }
                   return merged;
                 });
                 // Validate each merged row before committing
                 for (const row of newRows) {
-                  const result = validateNewRow(row, pendingCtx.edits);
+                  const result = validateNewRow(row, pendingStore.edits);
                   if (!result.isValid) {
                     toastState.addToast(`Fix invalid cells before committing: ${result.errors[0]}`, 'warning');
                     return;
@@ -251,9 +235,9 @@
                       user,
                     },
                   },
-                  { newRowCtx, pendingCtx },
+                  { newRowCtx: newRowStore, pendingCtx: pendingStore },
                 );
-                resetEditState(selCtx, clipCtx, historyCtx);
+                resetEditState();
               }}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
@@ -280,11 +264,11 @@
               </div>
             {/if}
           </div>
-        {:else if pendingCtx.edits.length > 0 && user}
+        {:else if pendingStore.edits.length > 0 && user}
           <div class="flex gap-2 items-center">
             <button
               onclick={() => {
-                if (pendingCtx.edits.some((e) => !e.isValid)) {
+                if (pendingStore.edits.some((e) => !e.isValid)) {
                   toastState.addToast('Fix invalid cells before committing', 'warning');
                   return;
                 }
@@ -292,13 +276,13 @@
                   {
                     type: 'COMMIT_UPDATE',
                     payload: {
-                      changes: $state.snapshot(pendingCtx.edits),
+                      changes: $state.snapshot(pendingStore.edits),
                       user,
                     },
                   },
-                  { pendingCtx },
+                  { pendingCtx: pendingStore },
                 );
-                resetEditState(selCtx, clipCtx, historyCtx);
+                resetEditState();
               }}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >

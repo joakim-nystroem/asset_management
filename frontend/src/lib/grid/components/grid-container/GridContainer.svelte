@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { getColumnWidthContext, getUiContext, getScrollSignalContext } from '$lib/context/gridContext.svelte.ts';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
+  import { uiStore, columnWidthStore } from '$lib/data/uiStore.svelte';
   import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   import GridRow from '$lib/grid/components/grid-row/GridRow.svelte';
   import GridHeader from '$lib/grid/components/grid-header/GridHeader.svelte';
@@ -14,15 +14,11 @@
 
   const TRACK_SIZE = 6;
 
-  const uiCtx = getUiContext();
-  const scrollSignalCtx = getScrollSignalContext();
-  const colWidthCtx = getColumnWidthContext();
-
   // Viewport dimensions — owned by GridContainer, measured via ResizeObserver
   let viewport = $state({ width: 0, height: 0 });
   setContext('viewport', viewport);
 
-  const virtualGrid = createVirtualGridContainer(scrollSignalCtx);
+  const virtualGrid = createVirtualGridContainer();
 
   let keys = $derived(Object.keys(assetStore.displayedAssets[0] ?? {}));
 
@@ -35,7 +31,7 @@
     if (top === prevScrollTop && left === prevScrollLeft) return;
     prevScrollTop = top;
     prevScrollLeft = left;
-    if (uiCtx.contextMenu.visible) uiCtx.contextMenu.visible = false;
+    if (uiStore.contextMenu.visible) uiStore.contextMenu.visible = false;
   });
 
   let visibleItems = $derived(
@@ -45,7 +41,7 @@
   // Content dimensions (derived, not stored)
   let contentHeight = $derived(assetStore.displayedAssets.length * DEFAULT_ROW_HEIGHT);
   let contentWidth = $derived(
-    keys.reduce((sum, key) => sum + (colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH), 0)
+    keys.reduce((sum, key) => sum + (columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH), 0)
   );
 
   // Scrollbar calculations — fixed thumb size, scroll speed scales with content
@@ -88,11 +84,11 @@
   function handleMouseDown(e: MouseEvent) {
     if (e.button === 1) {
       e.preventDefault();
-      if (scrollSignalCtx.isAutoScrolling) { virtualGrid.stopAutoScroll(); return; }
+      if (scrollStore.isAutoScrolling) { virtualGrid.stopAutoScroll(); return; }
       virtualGrid.startAutoScroll(e.clientX, e.clientY);
       return;
     }
-    if (scrollSignalCtx.isAutoScrolling) virtualGrid.stopAutoScroll();
+    if (scrollStore.isAutoScrolling) virtualGrid.stopAutoScroll();
   }
 </script>
 
@@ -157,7 +153,7 @@
       onscroll={(pos) => virtualGrid.clampedScroll(scrollStore.scrollTop, pos)}
     />
 
-    {#if uiCtx.contextMenu.visible}
+    {#if uiStore.contextMenu.visible}
       <ContextMenu />
     {/if}
   {:else}
@@ -172,7 +168,7 @@
   </p>
 {/if}
 
-{#if scrollSignalCtx.isAutoScrolling}
+{#if scrollStore.isAutoScrolling}
   <div
     class="fixed z-[100] pointer-events-none -translate-x-1/2 -translate-y-1/2
       w-7 h-7 rounded-full border border-neutral-300 dark:border-slate-600

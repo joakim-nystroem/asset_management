@@ -1,6 +1,8 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { getEditingContext, getPendingContext, getHistoryContext, getNewRowContext, getSelectionContext, getClipboardContext, getColumnWidthContext, getUiContext, resetEditing, type HistoryAction } from '$lib/context/gridContext.svelte.ts';
+  import { editingStore, pendingStore, historyStore, selectionStore, clipboardStore, resetEditing, type HistoryAction } from '$lib/data/cellStore.svelte';
+  import { newRowStore } from '$lib/data/newRowStore.svelte';
+  import { columnWidthStore, uiStore } from '$lib/data/uiStore.svelte';
   import { enqueue } from '$lib/grid/eventQueue/eventQueue';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { validateCell } from '$lib/grid/validation';
@@ -14,21 +16,13 @@
   import { computeEditorPosition } from './editHandler.svelte.ts';
   import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
-  const editingCtx = getEditingContext();
-  const pendingCtx = getPendingContext();
-  const historyCtx = getHistoryContext();
-  const selCtx = getSelectionContext();
-  const clipCtx = getClipboardContext();
-  const colWidthCtx = getColumnWidthContext();
-  const uiCtx = getUiContext();
-  const newRowCtx = getNewRowContext();
   const assets = $derived(assetStore.displayedAssets);
   const keys = $derived(Object.keys(assets[0] ?? {}));
 
   // Derive edit properties — editRow is asset ID, editCol is column key string
-  const editKey = $derived(editingCtx.editCol !== '' ? editingCtx.editCol : null);
+  const editKey = $derived(editingStore.editCol !== '' ? editingStore.editCol : null);
   const editAsset = $derived(
-    editingCtx.editRow !== -1 ? assets.find((a: Record<string, any>) => a.id === editingCtx.editRow) : null
+    editingStore.editRow !== -1 ? assets.find((a: Record<string, any>) => a.id === editingStore.editRow) : null
   );
   const editOriginalValue = $derived(
     editAsset && editKey ? String(editAsset[editKey] ?? '') : ''
@@ -39,13 +33,13 @@
 
   // Compute absolute position within GridOverlays
   const editorStyle = $derived.by(() => {
-    if (!editingCtx.isEditing || !editKey || editingCtx.editRow === -1 || editingCtx.editCol === '') {
+    if (!editingStore.isEditing || !editKey || editingStore.editRow === -1 || editingStore.editCol === '') {
       return 'display: none;';
     }
     const pos = computeEditorPosition(
-      editingCtx.editRow,
-      editingCtx.editCol,
-      colWidthCtx.widths,
+      editingStore.editRow,
+      editingStore.editCol,
+      columnWidthStore.widths,
       keys,
       assets,
     );
@@ -55,26 +49,26 @@
 
   // --- Shared helper: resolve the visible value for a cell (pending or asset) ---
   function cellValue(assetId: number, colKey: string): string {
-    const pending = pendingCtx.edits.find((e) => e.row === assetId && e.col === colKey);
+    const pending = pendingStore.edits.find((e) => e.row === assetId && e.col === colKey);
     if (pending) return pending.value;
     const asset = assets.find((a: Record<string, any>) => a.id === assetId);
     return asset ? String(asset[colKey] ?? '') : '';
   }
 
-  // --- Shared helper: upsert a single cell into pendingCtx ---
+  // --- Shared helper: upsert a single cell into pendingStore ---
   function upsertPending(assetId: number, colKey: string, newValue: string) {
     const asset = assets.find((a: Record<string, any>) => a.id === assetId);
     if (!asset) return;
-    const existing = pendingCtx.edits.find((e) => e.row === assetId && e.col === colKey);
+    const existing = pendingStore.edits.find((e) => e.row === assetId && e.col === colKey);
     const baseline = existing ? existing.original : String(asset[colKey] ?? '');
 
     // Remove existing entry
-    pendingCtx.edits = pendingCtx.edits.filter((e) => !(e.row === assetId && e.col === colKey));
+    pendingStore.edits = pendingStore.edits.filter((e) => !(e.row === assetId && e.col === colKey));
 
     // If changed from baseline, track it and notify server
     if (newValue !== baseline) {
-      const { isValid, error } = validateCell(assetId, colKey, newValue, pendingCtx.edits);
-      pendingCtx.edits.push({ row: assetId, col: colKey, original: baseline, value: newValue, isValid, validationError: error });
+      const { isValid, error } = validateCell(assetId, colKey, newValue, pendingStore.edits);
+      pendingStore.edits.push({ row: assetId, col: colKey, original: baseline, value: newValue, isValid, validationError: error });
       enqueue({ type: 'CELL_PENDING', payload: { assetId, key: colKey, value: newValue } }, {});
     } else {
       // Reverted to baseline — clear pending on server
@@ -89,20 +83,20 @@
     return idx;
   }
 
-  // --- Copy: build mini-grid from selection, store in clipCtx + system clipboard ---
+  // --- Copy: build mini-grid from selection, store in clipboardStore + system clipboard ---
   $effect(() => {
-    if (clipCtx.isCopying) {
+    if (clipboardStore.isCopying) {
       handleCopy();
-      clipCtx.isCopying = false;
+      clipboardStore.isCopying = false;
     }
   });
 
   function handleCopy() {
-    selCtx.pasteRange = null;
-    const startIdx = assetIndex(selCtx.selectionStart.row);
-    const endIdx = assetIndex(selCtx.selectionEnd.row);
-    const startColIdx = keys.indexOf(selCtx.selectionStart.col);
-    const endColIdx = keys.indexOf(selCtx.selectionEnd.col);
+    selectionStore.pasteRange = null;
+    const startIdx = assetIndex(selectionStore.selectionStart.row);
+    const endIdx = assetIndex(selectionStore.selectionEnd.row);
+    const startColIdx = keys.indexOf(selectionStore.selectionStart.col);
+    const endColIdx = keys.indexOf(selectionStore.selectionEnd.col);
     if (startColIdx === -1 || endColIdx === -1) return;
     const minRow = Math.min(startIdx, endIdx);
     const maxRow = Math.max(startIdx, endIdx);
@@ -117,20 +111,20 @@
       grid.push(colKeys.map((key) => cellValue(asset.id, key)));
     }
 
-    clipCtx.grid = grid;
-    clipCtx.copyStart = { ...selCtx.selectionStart };
-    clipCtx.copyEnd = { ...selCtx.selectionEnd };
-    selCtx.hideSelection = true;
+    clipboardStore.grid = grid;
+    clipboardStore.copyStart = { ...selectionStore.selectionStart };
+    clipboardStore.copyEnd = { ...selectionStore.selectionEnd };
+    selectionStore.hideSelection = true;
 
     const text = grid.map((row) => row.join('\t')).join('\n');
     navigator.clipboard.writeText(text).catch(() => {});
   }
 
-  // --- Paste: triggered by isPasting flag, uses internal clipCtx.grid ---
+  // --- Paste: triggered by isPasting flag, uses internal clipboardStore.grid ---
   $effect(() => {
-    if (editingCtx.isPasting) {
-      untrack(() => editingCtx.isPasting = false);
-      if (newRowCtx.hasNewRows && selCtx.selectionStart.row > 0) {
+    if (editingStore.isPasting) {
+      untrack(() => editingStore.isPasting = false);
+      if (newRowStore.hasNewRows && selectionStore.selectionStart.row > 0) {
         toastState.addToast('Commit or discard new rows before editing.', 'warning');
         return;
       }
@@ -139,16 +133,16 @@
   });
 
   function handlePaste() {
-    if (selCtx.selectionStart.row === -1) return;
-    if (clipCtx.grid.length === 0 || clipCtx.grid[0].length === 0) return;
+    if (selectionStore.selectionStart.row === -1) return;
+    if (clipboardStore.grid.length === 0 || clipboardStore.grid[0].length === 0) return;
 
-    const clipHeight = clipCtx.grid.length;
-    const clipWidth = clipCtx.grid[0].length;
+    const clipHeight = clipboardStore.grid.length;
+    const clipWidth = clipboardStore.grid[0].length;
 
-    const startRow = assetIndex(selCtx.selectionStart.row);
-    const endRow = assetIndex(selCtx.selectionEnd.row);
-    const startCol = keys.indexOf(selCtx.selectionStart.col);
-    const endCol = keys.indexOf(selCtx.selectionEnd.col);
+    const startRow = assetIndex(selectionStore.selectionStart.row);
+    const endRow = assetIndex(selectionStore.selectionEnd.row);
+    const startCol = keys.indexOf(selectionStore.selectionStart.col);
+    const endCol = keys.indexOf(selectionStore.selectionEnd.col);
     if (startCol === -1 || endCol === -1) return;
     const minStartRow = Math.min(startRow, endRow);
     const minStartCol = Math.min(startCol, endCol);
@@ -160,12 +154,12 @@
     const maxCol = Math.min(canTile ? selWidth : clipWidth, keys.length - minStartCol);
 
     const pastedKeys = new Set<string>();
-    const newEdits: typeof pendingCtx.edits = [];
+    const newEdits: typeof pendingStore.edits = [];
     const historyBatch: HistoryAction[] = [];
 
     for (let r = 0; r < maxRow; r++) {
       const asset = assets[minStartRow + r];
-      const clipRow = clipCtx.grid[r % clipHeight];
+      const clipRow = clipboardStore.grid[r % clipHeight];
 
       for (let c = 0; c < maxCol; c++) {
         const key = keys[minStartCol + c];
@@ -178,7 +172,7 @@
 
         if (newValue !== original) {
           // Changed from baseline — track as pending
-          const { isValid, error } = validateCell(asset.id, key, newValue, pendingCtx.edits);
+          const { isValid, error } = validateCell(asset.id, key, newValue, pendingStore.edits);
           newEdits.push({ row: asset.id, col: key, original, value: newValue, isValid, validationError: error });
           enqueue({ type: 'CELL_PENDING', payload: { assetId: asset.id, key, value: newValue } }, {});
         } else {
@@ -193,14 +187,14 @@
     }
 
     // Remove all prior pending in paste range, re-add only changed cells
-    pendingCtx.edits = [
-      ...pendingCtx.edits.filter((e) => !pastedKeys.has(`${e.row}:${e.col}`)),
+    pendingStore.edits = [
+      ...pendingStore.edits.filter((e) => !pastedKeys.has(`${e.row}:${e.col}`)),
       ...newEdits,
     ];
 
     if (historyBatch.length > 0) {
-      historyCtx.undoStack = [...historyCtx.undoStack, historyBatch];
-      historyCtx.redoStack = [];
+      historyStore.undoStack = [...historyStore.undoStack, historyBatch];
+      historyStore.redoStack = [];
     }
 
     // Update selection to cover paste range
@@ -208,57 +202,57 @@
     const pasteEndId = assets[minStartRow + maxRow - 1].id;
     const pasteStartCol = keys[minStartCol];
     const pasteEndCol = keys[minStartCol + maxCol - 1];
-    selCtx.selectionStart = { row: pasteStartId, col: pasteStartCol };
-    selCtx.selectionEnd = { row: pasteEndId, col: pasteEndCol };
-    selCtx.hideSelection = true;
-    selCtx.pasteRange = { start: { row: pasteStartId, col: pasteStartCol }, end: { row: pasteEndId, col: pasteEndCol } };
+    selectionStore.selectionStart = { row: pasteStartId, col: pasteStartCol };
+    selectionStore.selectionEnd = { row: pasteEndId, col: pasteEndCol };
+    selectionStore.hideSelection = true;
+    selectionStore.pasteRange = { start: { row: pasteStartId, col: pasteStartCol }, end: { row: pasteEndId, col: pasteEndCol } };
   }
 
   // --- Undo/Redo ---
   $effect(() => {
-    if (editingCtx.isUndoing) {
+    if (editingStore.isUndoing) {
       handleUndo();
-      editingCtx.isUndoing = false;
+      editingStore.isUndoing = false;
     }
   });
 
   $effect(() => {
-    if (editingCtx.isRedoing) {
+    if (editingStore.isRedoing) {
       handleRedo();
-      editingCtx.isRedoing = false;
+      editingStore.isRedoing = false;
     }
   });
 
   function handleUndo() {
-    if (historyCtx.undoStack.length === 0) return;
-    const batch = historyCtx.undoStack[historyCtx.undoStack.length - 1];
-    historyCtx.undoStack = historyCtx.undoStack.slice(0, -1);
+    if (historyStore.undoStack.length === 0) return;
+    const batch = historyStore.undoStack[historyStore.undoStack.length - 1];
+    historyStore.undoStack = historyStore.undoStack.slice(0, -1);
     for (const action of batch) {
       upsertPending(action.id, action.key, action.oldValue);
     }
-    historyCtx.redoStack = [...historyCtx.redoStack, batch];
+    historyStore.redoStack = [...historyStore.redoStack, batch];
   }
 
   function handleRedo() {
-    if (historyCtx.redoStack.length === 0) return;
-    const batch = historyCtx.redoStack[historyCtx.redoStack.length - 1];
-    historyCtx.redoStack = historyCtx.redoStack.slice(0, -1);
+    if (historyStore.redoStack.length === 0) return;
+    const batch = historyStore.redoStack[historyStore.redoStack.length - 1];
+    historyStore.redoStack = historyStore.redoStack.slice(0, -1);
     for (const action of batch) {
       upsertPending(action.id, action.key, action.newValue);
     }
-    historyCtx.undoStack = [...historyCtx.undoStack, batch];
+    historyStore.undoStack = [...historyStore.undoStack, batch];
   }
 
   // Show suggestion menu when editing starts (pre so it mounts in same render pass as textarea)
   $effect.pre(() => {
-    if (editingCtx.isEditing) {
-      uiCtx.suggestionMenu.visible = true;
+    if (editingStore.isEditing) {
+      uiStore.suggestionMenu.visible = true;
     }
   });
 
   // Focus and select text when textarea mounts
   $effect(() => {
-    if (textareaRef && editingCtx.isEditing) {
+    if (textareaRef && editingStore.isEditing) {
       textareaRef.focus();
       textareaRef.select();
     }
@@ -266,9 +260,9 @@
 
   // Reactive lock rejection — if another user locks our editing cell, cancel
   $effect(() => {
-    if (!editingCtx.isEditing) return;
+    if (!editingStore.isEditing) return;
     const lock = presenceStore.users.find(
-      u => u.row === editingCtx.editRow && u.col === editingCtx.editCol && u.isLocked
+      u => u.row === editingStore.editRow && u.col === editingStore.editCol && u.isLocked
     );
     if (lock) {
       cancelEdit();
@@ -280,26 +274,26 @@
   });
 
   function cancelEdit() {
-    resetEditing(editingCtx);
+    resetEditing();
     enqueue({ type: 'CELL_EDIT_END', payload: {} }, {});
-    uiCtx.suggestionMenu.visible = false;
+    uiStore.suggestionMenu.visible = false;
   }
 
   function saveEdit() {
-    if (!editKey || editingCtx.editRow === -1) { cancelEdit(); return; }
-    const newValue = editingCtx.editValue.trim();
+    if (!editKey || editingStore.editRow === -1) { cancelEdit(); return; }
+    const newValue = editingStore.editValue.trim();
     // Constrained columns: reject invalid values, keep editor open
     if (isConstrained(editKey) && !isValidOption(editKey, newValue)) {
       toastState.addToast('Select a valid option', 'warning');
       return;
     }
-    const oldValue = cellValue(editingCtx.editRow, editKey);
+    const oldValue = cellValue(editingStore.editRow, editKey);
     if (oldValue !== newValue) {
-      historyCtx.undoStack = [...historyCtx.undoStack, [{ id: editingCtx.editRow, key: editKey, oldValue, newValue }]];
-      historyCtx.redoStack = [];
-      selCtx.hideSelection = true;
+      historyStore.undoStack = [...historyStore.undoStack, [{ id: editingStore.editRow, key: editKey, oldValue, newValue }]];
+      historyStore.redoStack = [];
+      selectionStore.hideSelection = true;
     }
-    upsertPending(editingCtx.editRow, editKey, newValue);
+    upsertPending(editingStore.editRow, editKey, newValue);
     cancelEdit();
   }
 
@@ -311,12 +305,12 @@
 
   function handleInput(e: Event) {
     const target = e.target as HTMLTextAreaElement;
-    editingCtx.editValue = target.value;
+    editingStore.editValue = target.value;
   }
 
   function handleBlur() {
     if (editKey && isConstrained(editKey)) {
-      if (isValidOption(editKey, editingCtx.editValue.trim())) {
+      if (isValidOption(editKey, editingStore.editValue.trim())) {
         saveEdit();
       } else {
         cancelEdit();
@@ -327,12 +321,12 @@
   }
 </script>
 
-{#if editingCtx.isEditing}
+{#if editingStore.isEditing}
   <div class="absolute z-[70]" style={editorStyle}>
     <div class="relative w-full h-full">
       <textarea
         bind:this={textareaRef}
-        bind:value={editingCtx.editValue}
+        bind:value={editingStore.editValue}
         oninput={handleInput}
         onkeydown={handleKeydown}
         onmousedown={(e) => e.stopPropagation()}
@@ -340,7 +334,7 @@
         class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
         style="overflow: hidden;"
       ></textarea>
-      {#if uiCtx.suggestionMenu.visible}
+      {#if uiStore.suggestionMenu.visible}
         <SuggestionMenu />
       {/if}
     </div>

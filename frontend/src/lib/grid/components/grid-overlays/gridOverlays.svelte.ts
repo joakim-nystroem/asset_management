@@ -1,4 +1,4 @@
-import type { ColumnWidthContext } from '$lib/context/gridContext.svelte';
+import { columnWidthStore } from '$lib/data/uiStore.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
 import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
 
@@ -6,8 +6,8 @@ export function getKeys(): string[] {
   return Object.keys(assetStore.displayedAssets[0] ?? {});
 }
 
-export function getWidth(key: string, colWidthCtx: ColumnWidthContext): number {
-  return colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH;
+export function getWidth(key: string): number {
+  return columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH;
 }
 
 export function assetIndex(id: number): number {
@@ -19,7 +19,6 @@ export function computeVisualOverlay(
   end: { row: number; col: string },
   visibleRange: { startIndex: number; endIndex: number },
   scrollTop: number,
-  colWidthCtx: ColumnWidthContext,
 ) {
   const keys = getKeys();
   const rowHeight = DEFAULT_ROW_HEIGHT;
@@ -42,9 +41,9 @@ export function computeVisualOverlay(
   if (clampedMinRow > clampedMaxRow) return null;
 
   let left = 0;
-  for (let c = 0; c < minCol; c++) left += getWidth(keys[c], colWidthCtx);
+  for (let c = 0; c < minCol; c++) left += getWidth(keys[c]);
   let width = 0;
-  for (let c = minCol; c <= maxCol; c++) width += getWidth(keys[c], colWidthCtx);
+  for (let c = minCol; c <= maxCol; c++) width += getWidth(keys[c]);
 
   const top = clampedMinRow * rowHeight - scrollTop;
   const height = (clampedMaxRow - clampedMinRow + 1) * rowHeight;
@@ -62,7 +61,6 @@ export function computeLocalPendingOverlays(
   edits: { row: number; col: string; isValid: boolean; value: string }[],
   visibleRange: { startIndex: number; endIndex: number },
   scrollTop: number,
-  colWidthCtx: ColumnWidthContext,
 ) {
   if (edits.length === 0) return [];
 
@@ -87,8 +85,8 @@ export function computeLocalPendingOverlays(
     if (rowIdx < startIndex || rowIdx >= endIndex) continue;
 
     let left = 0;
-    for (let c = 0; c < colIdx; c++) left += getWidth(keys[c], colWidthCtx);
-    const w = getWidth(keys[colIdx], colWidthCtx);
+    for (let c = 0; c < colIdx; c++) left += getWidth(keys[c]);
+    const w = getWidth(keys[colIdx]);
     const top = rowIdx * rowHeight - scrollTop;
 
     const sameAbove = editMap.get(`${rowIdx - 1},${colIdx}`)?.isValid === edit.isValid && editMap.has(`${rowIdx - 1},${colIdx}`);
@@ -110,7 +108,6 @@ export function computeRemotePendingOverlays(
   pendingCells: { assetId: number; key: string; color: string; firstname: string; lastname: string }[],
   visibleRange: { startIndex: number; endIndex: number },
   scrollTop: number,
-  colWidthCtx: ColumnWidthContext,
 ) {
   if (pendingCells.length === 0) return [];
 
@@ -128,8 +125,8 @@ export function computeRemotePendingOverlays(
     if (colIdx === -1) continue;
 
     let left = 0;
-    for (let c = 0; c < colIdx; c++) left += getWidth(keys[c], colWidthCtx);
-    const w = getWidth(keys[colIdx], colWidthCtx);
+    for (let c = 0; c < colIdx; c++) left += getWidth(keys[c]);
+    const w = getWidth(keys[colIdx]);
     const top = rowIdx * rowHeight - scrollTop;
 
     overlays.push({

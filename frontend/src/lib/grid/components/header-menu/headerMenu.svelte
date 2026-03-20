@@ -2,7 +2,7 @@
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
-  import { getUiContext, getSortContext, getPendingContext, getNewRowContext, getSelectionContext, getClipboardContext, getHistoryContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
+  import { uiStore, sortStore, setOpenPanel } from '$lib/data/uiStore.svelte';
   import { toggleFilter } from './headerMenu.svelte.ts';
 
   let {
@@ -13,29 +13,21 @@
     alignRight?: boolean;
   } = $props();
 
-  const uiCtx = getUiContext();
-  const sortCtx = getSortContext();
-  const pendingCtx = getPendingContext();
-  const newRowCtx = getNewRowContext();
-  const selCtx = getSelectionContext();
-  const clipCtx = getClipboardContext();
-  const historyCtx = getHistoryContext();
-
   function handleSort(key: string, direction: 'asc' | 'desc') {
-    if (sortCtx.key === key && sortCtx.direction === direction) {
-      sortCtx.key = null;
+    if (sortStore.key === key && sortStore.direction === direction) {
+      sortStore.key = null;
       assetStore.displayedAssets = [...assetStore.displayedAssets].sort(
         (a, b) => Number(a.id) - Number(b.id)
       );
     } else {
-      sortCtx.key = key;
-      sortCtx.direction = direction;
+      sortStore.key = key;
+      sortStore.direction = direction;
       const d = direction === 'asc' ? 1 : -1;
       assetStore.displayedAssets = [...assetStore.displayedAssets].sort(
         (a, b) => String(a[key]).localeCompare(String(b[key])) * d
       );
     }
-    setOpenPanel(uiCtx);
+    setOpenPanel();
   }
 
   // Local rendering state
@@ -68,7 +60,7 @@
       onclick={() => handleSort(activeKey, 'asc')}
     >
       <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
-        {#if sortCtx.key === activeKey && sortCtx.direction === 'asc'}✓{/if}
+        {#if sortStore.key === activeKey && sortStore.direction === 'asc'}✓{/if}
       </div>
       <span>Sort A to Z</span>
     </button>
@@ -78,7 +70,7 @@
       onclick={() => handleSort(activeKey, 'desc')}
     >
       <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
-        {#if sortCtx.key === activeKey && sortCtx.direction === 'desc'}✓{/if}
+        {#if sortStore.key === activeKey && sortStore.direction === 'desc'}✓{/if}
       </div>
       <span>Sort Z to A</span>
     </button>
@@ -126,7 +118,7 @@
             }
               <button
                 class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full"
-                onclick={() => toggleFilter(activeKey, item, pendingCtx, newRowCtx, selCtx, clipCtx, historyCtx)}
+                onclick={() => toggleFilter(activeKey, item)}
               >
                 <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
                   {#if queryStore.filters.some(f => f.key === activeKey && f.value === item)}✓{/if}

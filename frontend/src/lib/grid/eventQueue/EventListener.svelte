@@ -1,16 +1,8 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import {
-    getUiContext,
-    getEditingContext,
-    getSelectionContext,
-    getClipboardContext,
-    getColumnWidthContext,
-    getScrollSignalContext,
-    getPendingContext,
-    setOpenPanel,
-    resetEditing,
-  } from '$lib/context/gridContext.svelte';
+  import { resetEditing, editingStore, pendingStore, selectionStore, clipboardStore } from '$lib/data/cellStore.svelte';
+  import { scrollStore } from '$lib/data/scrollStore.svelte';
+  import { setOpenPanel } from '$lib/data/uiStore.svelte';
   import { realtime } from '$lib/utils/realtimeManager.svelte';
   import {
     startCellEdit,
@@ -28,25 +20,17 @@
 
   let { children } = $props();
 
-  const uiCtx = getUiContext();
-  const editingCtx = getEditingContext();
-  const selCtx = getSelectionContext();
-  const clipCtx = getClipboardContext();
-  const colWidthCtx = getColumnWidthContext();
-  const scrollSignalCtx = getScrollSignalContext();
-  const pendingCtx = getPendingContext();
-
   const user = $derived(page.data.user);
 
   // ─── CLIENT_STATE provider for reconnect ─────────────────────────────────
   realtime.setLocalStateProvider(() => {
-    const position = selCtx.selectionStart.row !== -1
-      ? { row: selCtx.selectionStart.row, col: selCtx.selectionStart.col }
+    const position = selectionStore.selectionStart.row !== -1
+      ? { row: selectionStore.selectionStart.row, col: selectionStore.selectionStart.col }
       : null;
-    const lock = editingCtx.isEditing && editingCtx.editRow !== -1
-      ? { assetId: editingCtx.editRow, key: editingCtx.editCol }
+    const lock = editingStore.isEditing && editingStore.editRow !== -1
+      ? { assetId: editingStore.editRow, key: editingStore.editCol }
       : null;
-    const pending = pendingCtx.edits.map(e => ({
+    const pending = pendingStore.edits.map(e => ({
       assetId: e.row,
       key: e.col,
       value: e.value,
@@ -56,8 +40,8 @@
 
   // ─── WS BRIDGE: outbound selection → position update ───────────────────────
   $effect(() => {
-    const row = selCtx.selectionStart.row;
-    const col = selCtx.selectionStart.col;
+    const row = selectionStore.selectionStart.row;
+    const col = selectionStore.selectionStart.col;
 
     if (row === -1 || col === '') {
       enqueue({ type: 'POSITION_DESELECT', payload: {} }, {});
@@ -68,8 +52,8 @@
 
   // ─── WS BRIDGE: outbound edit lock ────────────────────────────────────────
   $effect(() => {
-    if (editingCtx.isEditing && editingCtx.editRow !== -1 && editingCtx.editCol !== '') {
-      enqueue({ type: 'CELL_EDIT_START', payload: { assetId: editingCtx.editRow, key: editingCtx.editCol } }, {});
+    if (editingStore.isEditing && editingStore.editRow !== -1 && editingStore.editCol !== '') {
+      enqueue({ type: 'CELL_EDIT_START', payload: { assetId: editingStore.editRow, key: editingStore.editCol } }, {});
     }
   });
 
@@ -83,27 +67,27 @@
     const keys = getKeys();
 
     if (e.key === 'Escape') {
-      if (editingCtx.isEditing) {
-        resetEditing(editingCtx);
+      if (editingStore.isEditing) {
+        resetEditing();
         enqueue({ type: 'CELL_EDIT_END', payload: {} }, {});
         return;
       }
-      if (selCtx.selectionStart.row !== -1) {
-        resetSelection(selCtx);
+      if (selectionStore.selectionStart.row !== -1) {
+        resetSelection();
       }
-      clearClipboard(clipCtx);
-      setOpenPanel(uiCtx);
+      clearClipboard();
+      setOpenPanel();
       return;
     }
 
     if (e.key === 'F2') {
       e.preventDefault();
       if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
-      if (selCtx.selectionStart.row === -1) return;
-      const row = selCtx.selectionStart.row;
-      const col = selCtx.selectionStart.col;
+      if (selectionStore.selectionStart.row === -1) return;
+      const row = selectionStore.selectionStart.row;
+      const col = selectionStore.selectionStart.col;
       if (col === '' || col === 'id') return;
-      startCellEdit(editingCtx, pendingCtx, uiCtx, row, col);
+      startCellEdit(row, col);
       return;
     }
 
@@ -112,30 +96,30 @@
 
       if (k === 'c') {
         e.preventDefault();
-        if (selCtx.selectionStart.row === -1) return;
-        clipCtx.isCopying = true;
+        if (selectionStore.selectionStart.row === -1) return;
+        clipboardStore.isCopying = true;
         return;
       }
 
       if (k === 'v') {
         e.preventDefault();
         if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
-        if (selCtx.selectionStart.row === -1) return;
-        editingCtx.isPasting = true;
+        if (selectionStore.selectionStart.row === -1) return;
+        editingStore.isPasting = true;
         return;
       }
 
       if (k === 'z') {
         e.preventDefault();
         if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
-        editingCtx.isUndoing = true;
+        editingStore.isUndoing = true;
         return;
       }
 
       if (k === 'y') {
         e.preventDefault();
         if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
-        editingCtx.isRedoing = true;
+        editingStore.isRedoing = true;
         return;
       }
     }
@@ -143,13 +127,13 @@
     // Arrow key navigation
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       e.preventDefault();
-      if (selCtx.hideSelection) selCtx.hideSelection = false;
-      const anchor = selCtx.selectionStart;
+      if (selectionStore.hideSelection) selectionStore.hideSelection = false;
+      const anchor = selectionStore.selectionStart;
       if (anchor.row === -1) return;
 
       if (e.metaKey || e.ctrlKey) {
-        let targetRow = selCtx.selectionEnd.row;
-        let targetCol = selCtx.selectionEnd.col;
+        let targetRow = selectionStore.selectionEnd.row;
+        let targetCol = selectionStore.selectionEnd.col;
         switch (e.key) {
           case 'ArrowUp':    targetRow = assets[0]?.id ?? targetRow; break;
           case 'ArrowDown':  targetRow = assets[assets.length - 1]?.id ?? targetRow; break;
@@ -157,31 +141,31 @@
           case 'ArrowRight': targetCol = keys[keys.length - 1]; break;
         }
         if (e.shiftKey) {
-          selCtx.selectionEnd = { row: targetRow, col: targetCol };
+          selectionStore.selectionEnd = { row: targetRow, col: targetCol };
         } else {
-          selectCell(selCtx, targetRow, targetCol);
+          selectCell(targetRow, targetCol);
         }
         const idx = assetIndex(targetRow);
-        if (idx !== -1) scrollSignalCtx.scrollToRow = idx;
-        scrollSignalCtx.scrollToCol = colBounds(targetCol, colWidthCtx);
+        if (idx !== -1) scrollStore.scrollToRow = idx;
+        scrollStore.scrollToCol = colBounds(targetCol);
         return;
       }
 
       if (e.shiftKey) {
-        const next = getArrowTarget(e.key, selCtx.selectionEnd);
+        const next = getArrowTarget(e.key, selectionStore.selectionEnd);
         if (next) {
-          selCtx.selectionEnd = next;
+          selectionStore.selectionEnd = next;
           const idx = assetIndex(next.row);
-          if (idx !== -1) scrollSignalCtx.scrollToRow = idx;
-          scrollSignalCtx.scrollToCol = colBounds(next.col, colWidthCtx);
+          if (idx !== -1) scrollStore.scrollToRow = idx;
+          scrollStore.scrollToCol = colBounds(next.col);
         }
       } else {
         const next = getArrowTarget(e.key, anchor);
         if (next) {
-          selectCell(selCtx, next.row, next.col);
+          selectCell(next.row, next.col);
           const idx = assetIndex(next.row);
-          if (idx !== -1) scrollSignalCtx.scrollToRow = idx;
-          scrollSignalCtx.scrollToCol = colBounds(next.col, colWidthCtx);
+          if (idx !== -1) scrollStore.scrollToRow = idx;
+          scrollStore.scrollToCol = colBounds(next.col);
         }
       }
     }
@@ -191,17 +175,17 @@
 <svelte:window
   onkeydown={(e) => {
     if (e.key === 'Tab') { e.preventDefault(); }
-    if (scrollSignalCtx.isAutoScrolling) {
-      scrollSignalCtx.isAutoScrolling = false;
+    if (scrollStore.isAutoScrolling) {
+      scrollStore.isAutoScrolling = false;
       return;
     }
     handleKeyDown(e);
   }}
-  onmouseup={() => { selCtx.isSelecting = false; }}
+  onmouseup={() => { selectionStore.isSelecting = false; }}
   onclick={(e) => {
     const target = e.target as HTMLElement;
     if (target.closest('[data-panel]')) return;
-    setOpenPanel(uiCtx);
+    setOpenPanel();
   }}
 />
 

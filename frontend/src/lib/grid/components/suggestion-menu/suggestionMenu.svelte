@@ -1,21 +1,19 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { getEditingContext, getUiContext } from '$lib/context/gridContext.svelte.ts';
+  import { editingStore } from '$lib/data/cellStore.svelte';
+  import { uiStore } from '$lib/data/uiStore.svelte';
   import { isConstrained as checkConstrained, getOptionsForColumn, filterOptions, getTabMatches } from './suggestionMenu.svelte.ts';
   import CustomScrollbar from '$lib/grid/components/virtual-scroll/CustomScrollbar.svelte';
   import { createScrollbarState } from '$lib/grid/components/virtual-scroll/customScrollbar.svelte.ts';
 
-  const editingCtx = getEditingContext();
-  const uiCtx = getUiContext();
-
   // --- Local state (resets on mount/unmount) ---
-  const editCol = editingCtx.editCol;
+  const editCol = editingStore.editCol;
   const constrained = checkConstrained(editCol);
   const allOptions = getOptionsForColumn(editCol);
 
   let filteredOptions = $state<string[]>(constrained ? allOptions : []);
-  let selectedIndex = $state(constrained ? Math.max(0, allOptions.findIndex(opt => opt === editingCtx.editValue)) : -1);
-  let tabAnchor = $state(editingCtx.editValue);
+  let selectedIndex = $state(constrained ? Math.max(0, allOptions.findIndex(opt => opt === editingStore.editValue)) : -1);
+  let tabAnchor = $state(editingStore.editValue);
 
   // --- Scroll state ---
   const scroll = createScrollbarState();
@@ -61,8 +59,8 @@
 
   // --- Filter on user input (via window input event) ---
   function handleWindowInput() {
-    if (!uiCtx.suggestionMenu.visible) return;
-    const text = editingCtx.editValue;
+    if (!uiStore.suggestionMenu.visible) return;
+    const text = editingStore.editValue;
     tabAnchor = text;
     filteredOptions = filterOptions(allOptions, text, constrained);
     selectedIndex = filteredOptions.length > 0 ? 0 : -1;
@@ -71,20 +69,20 @@
 
   // --- Keyboard navigation ---
   function handleKeydown(e: KeyboardEvent) {
-    if (!uiCtx.suggestionMenu.visible) return;
+    if (!uiStore.suggestionMenu.visible) return;
     if (filteredOptions.length === 0) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       selectedIndex = selectedIndex >= filteredOptions.length - 1 ? 0 : selectedIndex + 1;
-      editingCtx.editValue = filteredOptions[selectedIndex];
+      editingStore.editValue = filteredOptions[selectedIndex];
       return;
     }
 
     if (e.key === 'ArrowUp') {
       e.preventDefault();
       selectedIndex = selectedIndex <= 0 ? filteredOptions.length - 1 : selectedIndex - 1;
-      editingCtx.editValue = filteredOptions[selectedIndex];
+      editingStore.editValue = filteredOptions[selectedIndex];
       return;
     }
 
@@ -105,7 +103,7 @@
 
       filteredOptions = matches;
       selectedIndex = nextIdx;
-      editingCtx.editValue = filteredOptions[selectedIndex];
+      editingStore.editValue = filteredOptions[selectedIndex];
       return;
     }
   }
@@ -140,7 +138,7 @@
             : 'text-neutral-900 dark:text-neutral-100 hover:bg-blue-100 dark:hover:bg-slate-600'}"
           style="position: absolute; top: {idx * itemHeight - scroll.scrollTop}px; left: 0; right: 0; height: {itemHeight}px; display: flex; align-items: center;"
           onmousedown={() => {
-            editingCtx.editValue = option;
+            editingStore.editValue = option;
           }}
           onmouseenter={() => {
             selectedIndex = idx;

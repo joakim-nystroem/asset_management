@@ -1,9 +1,8 @@
 import { scrollStore } from '$lib/data/scrollStore.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
+import { columnWidthStore } from '$lib/data/uiStore.svelte';
 import { DEFAULT_ROW_HEIGHT, DEFAULT_WIDTH } from '$lib/grid/gridConfig';
-import type { ScrollSignalContext } from '$lib/context/gridContext.svelte';
 import { getContext } from 'svelte';
-import { getColumnWidthContext } from '$lib/context/gridContext.svelte';
 
 const ROW_HEIGHT = DEFAULT_ROW_HEIGHT;
 const OVERSCAN = 15;
@@ -27,19 +26,18 @@ function clamp(value: number, min: number, max: number): number {
 
 // ── Main ─────────────────────────────────────────────────────
 
-export function createVirtualGridContainer(scrollSignalCtx: ScrollSignalContext) {
+export function createVirtualGridContainer() {
   const viewport = getContext<{ width: number; height: number }>('viewport');
-  const colWidthCtx = getColumnWidthContext();
 
   setupVisibleRangeTracking(viewport);
-  setupScrollToRowSignal(scrollSignalCtx, viewport);
-  setupScrollToColSignal(scrollSignalCtx, viewport);
+  setupScrollToRowSignal(viewport);
+  setupScrollToColSignal(viewport);
 
-  const autoScroll = createAutoScroller(scrollSignalCtx, viewport, colWidthCtx);
+  const autoScroll = createAutoScroller(viewport);
 
   function applyClampedScroll(top: number, left: number) {
     const maxVertical = Math.max(0, calculateContentHeight() - viewport.height);
-    const maxHorizontal = Math.max(0, calculateContentWidth(colWidthCtx.widths) - viewport.width);
+    const maxHorizontal = Math.max(0, calculateContentWidth(columnWidthStore.widths) - viewport.width);
 
     scrollStore.scrollTop = clamp(top, 0, maxVertical);
     scrollStore.scrollLeft = clamp(left, 0, maxHorizontal);
@@ -79,12 +77,9 @@ function setupVisibleRangeTracking(viewport: { height: number }) {
 
 // ── Scroll-to-row signal ─────────────────────────────────────
 
-function setupScrollToRowSignal(
-  ctx: ScrollSignalContext,
-  viewport: { height: number },
-) {
+function setupScrollToRowSignal(viewport: { height: number }) {
   $effect(() => {
-    const row = ctx.scrollToRow;
+    const row = scrollStore.scrollToRow;
     if (row === null) return;
 
     const rowTop = row * ROW_HEIGHT;
@@ -97,18 +92,15 @@ function setupScrollToRowSignal(
       scrollStore.scrollTop = rowBottom - viewport.height + 40;
     }
 
-    ctx.scrollToRow = null;
+    scrollStore.scrollToRow = null;
   });
 }
 
 // ── Scroll-to-col signal ─────────────────────────────────────
 
-function setupScrollToColSignal(
-  ctx: ScrollSignalContext,
-  viewport: { width: number },
-) {
+function setupScrollToColSignal(viewport: { width: number }) {
   $effect(() => {
-    const col = ctx.scrollToCol;
+    const col = scrollStore.scrollToCol;
     if (col === null) return;
 
     const viewRight = scrollStore.scrollLeft + viewport.width;
@@ -119,17 +111,13 @@ function setupScrollToColSignal(
       scrollStore.scrollLeft = col.right - viewport.width;
     }
 
-    ctx.scrollToCol = null;
+    scrollStore.scrollToCol = null;
   });
 }
 
 // ── Auto-scroll (middle-click drag) ──────────────────────────
 
-function createAutoScroller(
-  ctx: ScrollSignalContext,
-  viewport: { width: number; height: number },
-  colWidthCtx: { widths: Map<string, number> },
-) {
+function createAutoScroller(viewport: { width: number; height: number }) {
   let originX = $state(0);
   let originY = $state(0);
   let deltaX = 0;
@@ -142,14 +130,14 @@ function createAutoScroller(
   }
 
   function tick() {
-    if (!ctx.isAutoScrolling) return;
+    if (!scrollStore.isAutoScrolling) return;
 
     const dx = Math.abs(deltaX) > AUTO_SCROLL_DEADZONE ? deltaX * AUTO_SCROLL_SPEED : 0;
     const dy = Math.abs(deltaY) > AUTO_SCROLL_DEADZONE ? deltaY * AUTO_SCROLL_SPEED : 0;
 
     if (dx !== 0 || dy !== 0) {
       const maxV = Math.max(0, calculateContentHeight() - viewport.height);
-      const maxH = Math.max(0, calculateContentWidth(colWidthCtx.widths) - viewport.width);
+      const maxH = Math.max(0, calculateContentWidth(columnWidthStore.widths) - viewport.width);
 
       scrollStore.scrollTop = clamp(scrollStore.scrollTop + dy, 0, maxV);
       scrollStore.scrollLeft = clamp(scrollStore.scrollLeft + dx, 0, maxH);
@@ -166,7 +154,7 @@ function createAutoScroller(
   }
 
   function start(x: number, y: number) {
-    ctx.isAutoScrolling = true;
+    scrollStore.isAutoScrolling = true;
     originX = x;
     originY = y;
     deltaX = 0;
@@ -176,13 +164,13 @@ function createAutoScroller(
   }
 
   function stop() {
-    ctx.isAutoScrolling = false;
+    scrollStore.isAutoScrolling = false;
     resetState();
   }
 
   // Sync cleanup when auto-scroll is stopped externally
   $effect(() => {
-    if (!ctx.isAutoScrolling) {
+    if (!scrollStore.isAutoScrolling) {
       resetState();
     }
   });

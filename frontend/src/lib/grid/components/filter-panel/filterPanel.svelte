@@ -1,14 +1,9 @@
 <script lang="ts">
   import { queryStore } from '$lib/data/queryStore.svelte';
-  import { getUiContext, getPendingContext, getNewRowContext, getSelectionContext, getClipboardContext, getHistoryContext } from '$lib/context/gridContext.svelte.ts';
+  import { uiStore } from '$lib/data/uiStore.svelte';
+  import { pendingStore, selectionStore, clipboardStore, historyStore } from '$lib/data/cellStore.svelte';
+  import { newRowStore } from '$lib/data/newRowStore.svelte';
   import { clearAllFilters, removeFilter } from './filterPanel.svelte.ts';
-
-  const uiCtx = getUiContext();
-  const pendingCtx = getPendingContext();
-  const newRowCtx = getNewRowContext();
-  const selCtx = getSelectionContext();
-  const clipCtx = getClipboardContext();
-  const historyCtx = getHistoryContext();
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -23,7 +18,7 @@
     <h3 class="font-semibold text-sm text-neutral-900 dark:text-neutral-100">Active Filters</h3>
     {#if queryStore.filters.length > 0}
       <button
-        onclick={() => clearAllFilters(uiCtx, pendingCtx, newRowCtx, selCtx, clipCtx, historyCtx)}
+        onclick={() => clearAllFilters()}
         class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium cursor-pointer"
       >
         Clear All
@@ -50,7 +45,7 @@
               </div>
             </div>
             <button
-              onclick={() => removeFilter(i, pendingCtx, newRowCtx, selCtx, clipCtx, historyCtx)}
+              onclick={() => removeFilter(i)}
               class="ml-2 text-neutral-400 hover:text-red-600 dark:hover:text-red-400 opacity-0 group-hover:opacity-100 cursor-pointer"
               aria-label="Remove filter"
             >

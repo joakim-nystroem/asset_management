@@ -1,13 +1,6 @@
-import type {
-  EditingContext,
-  PendingContext,
-  SelectionContext,
-  ClipboardContext,
-  UiContext,
-  ColumnWidthContext,
-} from '$lib/context/gridContext.svelte';
+import { editingStore, pendingStore, selectionStore, clipboardStore } from '$lib/data/cellStore.svelte';
+import { uiStore, columnWidthStore, setOpenPanel } from '$lib/data/uiStore.svelte';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
-import { setOpenPanel } from '$lib/context/gridContext.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
 import { toastState } from '$lib/toast/toastState.svelte';
 import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
@@ -24,43 +17,37 @@ export function assetIndex(id: number): number {
   return getAssets().findIndex((a: Record<string, any>) => a.id === id);
 }
 
-export function colBounds(col: string, colWidthCtx: ColumnWidthContext): { left: number; right: number } {
+export function colBounds(col: string): { left: number; right: number } {
   const keys = getKeys();
   const colIdx = keys.indexOf(col);
   if (colIdx === -1) return { left: 0, right: 0 };
   let left = 0;
-  for (let c = 0; c < colIdx; c++) left += colWidthCtx.widths.get(keys[c]) ?? DEFAULT_WIDTH;
-  return { left, right: left + (colWidthCtx.widths.get(col) ?? DEFAULT_WIDTH) };
+  for (let c = 0; c < colIdx; c++) left += columnWidthStore.widths.get(keys[c]) ?? DEFAULT_WIDTH;
+  return { left, right: left + (columnWidthStore.widths.get(col) ?? DEFAULT_WIDTH) };
 }
 
-export function selectCell(selCtx: SelectionContext, row: number, col: string) {
-  selCtx.pasteRange = null;
-  selCtx.selectionStart = { row, col };
-  selCtx.selectionEnd = { row, col };
-  selCtx.isSelecting = false;
-  selCtx.hideSelection = false;
+export function selectCell(row: number, col: string) {
+  selectionStore.pasteRange = null;
+  selectionStore.selectionStart = { row, col };
+  selectionStore.selectionEnd = { row, col };
+  selectionStore.isSelecting = false;
+  selectionStore.hideSelection = false;
 }
 
-export function resetSelection(selCtx: SelectionContext) {
-  selCtx.pasteRange = null;
-  selCtx.selectionStart = { row: -1, col: '' };
-  selCtx.selectionEnd = { row: -1, col: '' };
-  selCtx.isSelecting = false;
-  selCtx.hideSelection = false;
+export function resetSelection() {
+  selectionStore.pasteRange = null;
+  selectionStore.selectionStart = { row: -1, col: '' };
+  selectionStore.selectionEnd = { row: -1, col: '' };
+  selectionStore.isSelecting = false;
+  selectionStore.hideSelection = false;
 }
 
-export function clearClipboard(clipCtx: ClipboardContext) {
-  clipCtx.copyStart = { row: -1, col: '' };
-  clipCtx.copyEnd = { row: -1, col: '' };
+export function clearClipboard() {
+  clipboardStore.copyStart = { row: -1, col: '' };
+  clipboardStore.copyEnd = { row: -1, col: '' };
 }
 
-export function startCellEdit(
-  editingCtx: EditingContext,
-  pendingCtx: PendingContext,
-  uiCtx: UiContext,
-  row: number,
-  col: string,
-) {
+export function startCellEdit(row: number, col: string) {
   const lock = presenceStore.users.find(u => u.row === row && u.col === col && u.isLocked);
   if (lock) {
     toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');
@@ -71,13 +58,13 @@ export function startCellEdit(
     toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
     return;
   }
-  setOpenPanel(uiCtx);
+  setOpenPanel();
   const asset = getAssets().find((a: Record<string, any>) => a.id === row);
-  const pendingEdit = pendingCtx.edits.find(e => e.row === row && e.col === col);
-  editingCtx.editValue = pendingEdit ? pendingEdit.value : String(asset?.[col] ?? '');
-  editingCtx.isEditing = true;
-  editingCtx.editRow = row;
-  editingCtx.editCol = col;
+  const pendingEdit = pendingStore.edits.find(e => e.row === row && e.col === col);
+  editingStore.editValue = pendingEdit ? pendingEdit.value : String(asset?.[col] ?? '');
+  editingStore.isEditing = true;
+  editingStore.editRow = row;
+  editingStore.editCol = col;
 }
 
 export function getArrowTarget(

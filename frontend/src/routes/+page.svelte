@@ -4,7 +4,6 @@
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
   import { urlStore } from '$lib/data/urlStore.svelte';
-  import GridContextProvider from '$lib/context/GridContextProvider.svelte';
   import EventListener from '$lib/grid/eventQueue/EventListener.svelte';
   import Toolbar from '$lib/grid/components/toolbar/Toolbar.svelte';
   import GridContainer from '$lib/grid/components/grid-container/GridContainer.svelte';
@@ -53,13 +52,11 @@
 
 </script>
 
-<GridContextProvider>
-  <div class="px-4 py-2 h-full">
-    <EventListener>
-      <div class="flex flex-col gap-2">
-        <Toolbar />
-        <GridContainer />
-      </div>
-    </EventListener>
-  </div>
-</GridContextProvider>
+<div class="px-4 py-2 h-full">
+  <EventListener>
+    <div class="flex flex-col gap-2">
+      <Toolbar />
+      <GridContainer />
+    </div>
+  </EventListener>
+</div>

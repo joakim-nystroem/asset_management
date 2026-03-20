@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getUiContext, getSortContext, getColumnWidthContext, setOpenPanel } from '$lib/context/gridContext.svelte.ts';
+  import { uiStore, sortStore, columnWidthStore, setOpenPanel } from '$lib/data/uiStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import HeaderMenu from '$lib/grid/components/header-menu/headerMenu.svelte';
@@ -29,10 +29,6 @@
     return Math.max(DEFAULT_WIDTH, Math.ceil(maxWidth + 36));
   }
 
-  const uiCtx = getUiContext();
-  const sortCtx = getSortContext();
-  const colWidthCtx = getColumnWidthContext();
-
   type Props = {
     keys: string[];
   };
@@ -45,8 +41,8 @@
   $effect(() => {
     // Re-evaluate on horizontal scroll (scrollLeft changes the header's visual position)
     const _scrollLeft = scrollStore.scrollLeft;
-    if (uiCtx.headerMenu.visible) {
-      const idx = keys.indexOf(uiCtx.headerMenu.activeKey);
+    if (uiStore.headerMenu.visible) {
+      const idx = keys.indexOf(uiStore.headerMenu.activeKey);
       const el = document.querySelector(`[data-header-col="${idx}"]`);
       if (el) menuAlignRight = el.getBoundingClientRect().right + 192 > window.innerWidth;
     }
@@ -54,12 +50,12 @@
 
   // --- Header click: toggle menu for this column ---
   function handleHeaderClick(key: string) {
-    if (uiCtx.headerMenu.visible && uiCtx.headerMenu.activeKey === key) {
-      setOpenPanel(uiCtx); // Toggle off
+    if (uiStore.headerMenu.visible && uiStore.headerMenu.activeKey === key) {
+      setOpenPanel(); // Toggle off
     } else {
-      setOpenPanel(uiCtx, 'headerMenu');
-      uiCtx.headerMenu.activeKey = key;
-      uiCtx.headerMenu.visible = true;
+      setOpenPanel('headerMenu');
+      uiStore.headerMenu.activeKey = key;
+      uiStore.headerMenu.visible = true;
     }
   }
 
@@ -67,9 +63,9 @@
   let resizeDrag = $state<{ key: string; startX: number; startWidth: number } | null>(null);
 
   function startResize(key: string, e: MouseEvent) {
-    setOpenPanel(uiCtx);
+    setOpenPanel();
 
-    const startWidth = colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH;
+    const startWidth = columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH;
     resizeDrag = { key, startX: e.clientX, startWidth };
     document.body.style.cursor = 'col-resize';
     e.preventDefault();
@@ -81,7 +77,7 @@
       if (!resizeDrag) return;
       const delta = e.clientX - resizeDrag.startX;
       const newWidth = Math.max(MIN_COLUMN_WIDTH, resizeDrag.startWidth + delta);
-      colWidthCtx.widths.set(resizeDrag.key, newWidth);
+      columnWidthStore.widths.set(resizeDrag.key, newWidth);
     }
 
     function onMouseUp() {
@@ -106,7 +102,7 @@
       data-header-col={i}
       data-panel="header-menu"
       class="header-interactive relative group border-r border-neutral-200 dark:border-slate-600 last:border-r-0 bg-neutral-50 dark:bg-slate-700"
-      style="width: {colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH}px; min-width: {colWidthCtx.widths.get(key) ?? DEFAULT_WIDTH}px;"
+      style="width: {columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH}px; min-width: {columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH}px;"
     >
       <button
         class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
@@ -114,8 +110,8 @@
       >
         <span class="truncate">{key.replaceAll("_", " ")}</span>
         <span class="ml-1">
-          {#if sortCtx.key === key}
-            <span>{sortCtx.direction === "asc" ? "▲" : "▼"}</span>
+          {#if sortStore.key === key}
+            <span>{sortStore.direction === "asc" ? "▲" : "▼"}</span>
           {:else}
             <span class="invisible group-hover:visible text-neutral-400">▾</span>
           {/if}
@@ -129,15 +125,15 @@
         onmousedown={(e) => startResize(key, e)}
         ondblclick={(e) => {
           e.stopPropagation();
-          if (colWidthCtx.widths.has(key)) {
-            colWidthCtx.widths.delete(key);
+          if (columnWidthStore.widths.has(key)) {
+            columnWidthStore.widths.delete(key);
           } else {
-            colWidthCtx.widths.set(key, autoFitWidth(key));
+            columnWidthStore.widths.set(key, autoFitWidth(key));
           }
         }}
       ></div>
 
-      {#if uiCtx.headerMenu.visible && uiCtx.headerMenu.activeKey === key}
+      {#if uiStore.headerMenu.visible && uiStore.headerMenu.activeKey === key}
         <HeaderMenu activeKey={key} alignRight={menuAlignRight} />
       {/if}
     </div>

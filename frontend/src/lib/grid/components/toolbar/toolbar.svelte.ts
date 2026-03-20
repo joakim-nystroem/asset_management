@@ -1,17 +1,13 @@
-import type { SelectionContext, ClipboardContext, HistoryContext } from '$lib/context/gridContext.svelte';
+import { selectionStore, clipboardStore, historyStore } from '$lib/data/cellStore.svelte';
 
 /** Reset selection, clipboard, and history after commit or discard. */
-export function resetEditState(
-  selCtx: SelectionContext,
-  clipCtx: ClipboardContext,
-  historyCtx: HistoryContext,
-) {
-  historyCtx.undoStack = [];
-  historyCtx.redoStack = [];
-  selCtx.pasteRange = null;
-  selCtx.selectionStart = { row: -1, col: '' };
-  selCtx.selectionEnd = { row: -1, col: '' };
-  selCtx.hideSelection = false;
-  clipCtx.copyStart = { row: -1, col: '' };
-  clipCtx.copyEnd = { row: -1, col: '' };
+export function resetEditState() {
+  historyStore.undoStack = [];
+  historyStore.redoStack = [];
+  selectionStore.pasteRange = null;
+  selectionStore.selectionStart = { row: -1, col: '' };
+  selectionStore.selectionEnd = { row: -1, col: '' };
+  selectionStore.hideSelection = false;
+  clipboardStore.copyStart = { row: -1, col: '' };
+  clipboardStore.copyEnd = { row: -1, col: '' };
 }
