@@ -8,6 +8,7 @@ import { queryStore } from '$lib/data/queryStore.svelte';
 import { realtime } from '$lib/utils/realtimeManager.svelte';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
 import { urlStore } from '$lib/data/urlStore.svelte';
+import { setOpenPanel } from '$lib/data/uiStore.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
 
@@ -254,7 +255,7 @@ async function handleQuery(
 
   if (!hasFilters) {
     assetStore.displayedAssets = assetStore.baseAssets;
-
+    setOpenPanel();
     urlStore.url = `?${buildQueryParams(view)}`;
     return;
   }
@@ -268,7 +269,7 @@ async function handleQuery(
   }
 
   assetStore.displayedAssets = res.data.assets;
-
+  setOpenPanel();
   urlStore.url = `?${params}`;
 }
 

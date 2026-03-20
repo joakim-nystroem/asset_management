@@ -99,7 +99,7 @@
     <!-- Filter by this value -->
     <button
       class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group"
-      onclick={() => { handleFilterByValue(uiStore.contextMenu.col, uiStore.contextMenu.value); uiStore.contextMenu.visible = false; }}
+      onclick={() => handleFilterByValue(uiStore.contextMenu.col, uiStore.contextMenu.value)}
     >
       <svg class="w-4 h-4 text-neutral-500 dark:text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
