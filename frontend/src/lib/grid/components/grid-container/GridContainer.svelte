@@ -22,18 +22,6 @@
 
   let keys = $derived(Object.keys(assetStore.displayedAssets[0] ?? {}));
 
-  // Close menus on scroll
-  let prevScrollTop = 0;
-  let prevScrollLeft = 0;
-  $effect(() => {
-    const top = scrollStore.scrollTop;
-    const left = scrollStore.scrollLeft;
-    if (top === prevScrollTop && left === prevScrollLeft) return;
-    prevScrollTop = top;
-    prevScrollLeft = left;
-    if (uiStore.contextMenu.visible) uiStore.contextMenu.visible = false;
-  });
-
   let visibleItems = $derived(
     assetStore.displayedAssets.slice(scrollStore.visibleRange.startIndex, scrollStore.visibleRange.endIndex)
   );
@@ -85,6 +73,7 @@
     if (e.button === 1) {
       e.preventDefault();
       if (scrollStore.isAutoScrolling) { virtualGrid.stopAutoScroll(); return; }
+      uiStore.contextMenu.visible = false;
       virtualGrid.startAutoScroll(e.clientX, e.clientY);
       return;
     }
@@ -137,7 +126,7 @@
         thumbPosition={vThumbPosition}
         trackSpace={vTrackSpace}
         maxScroll={vMaxScroll}
-        onscroll={(pos) => virtualGrid.clampedScroll(pos, scrollStore.scrollLeft)}
+        onscroll={(pos) => { uiStore.contextMenu.visible = false; virtualGrid.clampedScroll(pos, scrollStore.scrollLeft); }}
       />
     </div>
 
@@ -150,7 +139,7 @@
       thumbPosition={hThumbPosition}
       trackSpace={hTrackSpace}
       maxScroll={hMaxScroll}
-      onscroll={(pos) => virtualGrid.clampedScroll(scrollStore.scrollTop, pos)}
+      onscroll={(pos) => { uiStore.contextMenu.visible = false; virtualGrid.clampedScroll(scrollStore.scrollTop, pos); }}
     />
 
     {#if uiStore.contextMenu.visible}

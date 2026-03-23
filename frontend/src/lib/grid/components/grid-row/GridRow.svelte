@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { columnWidthStore, uiStore, setOpenPanel } from '$lib/data/uiStore.svelte';
+  import { columnWidthStore, uiStore } from '$lib/data/uiStore.svelte';
+  import { setOpenPanel } from '$lib/utils/gridHelpers';
   import { selectionStore, editingStore, pendingStore } from '$lib/data/cellStore.svelte';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';

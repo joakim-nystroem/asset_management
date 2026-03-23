@@ -1304,31 +1304,3 @@ func (h *Hub) Shutdown() {
 	h.wg.Wait()
 }
 
-func (h *Hub) DebugPrintPresence() {
-	positions := h.presence.GetAll()
-	
-	if len(positions) == 0 {
-		return
-	}
-	
-	log.Println("========================================")
-	log.Printf("[DEBUG] Active Users: %d | Total Connections: %d", len(positions), len(h.clients))
-	log.Println("========================================")
-}
-
-func (h *Hub) StartDebugLogger(interval time.Duration) chan struct{} {
-	stop := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				h.DebugPrintPresence()
-			case <-stop:
-				return
-			}
-		}
-	}()
-	return stop
-}

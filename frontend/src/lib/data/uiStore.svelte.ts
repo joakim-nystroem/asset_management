@@ -22,11 +22,3 @@ export const rowStore = $state({
   rowHeights: new SvelteMap<number, number>(),
 });
 
-// ─── Helpers ─────────────────────────────────────────────────
-
-export function setOpenPanel(panel?: 'contextMenu' | 'headerMenu' | 'filterPanel' | 'suggestionMenu') {
-  if (panel !== 'contextMenu' && uiStore.contextMenu.visible) uiStore.contextMenu.visible = false;
-  if (panel !== 'headerMenu' && uiStore.headerMenu.visible) { uiStore.headerMenu.activeKey = ''; uiStore.headerMenu.visible = false; }
-  if (panel !== 'filterPanel' && uiStore.filterPanel.visible) uiStore.filterPanel.visible = false;
-  if (panel !== 'suggestionMenu' && uiStore.suggestionMenu.visible) uiStore.suggestionMenu.visible = false;
-}

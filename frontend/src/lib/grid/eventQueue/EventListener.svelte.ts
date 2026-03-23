@@ -1,24 +1,14 @@
 import { editingStore, pendingStore, selectionStore, clipboardStore } from '$lib/data/cellStore.svelte';
-import { uiStore, columnWidthStore, setOpenPanel } from '$lib/data/uiStore.svelte';
+import { uiStore, columnWidthStore } from '$lib/data/uiStore.svelte';
+import { setOpenPanel } from '$lib/utils/gridHelpers';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
 import { toastState } from '$lib/toast/toastState.svelte';
 import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
-export function getAssets() {
-  return assetStore.displayedAssets;
-}
-
-export function getKeys() {
-  return Object.keys(getAssets()[0] ?? {});
-}
-
-export function assetIndex(id: number): number {
-  return getAssets().findIndex((a: Record<string, any>) => a.id === id);
-}
-
 export function colBounds(col: string): { left: number; right: number } {
-  const keys = getKeys();
+  // Column keys from first asset
+  const keys = Object.keys(assetStore.displayedAssets[0] ?? {});
   const colIdx = keys.indexOf(col);
   if (colIdx === -1) return { left: 0, right: 0 };
   let left = 0;
@@ -59,7 +49,7 @@ export function startCellEdit(row: number, col: string) {
     return;
   }
   setOpenPanel();
-  const asset = getAssets().find((a: Record<string, any>) => a.id === row);
+  const asset = assetStore.displayedAssets.find((a: Record<string, any>) => a.id === row);
   const pendingEdit = pendingStore.edits.find(e => e.row === row && e.col === col);
   editingStore.editValue = pendingEdit ? pendingEdit.value : String(asset?.[col] ?? '');
   editingStore.isEditing = true;
@@ -71,9 +61,11 @@ export function getArrowTarget(
   key: string,
   current: { row: number; col: string },
 ): { row: number; col: string } | null {
-  const assets = getAssets();
-  const keys = getKeys();
-  const idx = assetIndex(current.row);
+  const assets = assetStore.displayedAssets;
+  // Column keys from first asset
+  const keys = Object.keys(assets[0] ?? {});
+  // Find asset position by ID
+  const idx = assets.findIndex((a: Record<string, any>) => a.id === current.row);
   if (idx === -1) return null;
   const colIdx = keys.indexOf(current.col);
   if (colIdx === -1) return null;

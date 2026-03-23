@@ -1,9 +1,10 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { resetEditing, editingStore, pendingStore, selectionStore, clipboardStore } from '$lib/data/cellStore.svelte';
+  import { editingStore, pendingStore, selectionStore, clipboardStore } from '$lib/data/cellStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
-  import { setOpenPanel } from '$lib/data/uiStore.svelte';
+  import { resetEditing, setOpenPanel } from '$lib/utils/gridHelpers';
   import { realtime } from '$lib/utils/realtimeManager.svelte';
+  import { assetStore } from '$lib/data/assetStore.svelte';
   import {
     startCellEdit,
     getArrowTarget,
@@ -11,9 +12,6 @@
     resetSelection,
     clearClipboard,
     colBounds,
-    getAssets,
-    getKeys,
-    assetIndex,
   } from './EventListener.svelte.ts';
   import { enqueue } from './eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
@@ -44,16 +42,16 @@
     const col = selectionStore.selectionStart.col;
 
     if (row === -1 || col === '') {
-      enqueue({ type: 'POSITION_DESELECT', payload: {} }, {});
+      enqueue({ type: 'POSITION_DESELECT', payload: {} });
       return;
     }
-    enqueue({ type: 'POSITION_UPDATE', payload: { assetId: row, key: col } }, {});
+    enqueue({ type: 'POSITION_UPDATE', payload: { assetId: row, key: col } });
   });
 
   // ─── WS BRIDGE: outbound edit lock ────────────────────────────────────────
   $effect(() => {
     if (editingStore.isEditing && editingStore.editRow !== -1 && editingStore.editCol !== '') {
-      enqueue({ type: 'CELL_EDIT_START', payload: { assetId: editingStore.editRow, key: editingStore.editCol } }, {});
+      enqueue({ type: 'CELL_EDIT_START', payload: { assetId: editingStore.editRow, key: editingStore.editCol } });
     }
   });
 
@@ -63,13 +61,14 @@
     const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
     if (isInput) return;
 
-    const assets = getAssets();
-    const keys = getKeys();
+    // Column keys from first asset
+    const assets = assetStore.displayedAssets;
+    const keys = Object.keys(assets[0] ?? {});
 
     if (e.key === 'Escape') {
       if (editingStore.isEditing) {
         resetEditing();
-        enqueue({ type: 'CELL_EDIT_END', payload: {} }, {});
+        enqueue({ type: 'CELL_EDIT_END', payload: {} });
         return;
       }
       if (selectionStore.selectionStart.row !== -1) {
@@ -128,6 +127,7 @@
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       e.preventDefault();
       if (selectionStore.hideSelection) selectionStore.hideSelection = false;
+      setOpenPanel();
       const anchor = selectionStore.selectionStart;
       if (anchor.row === -1) return;
 
@@ -145,7 +145,8 @@
         } else {
           selectCell(targetRow, targetCol);
         }
-        const idx = assetIndex(targetRow);
+        // Find asset position by ID
+        const idx = assets.findIndex((a: Record<string, any>) => a.id === targetRow);
         if (idx !== -1) scrollStore.scrollToRow = idx;
         scrollStore.scrollToCol = colBounds(targetCol);
         return;
@@ -155,7 +156,8 @@
         const next = getArrowTarget(e.key, selectionStore.selectionEnd);
         if (next) {
           selectionStore.selectionEnd = next;
-          const idx = assetIndex(next.row);
+          // Find asset position by ID
+          const idx = assets.findIndex((a: Record<string, any>) => a.id === next.row);
           if (idx !== -1) scrollStore.scrollToRow = idx;
           scrollStore.scrollToCol = colBounds(next.col);
         }
@@ -163,7 +165,8 @@
         const next = getArrowTarget(e.key, anchor);
         if (next) {
           selectCell(next.row, next.col);
-          const idx = assetIndex(next.row);
+          // Find asset position by ID
+          const idx = assets.findIndex((a: Record<string, any>) => a.id === next.row);
           if (idx !== -1) scrollStore.scrollToRow = idx;
           scrollStore.scrollToCol = colBounds(next.col);
         }

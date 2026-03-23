@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { uiStore, sortStore, columnWidthStore, setOpenPanel } from '$lib/data/uiStore.svelte';
+  import { uiStore, sortStore, columnWidthStore } from '$lib/data/uiStore.svelte';
+  import { setOpenPanel } from '$lib/utils/gridHelpers';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import HeaderMenu from '$lib/grid/components/header-menu/headerMenu.svelte';

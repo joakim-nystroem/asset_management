@@ -1,6 +1,6 @@
 // frontend/src/lib/grid/eventQueue/eventHandler.ts
 // Pure TypeScript event router. No Svelte, no getContext(), no runes.
-// Receives event + context proxies. Target functions mutate proxies directly.
+// Imports stores directly. Target functions mutate stores directly.
 
 import { toastState } from '$lib/toast/toastState.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
@@ -8,8 +8,9 @@ import { queryStore } from '$lib/data/queryStore.svelte';
 import { realtime } from '$lib/utils/realtimeManager.svelte';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
 import { urlStore } from '$lib/data/urlStore.svelte';
-import { uiStore } from '$lib/data/uiStore.svelte';
 import { scrollStore } from '$lib/data/scrollStore.svelte';
+import { pendingStore } from '$lib/data/cellStore.svelte';
+import { newRowStore } from '$lib/data/newRowStore.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
 
@@ -48,27 +49,26 @@ async function apiPost(endpoint: string, body: any): Promise<ApiResult> {
 
 export async function processEvent(
   event: { type: string; payload: Record<string, any> },
-  contexts: Record<string, any>,
 ): Promise<void> {
   switch (event.type) {
     case 'COMMIT_UPDATE':
-      await handleCommitUpdate(event.payload, contexts);
+      await handleCommitUpdate(event.payload);
       break;
 
     case 'COMMIT_CREATE':
-      await handleCommitCreate(event.payload, contexts);
+      await handleCommitCreate(event.payload);
       break;
 
     case 'QUERY':
-      await handleQuery(event.payload, contexts);
+      await handleQuery(event.payload);
       break;
 
     case 'VIEW_CHANGE':
-      await handleViewChange(event.payload, contexts);
+      await handleViewChange(event.payload);
       break;
 
     case 'DISCARD':
-      handleDiscard(event.payload, contexts);
+      handleDiscard(event.payload);
       break;
 
     // ─── Incoming WS events ────────────────────────────────────────────────
@@ -76,7 +76,7 @@ export async function processEvent(
       break;
 
     case 'WS_EXISTING_USERS':
-      handleWsExistingUsers(event.payload, contexts);
+      handleWsExistingUsers(event.payload);
       break;
 
     case 'WS_USER_POSITION_UPDATE':
@@ -108,7 +108,7 @@ export async function processEvent(
       break;
 
     case 'WS_CLIENT_STATE_RECONCILED':
-      handleWsClientStateReconciled(event.payload, contexts);
+      handleWsClientStateReconciled(event.payload);
       break;
 
     // ─── Outbound WS events ───────────────────────────────────────────────
@@ -146,14 +146,12 @@ export async function processEvent(
 }
 
 // ─── Target Functions ───────────────────────────────────────────────────────
-// Each receives a self-contained payload + only the context proxies it needs.
-// Mutates proxies directly on success — UI updates instantly.
+// Each receives a self-contained payload. Imports stores directly.
+// Mutates stores directly on success — UI updates instantly.
 
 async function handleCommitUpdate(
   payload: Record<string, any>,
-  contexts: Record<string, any>,
 ): Promise<void> {
-  const { pendingCtx } = contexts;
   const { changes, user } = payload;
 
   if (!user) {
@@ -183,16 +181,14 @@ async function handleCommitUpdate(
     if (base) base[change.col] = change.value;
   }
 
-  pendingCtx.edits = [];
+  pendingStore.edits = [];
   realtime.sendCommitBroadcast(changes.map((c: any) => ({ assetId: c.row, key: c.col, value: c.value })));
   toastState.addToast('Changes saved successfully.', 'success');
 }
 
 async function handleCommitCreate(
   payload: Record<string, any>,
-  contexts: Record<string, any>,
 ): Promise<void> {
-  const { newRowCtx } = contexts;
   const { rows, user } = payload;
 
   if (!user) {
@@ -212,10 +208,9 @@ async function handleCommitCreate(
     return;
   }
 
-  const { pendingCtx } = contexts;
-  newRowCtx.newRows = [];
-  newRowCtx.hasNewRows = false;
-  if (pendingCtx) pendingCtx.edits = [];
+  newRowStore.newRows = [];
+  newRowStore.hasNewRows = false;
+  pendingStore.edits = [];
 
   // Refetch using current view/search/filter state
   const hasFilters = queryStore.q || queryStore.filters.length > 0;
@@ -249,7 +244,6 @@ function buildQueryParams(view: string, q?: string, filters?: { key: string; val
 
 async function handleQuery(
   payload: Record<string, any>,
-  _contexts: Record<string, any>,
 ): Promise<void> {
   const { view, q, filters } = payload;
   const hasFilters = q || (filters && filters.length > 0);
@@ -258,7 +252,6 @@ async function handleQuery(
     assetStore.displayedAssets = assetStore.baseAssets;
     scrollStore.scrollTop = 0;
     scrollStore.scrollLeft = 0;
-    if (uiStore.contextMenu.visible) uiStore.contextMenu.visible = false;
     urlStore.url = `?${buildQueryParams(view)}`;
     return;
   }
@@ -274,13 +267,11 @@ async function handleQuery(
   assetStore.displayedAssets = res.data.assets;
   scrollStore.scrollTop = 0;
   scrollStore.scrollLeft = 0;
-  if (uiStore.contextMenu.visible) uiStore.contextMenu.visible = false;
   urlStore.url = `?${params}`;
 }
 
 async function handleViewChange(
   payload: Record<string, any>,
-  _contexts: Record<string, any>,
 ): Promise<void> {
   const { view } = payload;
   const params = buildQueryParams(view);
@@ -300,13 +291,10 @@ async function handleViewChange(
 
 function handleDiscard(
   _payload: Record<string, any>,
-  contexts: Record<string, any>,
 ): void {
-  const { pendingCtx, newRowCtx } = contexts;
-
-  pendingCtx.edits = [];
-  newRowCtx.newRows = [];
-  newRowCtx.hasNewRows = false;
+  pendingStore.edits = [];
+  newRowStore.newRows = [];
+  newRowStore.hasNewRows = false;
   assetStore.displayedAssets = assetStore.displayedAssets.filter((a: any) => a.id > 0);
   realtime.sendPendingClearAll();
   toastState.addToast('Changes discarded.', 'info');
@@ -326,7 +314,6 @@ function handlePositionUpdate(payload: Record<string, any>): void {
 
 function handleWsExistingUsers(
   payload: Record<string, any>,
-  contexts: Record<string, any>,
 ): void {
   const users = payload.users || payload;
   const lockedCells = payload.lockedCells || {};
@@ -504,12 +491,9 @@ function handleWsCommitBroadcast(
 
 function handleWsClientStateReconciled(
   payload: Record<string, any>,
-  contexts: Record<string, any>,
 ): void {
   const conflicts = payload.conflicts || [];
   if (conflicts.length === 0) return;
-
-  const { pendingCtx } = contexts;
 
   for (const conflict of conflicts) {
     const name = conflict.firstname && conflict.lastname
@@ -522,11 +506,9 @@ function handleWsClientStateReconciled(
     } else if (conflict.type === 'pending') {
       toastState.addToast(`Cell ${cellRef} has pending changes by ${name}`, 'warning');
       // Revert the local pending edit for this cell
-      if (pendingCtx) {
-        pendingCtx.edits = pendingCtx.edits.filter(
-          (e: any) => !(e.row === Number(conflict.assetId) && e.col === conflict.key),
-        );
-      }
+      pendingStore.edits = pendingStore.edits.filter(
+        (e: any) => !(e.row === Number(conflict.assetId) && e.col === conflict.key),
+      );
     }
   }
 }

@@ -3,7 +3,8 @@
   import FilterPanel from "$lib/grid/components/filter-panel/filterPanel.svelte";
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
-  import { uiStore, setOpenPanel, columnWidthStore } from '$lib/data/uiStore.svelte';
+  import { uiStore, columnWidthStore } from '$lib/data/uiStore.svelte';
+  import { setOpenPanel } from '$lib/utils/gridHelpers';
   import { pendingStore, selectionStore, clipboardStore, historyStore } from '$lib/data/cellStore.svelte';
   import { newRowStore } from '$lib/data/newRowStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
@@ -11,7 +12,7 @@
   import { enqueue } from '$lib/grid/eventQueue/eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
   import { validateNewRow } from '$lib/grid/validation';
-  import { resetEditState } from './toolbar.svelte.ts';
+  import { resetEditState, resetAfterCommit } from '$lib/utils/gridHelpers';
 
   // Local search input — only pushed to queryStore on explicit action
   let searchInput = $state('');
@@ -45,14 +46,12 @@
     if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
       enqueue(
         { type: 'DISCARD', payload: {} },
-        { pendingCtx: pendingStore, newRowCtx: newRowStore },
       );
       resetEditState();
     }
     queryStore.q = searchInput;
     enqueue(
       { type: 'QUERY', payload: { view: queryStore.view, q: searchInput, filters: $state.snapshot(queryStore.filters) } },
-      {},
     );
   }
 
@@ -60,7 +59,6 @@
     if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
       enqueue(
         { type: 'DISCARD', payload: {} },
-        { pendingCtx: pendingStore, newRowCtx: newRowStore },
       );
       resetEditState();
     }
@@ -68,7 +66,6 @@
     queryStore.q = '';
     enqueue(
       { type: 'QUERY', payload: { view: queryStore.view, q: '', filters: $state.snapshot(queryStore.filters) } },
-      {},
     );
   }
 
@@ -77,7 +74,6 @@
     if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
       enqueue(
         { type: 'DISCARD', payload: {} },
-        { pendingCtx: pendingStore, newRowCtx: newRowStore },
       );
       resetEditState();
     }
@@ -87,7 +83,6 @@
     queryStore.view = viewName;
     enqueue(
       { type: 'VIEW_CHANGE', payload: { view: viewName } },
-      {},
     );
   }
 
@@ -110,7 +105,6 @@
   function handleDiscard() {
     enqueue(
       { type: 'DISCARD', payload: {} },
-      { pendingCtx: pendingStore, newRowCtx: newRowStore },
     );
     resetEditState();
   }
@@ -232,9 +226,8 @@
                       user,
                     },
                   },
-                  { newRowCtx: newRowStore, pendingCtx: pendingStore },
                 );
-                resetEditState();
+                resetAfterCommit();
               }}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >
@@ -277,9 +270,8 @@
                       user,
                     },
                   },
-                  { pendingCtx: pendingStore },
                 );
-                resetEditState();
+                resetAfterCommit();
               }}
               class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
             >

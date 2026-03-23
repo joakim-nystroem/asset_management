@@ -56,11 +56,3 @@ export const clipboardStore = $state({
   grid: [] as string[][],
 });
 
-// ─── Helpers ─────────────────────────────────────────────────
-
-export function resetEditing() {
-  editingStore.isEditing = false;
-  editingStore.editRow = -1;
-  editingStore.editCol = '';
-  editingStore.editValue = '';
-}

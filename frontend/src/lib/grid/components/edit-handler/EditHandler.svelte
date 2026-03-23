@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { editingStore, pendingStore, historyStore, selectionStore, clipboardStore, resetEditing, type HistoryAction } from '$lib/data/cellStore.svelte';
+  import { editingStore, pendingStore, historyStore, selectionStore, clipboardStore, type HistoryAction } from '$lib/data/cellStore.svelte';
+  import { resetEditing } from '$lib/utils/gridHelpers';
   import { newRowStore } from '$lib/data/newRowStore.svelte';
   import { columnWidthStore, uiStore } from '$lib/data/uiStore.svelte';
   import { enqueue } from '$lib/grid/eventQueue/eventQueue';
@@ -69,18 +70,11 @@
     if (newValue !== baseline) {
       const { isValid, error } = validateCell(assetId, colKey, newValue, pendingStore.edits);
       pendingStore.edits.push({ row: assetId, col: colKey, original: baseline, value: newValue, isValid, validationError: error });
-      enqueue({ type: 'CELL_PENDING', payload: { assetId, key: colKey, value: newValue } }, {});
+      enqueue({ type: 'CELL_PENDING', payload: { assetId, key: colKey, value: newValue } });
     } else {
       // Reverted to baseline — clear pending on server
-      enqueue({ type: 'CELL_PENDING_CLEAR', payload: { assetId, key: colKey } }, {});
+      enqueue({ type: 'CELL_PENDING_CLEAR', payload: { assetId, key: colKey } });
     }
-  }
-
-  // --- Asset ID → array index ---
-  function assetIndex(id: number): number {
-    const idx = assets.findIndex((a: Record<string, any>) => a.id === id);
-    if (idx === -1) throw new Error(`Asset ${id} not found in filtered list — selection invariant violated`);
-    return idx;
   }
 
   // --- Copy: build mini-grid from selection, store in clipboardStore + system clipboard ---
@@ -93,8 +87,10 @@
 
   function handleCopy() {
     selectionStore.pasteRange = null;
-    const startIdx = assetIndex(selectionStore.selectionStart.row);
-    const endIdx = assetIndex(selectionStore.selectionEnd.row);
+    // Find asset position by ID
+    const startIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionStart.row);
+    // Find asset position by ID
+    const endIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionEnd.row);
     const startColIdx = keys.indexOf(selectionStore.selectionStart.col);
     const endColIdx = keys.indexOf(selectionStore.selectionEnd.col);
     if (startColIdx === -1 || endColIdx === -1) return;
@@ -139,8 +135,10 @@
     const clipHeight = clipboardStore.grid.length;
     const clipWidth = clipboardStore.grid[0].length;
 
-    const startRow = assetIndex(selectionStore.selectionStart.row);
-    const endRow = assetIndex(selectionStore.selectionEnd.row);
+    // Find asset position by ID
+    const startRow = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionStart.row);
+    // Find asset position by ID
+    const endRow = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionEnd.row);
     const startCol = keys.indexOf(selectionStore.selectionStart.col);
     const endCol = keys.indexOf(selectionStore.selectionEnd.col);
     if (startCol === -1 || endCol === -1) return;
@@ -174,10 +172,10 @@
           // Changed from baseline — track as pending
           const { isValid, error } = validateCell(asset.id, key, newValue, pendingStore.edits);
           newEdits.push({ row: asset.id, col: key, original, value: newValue, isValid, validationError: error });
-          enqueue({ type: 'CELL_PENDING', payload: { assetId: asset.id, key, value: newValue } }, {});
+          enqueue({ type: 'CELL_PENDING', payload: { assetId: asset.id, key, value: newValue } });
         } else {
           // Same as baseline — clear any server-side pending state
-          enqueue({ type: 'CELL_PENDING_CLEAR', payload: { assetId: asset.id, key } }, {});
+          enqueue({ type: 'CELL_PENDING_CLEAR', payload: { assetId: asset.id, key } });
         }
 
         if (oldValue !== newValue) {
@@ -275,7 +273,7 @@
 
   function cancelEdit() {
     resetEditing();
-    enqueue({ type: 'CELL_EDIT_END', payload: {} }, {});
+    enqueue({ type: 'CELL_EDIT_END', payload: {} });
     uiStore.suggestionMenu.visible = false;
   }
 

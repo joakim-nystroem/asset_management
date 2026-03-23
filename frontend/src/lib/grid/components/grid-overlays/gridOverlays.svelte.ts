@@ -2,16 +2,8 @@ import { columnWidthStore } from '$lib/data/uiStore.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
 import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
 
-export function getKeys(): string[] {
-  return Object.keys(assetStore.displayedAssets[0] ?? {});
-}
-
 export function getWidth(key: string): number {
   return columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH;
-}
-
-export function assetIndex(id: number): number {
-  return assetStore.displayedAssets.findIndex((a: Record<string, any>) => a.id === id);
 }
 
 export function computeVisualOverlay(
@@ -20,11 +12,14 @@ export function computeVisualOverlay(
   visibleRange: { startIndex: number; endIndex: number },
   scrollTop: number,
 ) {
-  const keys = getKeys();
+  // Column keys from first asset
+  const keys = Object.keys(assetStore.displayedAssets[0] ?? {});
   const rowHeight = DEFAULT_ROW_HEIGHT;
 
-  const startRowIdx = assetIndex(start.row);
-  const endRowIdx = assetIndex(end.row);
+  // Find asset position by ID
+  const startRowIdx = assetStore.displayedAssets.findIndex((a: Record<string, any>) => a.id === start.row);
+  // Find asset position by ID
+  const endRowIdx = assetStore.displayedAssets.findIndex((a: Record<string, any>) => a.id === end.row);
   if (startRowIdx === -1 || endRowIdx === -1) return null;
 
   const startColIdx = keys.indexOf(start.col);
@@ -65,7 +60,8 @@ export function computeLocalPendingOverlays(
   if (edits.length === 0) return [];
 
   const assets = assetStore.displayedAssets;
-  const keys = getKeys();
+  // Column keys from first asset
+  const keys = Object.keys(assets[0] ?? {});
   const { startIndex, endIndex } = visibleRange;
   const rowHeight = DEFAULT_ROW_HEIGHT;
 
@@ -112,7 +108,8 @@ export function computeRemotePendingOverlays(
   if (pendingCells.length === 0) return [];
 
   const assets = assetStore.displayedAssets;
-  const keys = getKeys();
+  // Column keys from first asset
+  const keys = Object.keys(assets[0] ?? {});
   const { startIndex, endIndex } = visibleRange;
   const rowHeight = DEFAULT_ROW_HEIGHT;
 

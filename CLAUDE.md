@@ -1,276 +1,263 @@
-# Asset Management — Project Instructions
+# Asset Management — Coding Conventions
 
-## Architecture Principles
+## What This Is
 
-1. **One file, one job.** Every file has a single responsibility. If you're adding functionality to a file, verify it belongs there first.
-
-2. **Components own the functionality they expose to the user.** If only GridHeader can trigger a sort, GridHeader owns sort. If `+page.svelte` receives data from the server, it owns that data.
-
-3. **Contexts are for ephemeral UI state only.** Editing position, selection range, menu visibility. NOT for bulk data (asset lists, user, constraints). Contexts are shells for transient state that multiple components share.
-
-4. **Controllers are the single source of truth for their domain.** The change controller owns change tracking. The history controller owns undo/redo. Each controller manages its own state and exposes functions — nothing else touches that state directly.
-
-5. **Don't duplicate logic — delegate.** If two files need the same check, one owns it and the other calls through.
-
-6. **Cell editing is cell editing.** Whether the cell belongs to an existing row or a new row, the edit → validate → display cycle is the same. Don't create separate logic paths for the same operation.
-
----
-
-## File Responsibilities
-
-> This is the **target architecture**. The current codebase does not fully match — phases move us here incrementally. When modifying a file, move it closer to this definition, never further away.
-
-### Page Level
-
-**`frontend/src/routes/+page.svelte`** — App entry point
-- **IS:** The page-level orchestrator that seeds the data store and renders the component tree
-- **DOES:** Receive server load data via `$props()`. Seed `assetStore` with server data (`baseAssets`, `filteredAssets`, `locations`, `statuses`, `conditions`, `departments`). Render `GridContextProvider` > `EventListener` > `Toolbar` > `GridContainer`.
-- **DOES NOT:** Contain business logic. Declare `$state` for data (that's `assetStore`). Render complex UI (delegates to children). Read from contexts.
-
-**`frontend/src/routes/+page.server.ts`** — Server data loader
-- **IS:** SvelteKit server load function
-- **DOES:** Query MariaDB via Kysely. Return `{ assets, dbError, locations, statuses, conditions, departments, initialView, searchResults? }`.
-- **DOES NOT:** Client-side logic. State management.
-
-### Context Layer
-
-**`frontend/src/lib/context/GridContextProvider.svelte`** — Context shell factory
-- **IS:** The component that creates empty typed `$state` context objects and publishes them
-- **DOES:** Initialize ephemeral UI state shells (`editingCtx`, `pendingCtx`, `historyCtx`, `newRowCtx`, `selectionCtx`, `clipboardCtx`, `rowCtx`, `viewCtx`, `uiCtx`, `queryCtx`). Publish them via `setXContext()`. Render `{@render children()}`.
-- **DOES NOT:** Receive data props (beyond `children: Snippet`). Create controllers. Transform data. Wire constraints. Seed contexts with server data.
-
-**`frontend/src/lib/context/gridContext.svelte.ts`** — Context type definitions
-- **IS:** The module that defines context types and exports `getXContext` / `setXContext` pairs
-- **DOES:** Define `EditingContext`, `PendingContext`, `HistoryContext`, `NewRowContext`, `SelectionContext`, `ClipboardContext`, `RowContext`, `ViewContext`, `UiContext`, `QueryContext`. Use Svelte's `createContext()` to create typed getter/setter pairs.
-- **DOES NOT:** Contain logic. Hold state. Define contexts for bulk data (no DataContext, no SortContext, no ColumnContext).
-
-### Event System
-
-The event system follows the **Smart Owner** pattern: **EventListener → Queue → Handler → Target (mutates proxies)**.
-
-Svelte 5 `$state` proxies are portable — `EventListener.svelte` grabs them via `getContext()` during component init, then passes them as plain arguments through the pipeline. Target functions mutate the proxies directly to update the UI. Data never flows backward.
-
-**`frontend/src/lib/grid/eventQueue/EventListener.svelte`** — Smart conductor
-- **IS:** The ONLY file that calls `getContext()` in the event pipeline. Lives inside the Svelte component tree. Watches UI trigger flags and packages events.
-- **DOES:** Read contexts via `getXContext()`. Watch trigger flags via `$effect` (e.g., `uiCtx.commitRequested`). Snapshot reactive data for API payloads (`$state.snapshot()`). Pass both the flat payload AND the relevant live context proxies to `enqueue()`. Reset trigger flags after enqueuing.
-- **DOES NOT:** Receive props. Own data. Implement business logic. Know about APIs, routing, or the handler.
-
-**`frontend/src/lib/grid/eventQueue/eventQueue.ts`** — Serial FIFO queue
-- **IS:** Pure TypeScript FIFO queue. No Svelte, no runes, no reactivity.
-- **DOES:** Receive `(event, contexts)` pairs via `enqueue()`. Process serially — one event at a time. Catch errors so the queue doesn't die.
-- **DOES NOT:** Know what events mean. Contain business logic. Use `$state` or `$effect`.
-
-**`frontend/src/lib/grid/eventQueue/eventHandler.ts`** — Event router with target functions
-- **IS:** Pure TypeScript event router. No Svelte, no `getContext()`, no runes.
-- **DOES:** Switch on `event.type` and route to target functions. Target functions receive the payload AND context proxies, call APIs, and mutate proxies directly on success (e.g., `pendingCtx.edits = []`). Import `assetStore` directly for data mutations (e.g., `assetStore.filteredAssets = result.assets`).
-- **DOES NOT:** Call `getContext()`. Use runes. Return results backward. Use factory functions or dependency injection.
-
-### Grid Components
-
-**`frontend/src/lib/grid/components/grid-container/GridContainer.svelte`** — Virtual scrolling viewport
-- **IS:** The scrollable container that manages which rows are visible
-- **DOES:** Manage virtual scroll state (visible items, offsets, container height). Handle scroll events. Reposition header menu on scroll. Render `GridOverlays` > (`GridHeader`, `GridRow`, `EditHandler`). Render `ContextMenu`. Iterate `newRowCtx` and render `NewRow` components for uncommitted new rows.
-- **DOES NOT:** Handle mouse interaction for cell selection/editing (that's GridOverlays). Own data. Contain sort/filter/header-menu logic (that's GridHeader).
-
-**`frontend/src/lib/grid/components/grid-header/GridHeader.svelte`** — Column headers, sort, resize, and header menu
-- **IS:** The header row that displays column names, owns sort, column resize, and the header menu
-- **DOES:** Render column headers. Display sort direction indicators. Own full column resize lifecycle (mousedown → temp window listeners → mutate columnWidths SvelteMap). Receive `columnWidths` and `keys` as props. Own local sort state (`sortKey`, `sortDirection`). `handleSort()` mutates `assetStore.filteredAssets` directly. `handleHeaderClick()` closes other panels and toggles header menu. Render `HeaderMenu` as child, passing sort state and sort callback. Import `getUiContext` and `assetStore`.
-
-**`frontend/src/lib/grid/components/grid-row/GridRow.svelte`** — Row rendering
-- **IS:** A single data row in the grid
-- **DOES:** Render cell values for one row.
-- **DOES NOT:** Handle interaction. Track state.
-
-**`frontend/src/lib/grid/components/grid-overlays/GridOverlays.svelte`** — Interaction and feedback layer
-- **IS:** The parent wrapper that owns ALL user input (keyboard + mouse) and visual feedback
-- **DOES:** Own local `columnWidths` SvelteMap (no context). Pass columnWidths to children via `{@render children(columnWidths)}` snippet. Listen for ALL keyboard and mouse events. Handle cell selection directly (inlined from deleted selectionController). Show selection overlays, copy overlays, other-user cursors. Derive `keys` from `assetStore.filteredAssets`. **Trigger cell editing** by writing to `pendingCtx` on F2 / double-click (uses local `startCellEdit()` helper). Forward undo/redo/paste keystrokes to EditHandler via pendingCtx flags or props.
-- **DOES NOT:** Own data. Handle scrolling (that's GridContainer). Contain sort/filter logic. Own resize (that's GridHeader). Render EditHandler directly (rendered in GridContainer's snippet).
-
-**`frontend/src/lib/grid/components/edit-handler/`** — EditHandler (component set: `.svelte` + `.svelte.ts`)
-- **IS:** The inline cell editor. Owns the in-edit lifecycle (save, cancel, undo, redo, paste) but NOT the trigger to start editing — that belongs to GridOverlays and ContextMenu, which write to `editingCtx` to open the editor.
-- **`.svelte` DOES:** Render textarea. Show edit dropdown for constrained columns. Show autocomplete for free-text columns.
-- **`.svelte.ts` DOES:** `save()`, `cancel()`, `undo()`, `redo()`, `paste()`. All cell mutations go through the edit flow (check edit context → validate → upsert → optimistic-update asset → record to history). Undo/redo applies values then runs the same edit flow per cell. Compute editor position within virtual scroll chunk.
-- **TO BE IMPLEMENTED:** `save()` (currently a stub), `undo()`, `redo()`, `paste()`. History context integration.
-
-**`frontend/src/lib/grid/components/toolbar/Toolbar.svelte`** — Grid toolbar
-- **IS:** The toolbar above the grid with search, filters, view selector, commit/discard buttons
-- **DOES:** Render search input. Render FilterPanel. Show New Row button. Show Commit/Discard buttons when changes exist. Show invalid cell warning and Go To button. Show view selector dropdown (Default, Audit, PED, Galaxy, Network).
-- **DOES NOT:** Contain business logic. Own data.
-
-### Menu Components
-
-**`frontend/src/lib/grid/components/header-menu/`** — HeaderMenu (component set: `.svelte` + `.svelte.ts`)
-- **IS:** The dropdown menu that appears on column header click
-- **`.svelte` DOES:** Render sort options (A-Z, Z-A) with checkmarks. Render filter item checkboxes. Write filter state directly to `queryCtx` on selection. Read filter items from `assetStore.baseAssets`.
-- **`.svelte.ts` DOES:** Manage menu state (position, active key, filter search term, submenu direction). Handle toggle, reposition, close, outside click.
-- **DOES NOT:** Own sort state or sort function (receives from GridHeader parent via props). Own filter logic (writes to queryCtx, EventListener handles the query).
-
-**`frontend/src/lib/grid/components/context-menu/`** — ContextMenu (component set: `.svelte` + `.svelte.ts`)
-- **IS:** The context menu for cell-level actions
-- **`.svelte` DOES:** Render edit, copy, filter-by-value options. Rendered inside `GridContainer`.
-- **`.svelte.ts` DOES:** Manage menu state via `ContextMenuState` class (position, visibility, cell value/key). Handle open/close. `handleFilterByValue(uiCtx, queryCtx)` pushes to `queryCtx.filters`.
-- **DOES NOT:** Implement the actions beyond state writes.
-
-**`frontend/src/lib/grid/components/edit-dropdown/`** — EditDropdown (component set: `.svelte` + `.svelte.ts`)
-- **IS:** The dropdown shown inside EditHandler for constrained columns (location, status, condition, etc.)
-- **`.svelte` DOES:** Render option list with keyboard selection highlighting. Handle mouse selection.
-- **`.svelte.ts` DOES:** Manage dropdown state (options, selected index, visibility). Expose `show()`, `hide()`, `selectNext()`, `selectPrevious()`, `getSelectedValue()`.
-
-**`frontend/src/lib/grid/components/filter-panel/`** — FilterPanel (component set: `.svelte` + `.svelte.ts`)
-- **IS:** The popover panel showing active filters with remove/clear actions
-- **`.svelte` DOES:** Render trigger button with filter count badge. Render active filter list with remove buttons. Handle outside click to close.
-- **`.svelte.ts` DOES:** Manage panel state (open/close/toggle). Handle outside click detection.
-
-**`frontend/src/lib/grid/components/suggestion-menu/`** — Autocomplete (component set: `.svelte` + `.svelte.ts`)
-- **IS:** The suggestion dropdown shown inside EditHandler for free-text columns
-- **`.svelte` DOES:** Render suggestion list with keyboard selection highlighting. Handle mouse selection.
-- **`.svelte.ts` DOES:** Manage autocomplete state (suggestions, selected index, visibility). `updateSuggestions()` — filter unique column values matching input. Expose `selectNext()`, `selectPrevious()`, `getSelectedValue()`, `clear()`.
-
-### Controllers
-
-> Most former controllers are being eliminated — their state moves to contexts, their logic moves to owning components. Remaining controllers (virtualScrollManager) are factory-created objects with reactive `$state` + functions.
-
-**Pending context** (`pendingCtx`) — Dirty change tracking
-- **SHAPE:** Array of `CellEdit`: `{ row: number | string, col: string, original: string, value: string, valid: boolean }`. `row` is asset ID (number for existing, `"NEW-N"` string for new rows). `col` is column key. The `[row, col]` pair is unique.
-- **EDIT FLOW:** (1) Check edit context — entry exists for `[row, col]`? (2) If new value === `original` → remove entry, done (revert to baseline, no validation needed). (3) Otherwise → validate → upsert entry with new `value` and `valid`. This flow runs in EditHandler on save, and similarly when undo/redo modifies a cell.
-- **CLEARED:** On commit (valid entries removed, invalid remain). On discard (all entries removed, assets reverted to originals).
-
-**History context** (`historyCtx`) — Undo/redo stacks
-- **SHAPE:** `{ undoStack: HistoryAction[][], redoStack: HistoryAction[][] }`. Each batch is an array of `HistoryAction: { id: number | string, key: string, oldValue: string, newValue: string }`. Batches exist so multi-cell operations (e.g. paste) are one undo step.
-- **LIFETIME:** Session-lived. Persists across commits — undo after commit creates new edits against the new baseline.
-
-**New row context** (`newRowCtx`) — Uncommitted new rows
-- **SHAPE:** Array of new row objects, each with `id: "NEW-N"` and empty fields. Spreading an empty array into the `assets` derived list adds nothing — no new rows simply means no extra items.
-- **CLEARED:** On commit (successfully created rows removed). On discard (all removed).
-
-**`frontend/src/lib/grid/components/new-row/`** — NewRow (component set: `.svelte` + `.svelte.ts`)
-- **IS:** The new row manager that lives inside GridContainer's render tree.
-- **`.svelte` DOES:** Render a single new row.
-- **`.svelte.ts` DOES:** Manage NEW-N counter. `addRow()` — create row object with `NEW-N` ID and empty fields, push to `newRowCtx`. `deleteRow(id)` — splice by string ID. `clearRows()` — empty array, reset counter.
-- **TO BE IMPLEMENTED:** Entire component set. Currently `rowGeneration.svelte.ts` handles this.
-
-**ALL LEGACY CONTROLLERS DELETED.** The following files no longer exist:
-- `gridSelection.svelte.ts` — selection logic inlined into GridOverlays
-- `gridColumns.svelte.ts` — column widths local to GridOverlays, resize owned by GridHeader
-- `gridRows.svelte.ts` — row height uses virtualScroll.rowHeight directly
-- `gridClipboard.svelte.ts` — copy inlined into GridOverlays, paste TODO in EditHandler
-- `gridShortcuts.svelte.ts` — listeners inlined into GridOverlays
-- `gridHistory.svelte.ts`, `gridEdit.svelte.ts`, `gridChanges.svelte.ts`, `gridValidation.svelte.ts`, `rowGeneration.svelte.ts` — all deleted
-- `interactionHandler.ts` — deleted
-- `searchManager.svelte.ts` — deleted
-
-**`frontend/src/lib/grid/utils/virtualScrollManager.svelte.ts`** — Virtual scroll state
-- **IS:** The controller for virtual scrolling (which rows are visible based on scroll position)
-- **DOES:** Track `scrollTop`, `containerHeight`. Derive `visibleRange` (startIndex/endIndex with overscan). Expose `getVisibleItems()`, `getTotalHeight()`, `getOffsetY()`, `handleScroll()`, `scrollToRow()`, `ensureVisible()`.
-
-### Data Layer
-
-**`frontend/src/lib/data/assetStore.svelte.ts`** — Asset data store
-- **IS:** Module-level `$state` singleton for all server data. The single source of truth for asset data, locations, statuses, conditions, and departments.
-- **DOES:** Export `assetStore` — a `$state({...})` object with `baseAssets`, `filteredAssets`, `locations`, `statuses`, `conditions`, `departments`. Seeded by `+page.svelte` on init. Mutated by `eventHandler.ts` after API calls. Imported directly by grid components and handlers.
-- **DOES NOT:** Contain logic. Fetch data. Use contexts.
-
-### Toast System
-
-**`frontend/src/lib/toast/ToastContainer.svelte`** — Toast notification renderer
-- **IS:** The fixed-position container that renders toast notifications
-- **DOES:** Render toasts from `toastState` with fly transitions. Pause timer on hover, resume on leave.
-
-**`frontend/src/lib/toast/toastState.svelte.ts`** — Toast state singleton
-- **IS:** Global toast state with add/remove/pause/resume
-- **DOES:** Manage toast array with auto-dismiss timers. Limit to 4 visible. Exported as `toastState` singleton.
-
-### Realtime
-
-**`frontend/src/lib/utils/interaction/realtimeManager.svelte.ts`** — WebSocket realtime manager
-- **IS:** Singleton that manages WebSocket connection for multi-user presence and cell locking
-- **DOES:** Connect/disconnect/reconnect with backoff. Send position updates, edit start/end. Track connected users and locked cells. Queue messages when disconnected. Reconnect on tab focus. Exported as `realtime` singleton.
-
-### Types
-
-**`frontend/src/lib/types.ts`** — Shared type definitions
-- **IS:** Module exporting `User`, `SafeUser`, `Session` interfaces used across client and server.
-
-### Layout and Routing
-
-**`frontend/src/routes/+layout.server.ts`** — Root layout server load
-- **DOES:** Read theme cookie, session color, session ID. Return `{ theme, url, user, session_color, sessionId }`.
-
-**`frontend/src/routes/+layout.svelte`** — Root layout component
-- **DOES:** Render app shell (header, navigation, user menu, theme toggle). Manage WebSocket connection lifecycle. Render `ToastContainer`. Import global CSS.
-
-**`frontend/src/routes/login/`** — Login page
-- **DOES:** `+page.server.ts` handles form action (authenticate, create session, set cookies). `+page.svelte` renders login form.
-
-**`frontend/src/routes/logout/`** — Logout endpoint
-- **DOES:** `+page.server.ts` handles form action (delete session, clear cookies, redirect).
-
-**`frontend/src/routes/admin/`** — Admin section
-- **DOES:** Admin panel with sub-pages for managing locations/statuses/conditions/departments (`[adminpage]`), user registration (`register`), and audit management (`audit`).
-
-**`frontend/src/routes/mobile/`** — Mobile pages
-- **DOES:** Mobile-optimized views for audit completion and asset management with barcode scanning.
-
-**`frontend/src/routes/api/`** — API endpoints
-- **DOES:** REST endpoints for asset CRUD (`api/assets`, `api/update`, `api/create/asset`), metadata CRUD (`api/create/[category]`, `api/delete/[category]`, `api/meta/[category]`, `api/update/[category]`), and audit operations (`api/audit/*`).
-
-### Server Layer
-
-**`frontend/src/hooks.server.ts`** — SvelteKit server hooks
-- **DOES:** Run DB migrations on startup. Periodic session cleanup (hourly). Authenticate requests by reading `sessionId` cookie, looking up session, attaching `user` to `locals`.
-
-**`frontend/src/lib/db/conn.ts`** — Database connection and schema
-- **IS:** Kysely database instance and all table type definitions
-- **DOES:** Define `Database` interface with all tables (`asset_inventory`, `users`, `sessions`, `change_log`, `asset_network_details`, `asset_ped_details`, `asset_audit`, etc.). Create connection pool via `MysqlDialect`. Export `db` singleton.
-
-**`frontend/src/lib/db/`** — Database modules
-- **`auth/`** — Session and user management: `createSession`, `deleteSession`, `cleanupExpiredSessions`, `createUser`, `findUserByUsername`.
-- **`select/`** — Read queries: `getAssets`, `getLocations`, `getStatuses`, `getConditions`, `getDepartments`, `getAuditAssignments`, `queryAssets`, `columnDefinitions`.
-- **`create/`** — Insert operations: `createAsset`, `createLocation`, `createStatus`, `createCondition`, `createDepartment`, `logChange`.
-- **`update/`** — Update operations: `updateAsset`, `updateAdmin`.
-- **`delete/`** — Delete operations: `deleteAdmin`.
-- **`migrations/`** — Schema migrations: `createChangeLog`.
-
----
+A collaborative asset tracking app — a spreadsheet-like grid where multiple users can browse, search, filter, and edit organizational assets in real time. Asset rows have dynamic columns that vary per view (e.g. default, audit, network) — columns are not fixed at the type level, they're determined by what the DB query returns. Rows are typed as `Record<string, any>`. Users see each other's cursors, cell locks, and pending changes. Changes are committed to a MariaDB database, with a Go WebSocket hub handling presence and live updates.
 
 ## Tech Stack
+- **Frontend:** SvelteKit, Svelte 5 (runes), Tailwind CSS (~8,600 LOC — ~40 core files, ~25 DB queries, ~34 route files)
+- **Backend:** SvelteKit server routes, Kysely ORM, MariaDB
+- **Realtime:** Go WebSocket hub (`api/`, ~1,300 LOC)
+- **Base path:** `/asset`
 
-- **Framework:** SvelteKit with Svelte 5 runes (`$state`, `$derived`, `$effect`, `$props`)
-- **Context API:** `createContext` from `svelte` (returns `[getter, setter]` tuple)
-- **Database:** Kysely ORM with MariaDB (host: 10.236.133.207, port: 3101, db: asset_db)
-- **Base path:** `/asset` for all routes
-- **Barcode scanning:** html5-qrcode (dynamic import)
+This is a focused codebase — understand the whole before changing a part.
 
-## Build & Check
+## Directory Structure
+
+```
+frontend/src/
+├── lib/
+│   ├── data/          # Module-level $state stores (pure data, no helpers)
+│   ├── utils/         # Shared helper functions (gridHelpers.ts, realtimeManager)
+│   ├── grid/
+│   │   ├── components/   # Grid UI components (folder-per-component)
+│   │   ├── eventQueue/   # Event queue system (enqueue → handler → router)
+│   │   ├── gridConfig.ts # Grid constants (row height, column width)
+│   │   └── validation.ts # Cell validation rules
+│   ├── db/            # Kysely database queries (select/, create/, update/, delete/)
+│   ├── toast/         # Toast notification system
+│   └── types.ts       # Shared TypeScript types
+├── routes/            # SvelteKit pages and API routes
+api/
+├── main.go            # HTTP server + WS upgrade
+└── internal/hub.go    # WebSocket hub, presence, locking, pending state
+```
+
+## Svelte 5 — Runes Only
+
+Use Svelte 5 runes exclusively. No legacy `let` exports, no `$:` reactive statements.
+
+- `$state()` — reactive state
+- `$derived()` — computed values
+- `$effect()` — side effects
+- `$props()` — component props
+- `$state.snapshot()` — create a plain-object copy of a `$state` proxy (see "Never Do This" for usage rule)
+
+## State Management
+
+### Stores for global state
+
+Module-level `$state` singletons in `$lib/data/`. Imported directly — no provider components.
+
+```ts
+// $lib/data/someStore.svelte.ts
+export const someStore = $state({
+  value: '',
+});
+```
+
+**Store files are pure data.** Only `$state` definitions and type exports. All helper functions — even ones that only touch a single store — go in `$lib/utils/` (e.g. `gridHelpers.ts` for `resetEditing`, `resetEditState`, `setOpenPanel`).
+
+**Existing stores:**
+- `assetStore` — base + displayed asset arrays, metadata lists (locations, statuses, conditions, departments)
+- `cellStore` — editing state, pending edits, undo/redo history, selection range, clipboard
+- `uiStore` — panel visibility (context menu, header menu, filter panel, suggestion menu), sort, column widths, row heights
+- `presenceStore` — other users' cursor positions, locks, and pending cells
+- `connectionStore` — WebSocket connection status (connected/disconnected/reconnecting)
+- `queryStore` — active view, search term, filter list
+- `scrollStore` — scroll position, visible row range, scroll-to signals
+- `urlStore` — current URL search string for `replaceState` sync
+- `newRowStore` — uncommitted new rows pending creation
+
+### Contexts for scoped state
+
+Use `setContext`/`getContext` when state is scoped to a component subtree and shouldn't be global. Currently used for `viewport` dimensions (owned by GridContainer, consumed by virtualGridContainer.svelte.ts).
+
+**Rule:** If only one subtree needs it → context. If multiple unrelated components need it → store.
+
+## Component Conventions
+
+### Folder-per-component with companion `.svelte.ts`
+
+```
+components/toolbar/
+├── Toolbar.svelte        # Rendering + template
+└── toolbar.svelte.ts     # Component-specific reactive logic
+```
+
+The `.svelte.ts` companion holds extracted logic. Keep these files even if empty to maintain the convention. Empty companions should contain a single comment: `// ComponentName companion — helpers moved to $lib/utils/gridHelpers.ts`
+
+### `.svelte.ts` vs `.ts`
+
+- **`.svelte.ts`** — files that declare runes (`$state`, `$derived`, `$effect`). Required for the Svelte compiler to process runes.
+- **`.ts`** — plain TypeScript. Can import and mutate `$state` store objects (they're just proxies), but cannot declare new runes. Use for helpers like `gridHelpers.ts`.
+
+## Event Queue
+
+All state-mutating actions flow through a serial FIFO queue.
+
+```
+Component → enqueue({ type, payload }) → eventHandler.ts (switch/router) → mutates stores
+```
+
+- **`enqueue()`** takes a single argument: `{ type: string, payload: Record<string, any> }`
+- **`eventHandler.ts`** is the central router — imports stores directly, handles all event types
+- **WS events** are prefixed with `WS_` (e.g. `WS_CELL_LOCKED`, `WS_USER_LEFT`)
+- **Components enqueue directly** — Toolbar, EditHandler, HeaderMenu, FilterPanel, ContextMenu all call `enqueue()` themselves
+- **EventListener** handles multi-source convergent events only (selection → position sync, keyboard shortcuts, WS bridge effects)
+
+### When to enqueue vs. call directly
+
+Enqueue when the action falls into one of these categories:
+- **API calls** — commits, queries, view changes (async fetch, stores mutated only after DB confirms)
+- **Incoming WS events** — presence updates, lock/unlock, pending broadcasts (server-pushed → store updates)
+- **Outbound WS sends** — position updates, edit start/end, pending cell signals
+
+Events are processed one at a time, in order. If a new event is enqueued while one is processing, it waits. This prevents races (e.g. a commit can't interleave with a query).
+
+**Call directly** for pure UI state — toggling menus, updating local variables, selection changes.
+
+## Realtime / WebSocket
+
+- **`realtimeManager`** (`$lib/utils/realtimeManager.svelte.ts`) — singleton, pure transport layer
+- Enqueues incoming WS messages with `WS_` prefix directly into the event queue
+- Exposes typed send methods: `sendPositionUpdate`, `sendEditStart`, `sendEditEnd`, `sendCellPending`, etc.
+- **Server owns presence truth** — Go hub maintains per-user state, handles disconnect cleanup, echo suppression
+- **Pending state is local-first** — survives disconnection, but WS required to commit
+
+### Lock Guards
+
+Three entry points for cell editing (GridRow double-click, ContextMenu edit, F2 key). All check:
+1. `presenceStore.users` — is the cell locked by another user?
+2. `presenceStore.pendingCells` — does another user have pending changes?
+
+### Context menu close on scroll
+
+The context menu is closed at **user-scroll entry points** (wheel, scrollbar thumb drag, auto-scroll start, arrow keys), not via a reactive `$effect` on `scrollStore.scrollTop`. This prevents false closes from programmatic position resets (e.g. QUERY handler resetting scroll to 0, clamp adjustments on content shrink).
+
+## Server-Side Patterns
+
+### SvelteKit load functions
+
+`+page.server.ts` files use `Promise.all` for parallel data fetching:
+
+```ts
+const [assets, locations, statuses] = await Promise.all([
+  queryAssets(...),
+  getLocations(),
+  getStatuses(),
+]);
+```
+
+### MariaDB dates
+
+**NEVER** use `.toISOString()` directly for DATETIME columns. Format as:
+```ts
+new Date().toISOString().slice(0, 19).replace('T', ' ')
+```
+
+### After inserts, always refetch
+
+Don't optimistically patch IDs. Refetch from the database to get server-assigned values.
+
+### Undo/redo history persists across commits
+
+Committing does NOT clear undo/redo stacks — users can undo after a commit. Use `resetAfterCommit()` (selection/clipboard only). Discarding, searching, changing views, or changing filters clears everything via `resetEditState()` (includes history).
+
+## Styling
+
+- **Tailwind CSS** for all styling
+- **Dark mode** via `dark:` class variants (toggled on `<html>` element)
+- **Z-index** uses 10-step groups (10, 20, 30...) to avoid conflicts
+- **Dynamic inline styles** only for computed positioning (overlays, scroll transforms, menu placement)
+
+## Go WebSocket Hub (`api/internal/hub.go`)
+
+### Message Format
+
+All messages are JSON: `{ "type": "MESSAGE_TYPE", "payload": { ... } }`
+
+### Concurrency Model
+
+- One goroutine per client for reading, one for writing
+- Hub runs in its own goroutine, processes register/unregister/broadcast via channels
+- Shared state protected by mutexes: `UserPresence`, `CellLockManager`, `PendingCellManager` each have their own `sync.RWMutex`
+- `userClients` maps a userID to multiple clients (supports multiple tabs)
+
+### Server Message Types (client → server)
+
+`USER_POSITION_UPDATE`, `USER_DESELECTED`, `CELL_EDIT_START`, `CELL_EDIT_END`, `CELL_PENDING`, `CELL_PENDING_CLEAR`, `PENDING_CLEAR_ALL`, `COMMIT_BROADCAST`, `CLIENT_STATE`, `PING`
+
+### State Managers
+
+- **UserPresence** — tracks cursor position per user (`map[userID]*UserPosition`, mutex-protected)
+- **CellLockManager** — tracks which cells are being edited (`"assetId:key"` → `CellLockInfo`, with reverse index `userID → set of lock keys` for disconnect cleanup)
+- **PendingCellManager** — same structure as locks but for uncommitted pending changes
+
+## Error Handling
+
+### Event handler pattern
+
+API failures show a toast and return early — no rollback, no retry. Stores are only mutated after a successful response.
+
+```
+fetch → fail? → toast error, return
+fetch → ok?   → mutate stores, toast success
+```
+
+Auth guards (`if (!user)`) toast a warning and return before any API call.
+
+### WS disconnection
+
+Pending edits survive disconnection (local-first). The user can keep editing, but commits require a live WS connection. On reconnect, `CLIENT_STATE` is sent and the server reconciles (may reject conflicting locks/pending cells via `WS_CLIENT_STATE_RECONCILED`).
+
+## Testing
+
+No formal test suite currently. Verify changes with `svelte-check`:
 
 ```bash
-# Type checking — MUST run from frontend/ directory
 cd frontend && npx svelte-check --tsconfig ./tsconfig.json
-
-# Dev server
-cd frontend && npm run dev
+# Expect: 0 errors, 4 pre-existing a11y warnings
 ```
 
-## Critical Rules
-
-### MariaDB Date Formatting
-**NEVER use `.toISOString()` for DATETIME columns.** MariaDB rejects the `T` and `Z`.
-```typescript
-// Wrong: .toISOString() → "2026-02-06T06:33:32.213Z"
-// Right:
-.toISOString().slice(0, 19).replace('T', ' ')  // → "2026-02-06 06:33:32"
+Go API:
+```bash
+cd api && go build ./...
 ```
 
-### Kysely ColumnType
-`ColumnType<SelectType, InsertType, UpdateType>` — the insert/update types matter. `ColumnType<Date, string, string>` means SELECT returns Date, but INSERT/UPDATE need string.
+## Never Do This
 
-### SvelteKit Reactivity
-- `page.url` from `$app/state` uses `$state.raw()` — shallow reactivity
-- `replaceState()` does NOT create a new URL reference — `$effect` won't re-run
-- Use `SvelteURL` from `svelte/reactivity` as reactive URL source of truth
+- **Never use `$:` or `let` exports** — Svelte 5 runes only
+- **Never put helper functions in store files** — stores are pure data, helpers go in `$lib/utils/`
+- **Never call `realtime.send*()` from components directly** — enqueue an event, let eventHandler route it
+- **Never mutate stores before API confirmation** — fetch first, mutate on success
+- **Never use `.toISOString()` for MariaDB dates** — format as `YYYY-MM-DD HH:MM:SS`
+- **Never optimistically patch IDs after inserts** — always refetch from DB
+- **Never pass `$state` proxies to `enqueue()` or API calls** — always `$state.snapshot()` first, then pass the snapshot as payload. Proxies are reactive references that can change before the handler processes them.
 
-### SvelteKit Route Files
-Valid: `+page.svelte`, `+page.ts`, `+page.server.ts`. The file `+page.svelte.ts` does NOT exist as a valid type.
+## Common Tasks
 
-### Validation
-Validation is part of the edit flow, not a separate system. When a cell is saved (EditHandler), the edit logic checks if the value is valid (required field? valid value?). If invalid, the cell is marked in change state. No separate validation context or validation controller exists — it's just a check during save, and a flag in the change state. Constraints (allowed dropdown values) are a separate concern from validation — they are UI data for the edit dropdown.
+### Adding a new store
+
+1. Create `$lib/data/newStore.svelte.ts` with `export const newStore = $state({ ... })`
+2. Import directly where needed — no provider wiring
+
+### Adding a new event type
+
+1. Add the case to `eventHandler.ts` switch statement
+2. Write the handler function in the same file
+3. Enqueue from the component: `enqueue({ type: 'NEW_EVENT', payload: { ... } })`
+
+### Adding a new grid column/view
+
+Columns are dynamic — determined by what `queryAssets()` returns for a given view. To add a view:
+1. Add the view name to `VALID_VIEWS` in `+page.server.ts`
+2. Add the corresponding SQL query logic in `$lib/db/select/queryAssets.ts`
+3. Add validation rules if needed in `validation.ts`
+
+## Code Style
+
+- Add comments where intent isn't obvious — especially for one-liners that replace extracted functions
+- Prefer inlining simple expressions over wrapping in named functions
+- No unnecessary abstractions — three similar lines > a premature helper
+- **Always update CLAUDE.md after a change** — if a code change affects architecture, conventions, stores, event types, or component structure, update the relevant sections of this file to stay in sync

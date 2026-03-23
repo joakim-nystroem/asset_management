@@ -223,7 +223,7 @@ function createRealtimeManager() {
     }
 
     function handleMessage(type: string, payload: any) {
-        enqueue({ type: 'WS_' + type, payload }, {});
+        enqueue({ type: 'WS_' + type, payload });
     }
 
     // --- RECONNECT ON TAB FOCUS ---

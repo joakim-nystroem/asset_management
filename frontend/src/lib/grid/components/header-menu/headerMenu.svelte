@@ -2,7 +2,8 @@
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
-  import { uiStore, sortStore, setOpenPanel } from '$lib/data/uiStore.svelte';
+  import { uiStore, sortStore } from '$lib/data/uiStore.svelte';
+  import { setOpenPanel } from '$lib/utils/gridHelpers';
   import { toggleFilter } from './headerMenu.svelte.ts';
 
   let {

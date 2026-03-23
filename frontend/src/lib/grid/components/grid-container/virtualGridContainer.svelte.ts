@@ -1,6 +1,6 @@
 import { scrollStore } from '$lib/data/scrollStore.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
-import { columnWidthStore } from '$lib/data/uiStore.svelte';
+import { uiStore, columnWidthStore } from '$lib/data/uiStore.svelte';
 import { DEFAULT_ROW_HEIGHT, DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 import { getContext } from 'svelte';
 
@@ -45,6 +45,7 @@ export function createVirtualGridContainer() {
 
   function handleWheel(e: WheelEvent) {
     e.preventDefault();
+    uiStore.contextMenu.visible = false;
     applyClampedScroll(
       scrollStore.scrollTop + e.deltaY,
       scrollStore.scrollLeft + e.deltaX,
