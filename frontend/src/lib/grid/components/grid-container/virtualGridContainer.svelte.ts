@@ -66,8 +66,15 @@ export function createVirtualGridContainer() {
 function setupVisibleRangeTracking(viewport: { height: number }) {
   $effect(() => {
     const rowCount = assetStore.displayedAssets.length;
-    const visibleCount = Math.ceil(viewport.height / ROW_HEIGHT);
+    const contentHeight = rowCount * ROW_HEIGHT;
+    const maxScroll = Math.max(0, contentHeight - viewport.height);
 
+    // Clamp scrollTop when content shrinks (e.g. discard new rows, filter)
+    if (scrollStore.scrollTop > maxScroll) {
+      scrollStore.scrollTop = maxScroll;
+    }
+
+    const visibleCount = Math.ceil(viewport.height / ROW_HEIGHT);
     const startIndex = Math.max(0, Math.floor(scrollStore.scrollTop / ROW_HEIGHT) - OVERSCAN);
     const endIndex = Math.min(startIndex + visibleCount + OVERSCAN * 2, rowCount);
 
@@ -89,7 +96,7 @@ function setupScrollToRowSignal(viewport: { height: number }) {
     if (rowTop < scrollStore.scrollTop) {
       scrollStore.scrollTop = rowTop;
     } else if (rowBottom > viewBottom) {
-      scrollStore.scrollTop = rowBottom - viewport.height + 40;
+      scrollStore.scrollTop = rowBottom - viewport.height;
     }
 
     scrollStore.scrollToRow = null;

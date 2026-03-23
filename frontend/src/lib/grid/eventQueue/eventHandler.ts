@@ -8,7 +8,8 @@ import { queryStore } from '$lib/data/queryStore.svelte';
 import { realtime } from '$lib/utils/realtimeManager.svelte';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
 import { urlStore } from '$lib/data/urlStore.svelte';
-import { setOpenPanel } from '$lib/data/uiStore.svelte';
+import { uiStore } from '$lib/data/uiStore.svelte';
+import { scrollStore } from '$lib/data/scrollStore.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
 
@@ -255,7 +256,9 @@ async function handleQuery(
 
   if (!hasFilters) {
     assetStore.displayedAssets = assetStore.baseAssets;
-    setOpenPanel();
+    scrollStore.scrollTop = 0;
+    scrollStore.scrollLeft = 0;
+    if (uiStore.contextMenu.visible) uiStore.contextMenu.visible = false;
     urlStore.url = `?${buildQueryParams(view)}`;
     return;
   }
@@ -269,7 +272,9 @@ async function handleQuery(
   }
 
   assetStore.displayedAssets = res.data.assets;
-  setOpenPanel();
+  scrollStore.scrollTop = 0;
+  scrollStore.scrollLeft = 0;
+  if (uiStore.contextMenu.visible) uiStore.contextMenu.visible = false;
   urlStore.url = `?${params}`;
 }
 
@@ -288,7 +293,8 @@ async function handleViewChange(
 
   assetStore.baseAssets = res.data.assets;
   assetStore.displayedAssets = res.data.assets;
-
+  scrollStore.scrollTop = 0;
+  scrollStore.scrollLeft = 0;
   urlStore.url = `?${params}`;
 }
 

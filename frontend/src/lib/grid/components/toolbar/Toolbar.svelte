@@ -108,9 +108,6 @@
   }
 
   function handleDiscard() {
-    if (newRowStore.hasNewRows) {
-      scrollStore.scrollToRow = Math.max(0, assetStore.displayedAssets.length - 1);
-    }
     enqueue(
       { type: 'DISCARD', payload: {} },
       { pendingCtx: pendingStore, newRowCtx: newRowStore },
