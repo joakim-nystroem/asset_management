@@ -3,10 +3,6 @@ import { queryAssets } from '$lib/db/select/queryAssets';
 import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
 
-import { getLocations } from '$lib/db/select/getLocations';
-import { getStatuses } from '$lib/db/select/getStatuses';
-import { getConditions } from '$lib/db/select/getConditions';
-import { getDepartments } from '$lib/db/select/getDepartments';
 
 const MOBILE_UA_REGEX = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
 
@@ -29,7 +25,7 @@ function parseFilters(filterParams: string[]): Record<string, string[]> {
   return filterMap;
 }
 
-const VALID_VIEWS = ['default', 'audit', 'ped', 'galaxy', 'network'] as const;
+const VALID_VIEWS = ['default', 'ped', 'galaxy', 'network'] as const;
 function resolveView(param: string): string {
   return VALID_VIEWS.includes(param as any) ? param : 'default';
 }
@@ -59,25 +55,20 @@ export const load: PageServerLoad = async ({ request, url }) => {
     // Build filterMap before await
     const filterMap = parseFilters(filterParams);
 
-    // Load everything in parallel — full asset list, metadata, and filtered results if needed
-    const [assets, locations, statuses, conditions, departments, searchResults] = await Promise.all([
+    // Load assets in parallel — metadata comes from root layout
+    const [assets, searchResults] = await Promise.all([
       queryAssets(null, {}, resolvedView),
-      getLocations(),
-      getStatuses(),
-      getConditions(),
-      getDepartments(),
       hasSearch ? queryAssets(qParam || null, filterMap, resolvedView) : null,
     ]);
 
-    return { assets, locations, statuses, conditions, departments, initialView: resolvedView, initialQ: qParam, initialFilters: filterParams, searchResults, initialUrl: url.search };
+    return { assets, initialView: resolvedView, initialQ: qParam, initialFilters: filterParams, searchResults, initialUrl: url.search };
 
   } catch (err: unknown) {
     const dbError = err instanceof Error ? err.message : 'An unknown error occurred.';
     console.error('API request failed:', err);
 
     return {
-      assets: [], dbError, locations: [], statuses: [],
-      conditions: [], departments: [],
+      assets: [], dbError,
       initialView: resolvedView, initialQ: qParam,
       initialFilters: filterParams, searchResults: null,
       url: url.pathname, initialUrl: url.search,

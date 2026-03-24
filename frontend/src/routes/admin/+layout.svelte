@@ -2,7 +2,7 @@
 
   let { children } = $props();
 
-  const menuItems = ["locations", "status", "conditions", "audit"]
+  const menuItems = ["locations", "status", "conditions"]
 </script>
 
 <div class="flex h-full bg-neutral-50 dark:bg-slate-600 mt-2 text-neutral-900 dark:text-neutral-100 px-4 py-4">

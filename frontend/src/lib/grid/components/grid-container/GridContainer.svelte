@@ -8,7 +8,7 @@
   import GridOverlays from '$lib/grid/components/grid-overlays/GridOverlays.svelte';
   import EditHandler from '$lib/grid/components/edit-handler/EditHandler.svelte';
   import ContextMenu from '$lib/grid/components/context-menu/contextMenu.svelte';
-  import CustomScrollbar from '$lib/grid/components/virtual-scroll/CustomScrollbar.svelte';
+  import CustomScrollbar from '$lib/utils/custom-scrollbar/CustomScrollbar.svelte';
   import { setContext } from 'svelte';
   import { createVirtualGridContainer } from './virtualGridContainer.svelte.ts';
 
@@ -34,7 +34,7 @@
 
   // Scrollbar calculations — fixed thumb size, scroll speed scales with content
   const V_THUMB = 40;
-  const H_THUMB = 120;
+  const H_THUMB = 200;
 
   let showVertical = $derived(contentHeight > viewport.height);
   let showHorizontal = $derived(contentWidth > viewport.width);

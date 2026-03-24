@@ -7,7 +7,7 @@
   import { enqueue } from '$lib/grid/eventQueue/eventQueue';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { validateCell } from '$lib/grid/validation';
-  import { isConstrained, isValidOption } from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte.ts';
+  import { isConstrained, isValidOption, getOptionsForColumn } from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte.ts';
   import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
@@ -333,7 +333,7 @@
         style="overflow: hidden;"
       ></textarea>
       {#if uiStore.suggestionMenu.visible}
-        <SuggestionMenu />
+        <SuggestionMenu options={getOptionsForColumn(editingStore.editCol)} constrained={isConstrained(editingStore.editCol)} />
       {/if}
     </div>
   </div>

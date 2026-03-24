@@ -116,7 +116,7 @@
 
         {#if showUserMenu}
           <div
-            class="absolute right-0 py-2 mt-2 w-56 bg-white dark:bg-slate-700 rounded-lg shadow-md shadow-gray-900 z-50 border border-gray-200 dark:border-slate-600"
+            class="absolute right-0 py-2 mt-0.5 w-56 bg-white dark:bg-slate-700 rounded-sm shadow-md shadow-gray-900 z-50 border border-gray-200 dark:border-slate-600"
           >
             {#if data.user}
               <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-600 flex justify-between items-center">
@@ -144,10 +144,17 @@
               </a>
 
               <a
+                href="/audit"
+                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
+              >
+                Audit
+              </a>
+
+              <a
                 href="/admin"
                 class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
               >
-                Admin Panel
+                Admin
               </a>
 
               <form action="/logout" method="POST" class="w-full">

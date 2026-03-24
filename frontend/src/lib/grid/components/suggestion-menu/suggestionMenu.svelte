@@ -2,17 +2,21 @@
   import { untrack } from 'svelte';
   import { editingStore } from '$lib/data/cellStore.svelte';
   import { uiStore } from '$lib/data/uiStore.svelte';
-  import { isConstrained as checkConstrained, getOptionsForColumn, filterOptions, getTabMatches } from './suggestionMenu.svelte.ts';
-  import CustomScrollbar from '$lib/grid/components/virtual-scroll/CustomScrollbar.svelte';
-  import { createScrollbarState } from '$lib/grid/components/virtual-scroll/customScrollbar.svelte.ts';
+  import { filterOptions, getTabMatches } from './suggestionMenu.svelte.ts';
+  import CustomScrollbar from '$lib/utils/custom-scrollbar/CustomScrollbar.svelte';
+  import { createScrollbarState } from '$lib/utils/custom-scrollbar/customScrollbar.svelte.ts';
 
-  // --- Local state (resets on mount/unmount) ---
-  const editCol = editingStore.editCol;
-  const constrained = checkConstrained(editCol);
-  const allOptions = getOptionsForColumn(editCol);
+  interface Props {
+    options: string[];
+    constrained: boolean;
+  }
 
-  let filteredOptions = $state<string[]>(constrained ? allOptions : []);
-  let selectedIndex = $state(constrained ? Math.max(0, allOptions.findIndex(opt => opt === editingStore.editValue)) : -1);
+  let { options, constrained }: Props = $props();
+
+  // svelte-ignore state_referenced_locally
+  let filteredOptions = $state<string[]>(constrained ? options : []);
+  // svelte-ignore state_referenced_locally
+  let selectedIndex = $state(constrained ? Math.max(0, options.findIndex(opt => opt === editingStore.editValue)) : -1);
   let tabAnchor = $state(editingStore.editValue);
 
   // --- Scroll state ---
@@ -62,7 +66,7 @@
     if (!uiStore.suggestionMenu.visible) return;
     const text = editingStore.editValue;
     tabAnchor = text;
-    filteredOptions = filterOptions(allOptions, text, constrained);
+    filteredOptions = filterOptions(options, text, constrained);
     selectedIndex = filteredOptions.length > 0 ? 0 : -1;
     scroll.setScroll(0, 0, 0, 0);
   }
@@ -88,7 +92,7 @@
 
     if (e.key === 'Tab') {
       e.preventDefault();
-      const matches = getTabMatches(allOptions, tabAnchor);
+      const matches = getTabMatches(options, tabAnchor);
       if (matches.length === 0) return;
 
       const currentValue = filteredOptions[selectedIndex] ?? '';
