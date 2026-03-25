@@ -9,7 +9,7 @@
   import { newRowStore } from '$lib/data/newRowStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
-  import { enqueue } from '$lib/grid/eventQueue/eventQueue';
+  import { enqueue } from '$lib/eventQueue/eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
   import { validateNewRow } from '$lib/grid/validation';
   import { resetEditState, resetAfterCommit } from '$lib/utils/gridHelpers';

@@ -10,5 +10,8 @@ export const auditUiStore = $state({
 	filterPanel: false,
 	filters: [] as { key: string; value: string }[],
 	searchTerm: '',
+	cellDropdown: { visible: false, assetId: -1, col: '' },
+	bulkDropdown: false,
+	contextMenu: { visible: false, x: 0, y: 0, assetId: -1, col: '', value: '' },
 	selectedIds: [] as number[],
 });

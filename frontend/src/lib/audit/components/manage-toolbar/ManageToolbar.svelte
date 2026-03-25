@@ -4,20 +4,22 @@
 	import { startAudit, closeCycle } from '$lib/audit/components/cycle-status/cycleStatus.svelte.ts';
 	import { handleSearch, handleClearSearch, handleBulkAssign, clearSelection } from './manageToolbar.svelte.ts';
 	import AuditFilterPanel from '$lib/audit/components/audit-filter-panel/AuditFilterPanel.svelte';
+	import AuditCellDropdown from '$lib/audit/components/audit-cell-dropdown/AuditCellDropdown.svelte';
 
 	let pending = $derived(auditStore.baseAssignments.filter(a => !a.completed_at).length);
 	let hasSelection = $derived(auditUiStore.selectedIds.length > 0);
-	let bulkUserId = $state<number | null>(null);
+	let bulkUserName = $state('Assign to...');
 
 	function onSearchKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter') handleSearch();
 		if (e.key === 'Escape') handleClearSearch();
 	}
 
-	async function onBulkAssign() {
-		if (!bulkUserId) return;
-		await handleBulkAssign(bulkUserId);
-		bulkUserId = null;
+	async function onBulkSelect(userId: number | null) {
+		if (!userId) return;
+		await handleBulkAssign(userId);
+		bulkUserName = 'Assign to...';
+		auditUiStore.bulkDropdown = false;
 	}
 </script>
 
@@ -45,39 +47,9 @@
 		</div>
 		<button
 			onclick={handleSearch}
-			class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-neutral-100"
+			class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded text-base text-neutral-100"
 		>Search</button>
 	</div>
-
-	<!-- Bulk assign (appears when items selected) -->
-	{#if hasSelection}
-		<div class="flex items-center gap-2 ml-4">
-			<span class="text-sm text-neutral-600 dark:text-neutral-400 font-medium">
-				{auditUiStore.selectedIds.length} selected
-			</span>
-			<select
-				bind:value={bulkUserId}
-				class="rounded-sm border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-100 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-			>
-				<option value={null} disabled selected>Assign to...</option>
-				{#each auditStore.users as user (user.id)}
-					<option value={user.id}>{user.lastname}, {user.firstname}</option>
-				{/each}
-			</select>
-			<button
-				onclick={onBulkAssign}
-				disabled={auditUiStore.saving || !bulkUserId}
-				class="px-2 py-1 rounded text-sm font-semibold bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white transition-colors cursor-pointer disabled:cursor-not-allowed"
-			>
-				Assign
-			</button>
-			<button
-				onclick={clearSelection}
-				class="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
-				title="Clear selection"
-			>✕</button>
-		</div>
-	{/if}
 
 	<!-- Filter button + panel -->
 	<div class="relative ml-4" data-panel="filter-panel">
@@ -86,7 +58,7 @@
 				e.stopPropagation();
 				auditUiStore.filterPanel = !auditUiStore.filterPanel;
 			}}
-			class="flex items-center gap-2 px-3 py-1 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
+			class="flex items-center gap-2 px-3 py-1 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-base cursor-pointer"
 		>
 			Filters
 			{#if auditUiStore.filters.length > 0}
@@ -99,6 +71,37 @@
 			<AuditFilterPanel />
 		{/if}
 	</div>
+
+	<!-- Bulk assign (appears when items selected) -->
+	{#if hasSelection}
+		<div class="flex items-center gap-2 ml-4">
+			<span class="text-sm text-neutral-600 dark:text-neutral-400 font-medium">
+				{auditUiStore.selectedIds.length} selected
+			</span>
+			<div class="relative" data-panel="bulk-dropdown">
+				<!-- svelte-ignore a11y_click_events_have_key_events -->
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					onclick={() => { auditUiStore.bulkDropdown = !auditUiStore.bulkDropdown; }}
+					class="bg-white dark:bg-neutral-100 dark:text-neutral-700 p-1 px-3 border border-neutral-300 dark:border-none cursor-pointer text-sm min-w-36"
+				>
+					{bulkUserName}
+				</div>
+				{#if auditUiStore.bulkDropdown}
+					<AuditCellDropdown
+						options={auditStore.users.map(u => ({ id: u.id, label: `${u.lastname}, ${u.firstname}` }))}
+						currentId={null}
+						onselect={onBulkSelect}
+					/>
+				{/if}
+			</div>
+			<button
+				onclick={clearSelection}
+				class="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
+				title="Clear selection"
+			>✕</button>
+		</div>
+	{/if}
 
 	<!-- Spacer -->
 	<div class="flex-1"></div>

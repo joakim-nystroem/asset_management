@@ -1,4 +1,4 @@
-// frontend/src/lib/grid/eventQueue/eventQueue.ts
+// frontend/src/lib/eventQueue/eventQueue.ts
 // Pure TypeScript FIFO queue. No Svelte, no runes, no reactivity.
 // Receives events, processes them serially.
 

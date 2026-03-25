@@ -118,6 +118,8 @@ export function createManageScroll() {
 
 	function handleWheel(e: WheelEvent) {
 		e.preventDefault();
+		auditUiStore.contextMenu.visible = false;
+		auditUiStore.cellDropdown.visible = false;
 		scrollTop = clamp(scrollTop + e.deltaY, 0, maxScroll);
 	}
 

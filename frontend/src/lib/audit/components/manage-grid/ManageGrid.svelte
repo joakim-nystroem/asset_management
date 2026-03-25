@@ -4,7 +4,10 @@
 	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
 	import { createManageScroll, ROW_HEIGHT, assignSingle } from './manageGrid.svelte.ts';
 	import AuditHeader from '$lib/audit/components/audit-header/AuditHeader.svelte';
+	import AuditContextMenu from '$lib/audit/components/audit-context-menu/AuditContextMenu.svelte';
 	import Checkbox from '$lib/utils/checkbox/Checkbox.svelte';
+	import AuditCellDropdown from '$lib/audit/components/audit-cell-dropdown/AuditCellDropdown.svelte';
+	import { openCellDropdown, closeCellDropdown } from '$lib/audit/components/audit-cell-dropdown/auditCellDropdown.svelte.ts';
 
 	const COLUMNS = [
 		{ key: 'location', label: 'Location' },
@@ -62,6 +65,19 @@
 		if (scroll.isAutoScrolling) scroll.stopAutoScroll();
 	}
 
+	// --- Context menu ---
+	function handleContextMenu(e: MouseEvent, assetId: number, col: string, value: string) {
+		e.preventDefault();
+		const menuWidth = 160;
+		const menuHeight = 80;
+		auditUiStore.contextMenu.visible = true;
+		auditUiStore.contextMenu.x = e.clientX + menuWidth > window.innerWidth ? e.clientX - menuWidth : e.clientX;
+		auditUiStore.contextMenu.y = e.clientY + menuHeight > window.innerHeight ? Math.max(4, window.innerHeight - menuHeight - 8) : e.clientY;
+		auditUiStore.contextMenu.assetId = assetId;
+		auditUiStore.contextMenu.col = col;
+		auditUiStore.contextMenu.value = value;
+	}
+
 	// --- Helpers ---
 	function toggleOne(assetId: number) {
 		const idx = auditUiStore.selectedIds.indexOf(assetId);
@@ -83,6 +99,15 @@
 		}
 		if (auditUiStore.filterPanel && !target.closest('[data-panel="filter-panel"]')) {
 			auditUiStore.filterPanel = false;
+		}
+		if (auditUiStore.contextMenu.visible && !target.closest('[data-panel="context-menu"]')) {
+			auditUiStore.contextMenu.visible = false;
+		}
+		if (auditUiStore.cellDropdown.visible && !target.closest('[data-panel="cell-dropdown"]')) {
+			closeCellDropdown();
+		}
+		if (auditUiStore.bulkDropdown && !target.closest('[data-panel="bulk-dropdown"]')) {
+			auditUiStore.bulkDropdown = false;
 		}
 	}}
 />
@@ -115,25 +140,39 @@
 								onchange={() => toggleOne(assignment.asset_id)}
 							/>
 						</div>
-						<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-500 truncate text-neutral-700 dark:text-neutral-200">{assignment.location || '\u2014'}</div>
-						<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-500 truncate text-neutral-600 dark:text-neutral-300">{assignment.node || '\u2014'}</div>
-						<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-500 truncate text-neutral-700 dark:text-neutral-200">{assignment.asset_type || '\u2014'}</div>
-						<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-500">
-							<select
-								value={assignment.assigned_to ?? ''}
-								onchange={(e) => {
-									const val = Number((e.target as HTMLSelectElement).value);
-									if (val) assignSingle(assignment.asset_id, val);
-								}}
-								class="w-full bg-transparent border-0 text-xs text-neutral-600 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-blue-500 rounded-sm py-0.5 cursor-pointer"
-							>
-								<option value="">Unassigned</option>
-								{#each auditStore.users as user (user.id)}
-									<option value={user.id}>{user.lastname}, {user.firstname}</option>
-								{/each}
-							</select>
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div oncontextmenu={(e) => handleContextMenu(e, assignment.asset_id, 'location', assignment.location || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-500 truncate text-neutral-700 dark:text-neutral-200">{assignment.location || '\u2014'}</div>
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div oncontextmenu={(e) => handleContextMenu(e, assignment.asset_id, 'node', assignment.node || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-500 truncate text-neutral-600 dark:text-neutral-300">{assignment.node || '\u2014'}</div>
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div oncontextmenu={(e) => handleContextMenu(e, assignment.asset_id, 'asset_type', assignment.asset_type || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-500 truncate text-neutral-700 dark:text-neutral-200">{assignment.asset_type || '\u2014'}</div>
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<!-- svelte-ignore a11y_click_events_have_key_events -->
+						<div
+							oncontextmenu={(e) => handleContextMenu(e, assignment.asset_id, 'assigned_to', assignment.auditor_name || '')}
+							onclick={() => {
+								if (auditUiStore.cellDropdown.visible && auditUiStore.cellDropdown.assetId === assignment.asset_id) {
+									closeCellDropdown();
+								} else {
+									openCellDropdown(assignment.asset_id, 'assigned_to');
+								}
+							}}
+							class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-500 cursor-pointer relative"
+						>
+							<span class="text-xs truncate {assignment.auditor_name ? 'text-neutral-700 dark:text-neutral-200' : 'text-neutral-400 dark:text-neutral-500'}">{assignment.auditor_name || 'Unassigned'}</span>
+							{#if auditUiStore.cellDropdown.visible && auditUiStore.cellDropdown.assetId === assignment.asset_id && auditUiStore.cellDropdown.col === 'assigned_to'}
+								<AuditCellDropdown
+									options={[
+										...auditStore.users.map(u => ({ id: u.id, label: `${u.lastname}, ${u.firstname}` })),
+										{ id: null, label: 'Unassigned' },
+									]}
+									currentId={assignment.assigned_to}
+									onselect={(id) => assignSingle(assignment.asset_id, id ?? 0)}
+								/>
+							{/if}
 						</div>
-						<div class="flex-1 min-w-0 h-full flex items-center px-2 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600">
+						<!-- svelte-ignore a11y_no_static_element_interactions -->
+						<div oncontextmenu={(e) => handleContextMenu(e, assignment.asset_id, 'status', assignment.completed_at ? 'completed' : 'pending')} class="flex-1 min-w-0 h-full flex items-center px-2 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600">
 							{#if assignment.completed_at}
 								<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
 									<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
@@ -169,6 +208,9 @@
 		{/if}
 	</div>
 
+	{#if auditUiStore.contextMenu.visible}
+		<AuditContextMenu />
+	{/if}
 </div>
 
 {#if scroll.isAutoScrolling}

@@ -12,8 +12,8 @@
     resetSelection,
     clearClipboard,
     colBounds,
-  } from './EventListener.svelte.ts';
-  import { enqueue } from './eventQueue';
+  } from './keyboardHandler.svelte.ts';
+  import { enqueue } from '$lib/eventQueue/eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
 
   let { children } = $props();

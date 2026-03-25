@@ -1,6 +1,6 @@
 import { PUBLIC_WS_URL, PUBLIC_WS_PROTOCOL } from '$env/static/public';
 import { connectionStore } from '$lib/data/connectionStore.svelte';
-import { enqueue } from '$lib/grid/eventQueue/eventQueue';
+import { enqueue } from '$lib/eventQueue/eventQueue';
 
 const INSTANCE_KEY = Symbol.for('APP_REALTIME_MANAGER');
 const MAX_QUEUE_SIZE = 50;

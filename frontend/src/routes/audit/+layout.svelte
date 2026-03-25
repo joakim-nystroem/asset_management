@@ -16,6 +16,8 @@
 	let hasCycle = $derived(auditStore.cycle !== null || auditStore.baseAssignments.length > 0);
 </script>
 
+<svelte:window onkeydown={(e) => { if (e.key === 'Tab') e.preventDefault(); }} />
+
 <div class="bg-neutral-50 dark:bg-slate-600 h-[calc(100dvh-3rem)] px-4 py-4 flex flex-col overflow-hidden">
 	<!-- Row 1: Tabs + Progress -->
 	<div class="flex items-center gap-4 flex-shrink-0 mb-2">

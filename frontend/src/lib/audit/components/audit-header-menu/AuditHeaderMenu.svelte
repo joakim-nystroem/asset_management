@@ -12,6 +12,16 @@
 	let filterOpen = $state(false);
 	let filterSearchTerm = $state('');
 	let menuElement: HTMLElement | undefined = $state(undefined);
+	let submenuDirection = $state<'left' | 'right'>('right');
+
+	// Compute submenu direction from menu bounding rect
+	$effect(() => {
+		if (menuElement && !filterOpen) {
+			const rect = menuElement.getBoundingClientRect();
+			const SUBMENU_WIDTH = 192;
+			submenuDirection = rect.right + SUBMENU_WIDTH > window.innerWidth ? 'left' : 'right';
+		}
+	});
 
 	let values = $derived(
 		getUniqueValues(activeKey).filter(v =>
@@ -59,14 +69,16 @@
 				<div class="w-4"></div>
 				<span>Filter By</span>
 			</div>
-			<span class="text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400">›</span>
+			<span class="text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+				{submenuDirection === 'left' ? '‹' : '›'}
+			</span>
 		</button>
 
 		{#if filterOpen}
 			{@const focusOnInit = (node: HTMLElement) => { node.focus(); }}
 			<div
 				data-panel="header-menu"
-				class="absolute z-50 top-0 left-full ml-0.5 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm w-48"
+				class="absolute z-50 top-0 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm w-48 {submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}"
 			>
 				<div class="px-2 py-1 border-b border-neutral-200 dark:border-slate-700 mb-1">
 					<input

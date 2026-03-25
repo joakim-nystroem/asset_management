@@ -4,7 +4,7 @@
   import { resetEditing } from '$lib/utils/gridHelpers';
   import { newRowStore } from '$lib/data/newRowStore.svelte';
   import { columnWidthStore, uiStore } from '$lib/data/uiStore.svelte';
-  import { enqueue } from '$lib/grid/eventQueue/eventQueue';
+  import { enqueue } from '$lib/eventQueue/eventQueue';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { validateCell } from '$lib/grid/validation';
   import { isConstrained, isValidOption, getOptionsForColumn } from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte.ts';
