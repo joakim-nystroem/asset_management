@@ -3,8 +3,17 @@
 	import type { LayoutProps } from './$types';
 	import { auditStore } from '$lib/data/auditStore.svelte';
 	import AuditProgress from '$lib/audit/components/audit-progress/AuditProgress.svelte';
+	import { realtime } from '$lib/utils/realtimeManager.svelte';
+	import { connectionStore } from '$lib/data/connectionStore.svelte';
 
 	let { data, children }: LayoutProps = $props();
+
+	// Subscribe to audit room when WS connects (re-subscribes after logout/reconnect)
+	$effect(() => {
+		if (connectionStore.status === 'connected') {
+			realtime.sendSubscribe('audit');
+		}
+	});
 
 	const tabs = [
 		{ label: 'Overview', href: '/audit/overview' },

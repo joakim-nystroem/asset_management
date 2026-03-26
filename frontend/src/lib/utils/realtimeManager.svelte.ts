@@ -18,6 +18,7 @@ function createRealtimeManager() {
     let attempts = 0;
     let shouldReconnect = true;
     let session: { id: string; color?: string } | null = null;
+    let currentRoom: string = '';
     let localStateProvider: (() => { position: any; lock: any; pending: any[] }) | null = null;
 
     // Message Queue for offline actions
@@ -61,6 +62,12 @@ function createRealtimeManager() {
     function sendCommitBroadcast(changes: { assetId: number; key: string; value: string }[]) {
         send('COMMIT_BROADCAST', { changes });
     }
+
+    function sendSubscribe(room: string) {
+        currentRoom = room;
+        send('SUBSCRIBE', { room });
+    }
+
 
     function send(type: string, payload: any) {
         if (!shouldReconnect) return;
@@ -143,7 +150,7 @@ function createRealtimeManager() {
                 }));
             }
 
-            // 2. FLUSH QUEUE
+            // 3. FLUSH QUEUE
             if (messageQueue.length > 0) {
                 while (messageQueue.length > 0 && ws.readyState === WebSocket.OPEN) {
                     const msg = messageQueue.shift();
@@ -188,7 +195,13 @@ function createRealtimeManager() {
     }
 
     function disconnect() {
+        // Send deselect before closing — server handles room cleanup on disconnect
+        if (socket?.readyState === WebSocket.OPEN) {
+            sendDeselect();
+        }
+
         shouldReconnect = false; // Stop intentional reconnects
+        currentRoom = '';
 
         if (reconnectTimer) {
             clearTimeout(reconnectTimer);
@@ -197,11 +210,6 @@ function createRealtimeManager() {
 
         // Clear queue immediately
         messageQueue = [];
-
-        // Send deselect ONLY if we are actually connected
-        if (socket?.readyState === WebSocket.OPEN) {
-            sendDeselect();
-        }
 
         // Teardown Socket
         cleanupSocket();
@@ -217,7 +225,7 @@ function createRealtimeManager() {
             socket.onerror = null;
             socket.onmessage = null;
             socket.onopen = null;
-            socket.close();
+            socket.close(1000, 'Client disconnect');
             socket = null;
         }
     }
@@ -256,6 +264,7 @@ function createRealtimeManager() {
         sendCellPendingClear,
         sendPendingClearAll,
         sendCommitBroadcast,
+        sendSubscribe,
         setLocalStateProvider,
     };
 

@@ -110,22 +110,21 @@
 	{#if !auditStore.cycle && auditStore.baseAssignments.length === 0}
 		<button
 			onclick={startAudit}
-			disabled={auditUiStore.starting}
-			class="px-4 py-1.5 rounded-sm text-sm font-semibold bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white cursor-pointer disabled:cursor-not-allowed transition-colors"
+			class="px-3 py-1 rounded text-base font-semibold bg-green-600 hover:bg-green-700 text-white cursor-pointer transition-colors"
 		>
-			{auditUiStore.starting ? 'Starting...' : 'Start Audit'}
+			Start Audit
 		</button>
 	{:else}
 		<button
 			onclick={closeCycle}
-			disabled={auditUiStore.closing || pending > 0}
-			class="px-3 py-1.5 rounded-sm text-sm font-semibold transition-colors
+			disabled={pending > 0}
+			class="px-3 py-1 rounded text-base font-semibold transition-colors
 				{pending > 0
 					? 'bg-neutral-200 dark:bg-slate-700 text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
 					: 'bg-amber-500 hover:bg-amber-600 text-white cursor-pointer'}"
 			title={pending > 0 ? `${pending} items still pending` : 'Close audit cycle'}
 		>
-			{auditUiStore.closing ? 'Closing...' : 'Close Audit'}
+			Close Audit
 		</button>
 	{/if}
 </div>

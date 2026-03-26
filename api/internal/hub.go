@@ -342,6 +342,7 @@ type Client struct {
 	send      chan []byte
 	userID    string    // Shared ID (e.g., "101")
 	userInfo  *UserInfo
+	room      string    // Current room subscription ("grid", "audit", or "")
 	lastPong  time.Time
 	mu        sync.Mutex
 }
@@ -353,6 +354,9 @@ type Hub struct {
 	// Map of UserID -> Set of Clients (1-to-Many)
 	// This allows us to track all open tabs for a specific user
 	userClients map[string]map[*Client]bool
+
+	// Room subscriptions: room name -> set of clients
+	rooms map[string]map[*Client]bool
 
 	broadcast       chan BroadcastData
 	register        chan *Client
@@ -374,6 +378,7 @@ func NewHub(db *sql.DB, allowedOrigins []string) *Hub {
 		unregister:     make(chan *Client, hubChannelBuffer),
 		clients:        make(map[*Client]bool),
 		userClients:    make(map[string]map[*Client]bool),
+		rooms:          make(map[string]map[*Client]bool),
 		presence:       NewUserPresence(),
 		cellLocks:      NewCellLockManager(),
 		pendingCells:   NewPendingCellManager(),
@@ -437,7 +442,7 @@ func (c *Client) readPump() {
 	for {
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("WS unexpected close for user %s: %v", c.userInfo.Username, err)
 			}
 			break
@@ -468,6 +473,8 @@ func (c *Client) readPump() {
 			c.handleCommitBroadcast(msg.Payload)
 		case "CLIENT_STATE":
 			c.handleClientState(msg.Payload)
+		case "SUBSCRIBE":
+			c.handleSubscribe(msg.Payload)
 		case "PING":
 			// Client is checking if we're alive, we auto-respond with pong
 		}
@@ -874,6 +881,42 @@ func (c *Client) handleClientState(payload interface{}) {
 	}
 }
 
+func (c *Client) handleSubscribe(payload interface{}) {
+	payloadMap, ok := payload.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	room, ok := payloadMap["room"].(string)
+	if !ok || room == "" {
+		return
+	}
+
+	c.hub.mutex.Lock()
+	defer c.hub.mutex.Unlock()
+
+	// Remove from previous room if any
+	if c.room != "" && c.room != room {
+		if roomClients, ok := c.hub.rooms[c.room]; ok {
+			delete(roomClients, c)
+			if len(roomClients) == 0 {
+				delete(c.hub.rooms, c.room)
+			}
+		}
+		log.Printf("[Room] %s (%s %s) left room '%s'", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, c.room)
+	}
+
+	// Add to new room
+	if _, ok := c.hub.rooms[room]; !ok {
+		c.hub.rooms[room] = make(map[*Client]bool)
+	}
+	c.hub.rooms[room][c] = true
+	c.room = room
+
+	log.Printf("[Room] %s (%s %s) joined room '%s'", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, room)
+}
+
+
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
@@ -1059,7 +1102,7 @@ func (h *Hub) unregisterClient(client *Client) {
 	if _, exists := h.clients[client]; exists {
 		// 1. Remove from main list
 		delete(h.clients, client)
-		
+
 		// 2. Remove from User list
 		if userSet, ok := h.userClients[client.userID]; ok {
 			delete(userSet, client)
@@ -1067,7 +1110,18 @@ func (h *Hub) unregisterClient(client *Client) {
 				delete(h.userClients, client.userID)
 			}
 		}
-		
+
+		// 3. Remove from all rooms
+		for roomName, roomClients := range h.rooms {
+			if _, inRoom := roomClients[client]; inRoom {
+				delete(roomClients, client)
+				if len(roomClients) == 0 {
+					delete(h.rooms, roomName)
+				}
+				log.Printf("[Room] %s (%s %s) left room '%s' (disconnected)", client.userInfo.Username, client.userInfo.Firstname, client.userInfo.Lastname, roomName)
+			}
+		}
+
 		close(client.send)
 		h.mutex.Unlock()
 		
@@ -1167,6 +1221,39 @@ func (h *Hub) BroadcastMessage(msgType string, data interface{}, sender *Client)
 	case h.broadcast <- BroadcastData{Message: jsonMsg, Sender: sender}:
 	case <-time.After(100 * time.Millisecond):
 		log.Printf("Broadcast channel full, dropping message type: %s", msgType)
+	}
+}
+
+// BroadcastToRoom sends a message only to clients in the specified room, excluding the sender
+func (h *Hub) BroadcastToRoom(room string, msgType string, data interface{}, sender *Client) {
+	msg := Message{
+		Type:    msgType,
+		Payload: data,
+	}
+
+	jsonMsg, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("JSON Marshal error: %v", err)
+		return
+	}
+
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+
+	roomClients, ok := h.rooms[room]
+	if !ok {
+		return
+	}
+
+	for client := range roomClients {
+		if sender != nil && client == sender {
+			continue
+		}
+		select {
+		case client.send <- jsonMsg:
+		default:
+			log.Printf("User %s send buffer full in room '%s', skipping message", client.userInfo.Username, room)
+		}
 	}
 }
 

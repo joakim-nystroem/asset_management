@@ -7,56 +7,46 @@ import { toastState } from '$lib/toast/toastState.svelte';
 // --- Assignment helpers ---
 
 export async function assignSingle(assetId: number, userId: number) {
-	auditUiStore.saving = true;
-	try {
-		const res = await fetch('/api/audit/assign', {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ assetId, userId }),
-		});
-		if (res.ok) {
-			const user = auditStore.users.find(u => u.id === userId);
-			const auditorName = user ? `${user.lastname}, ${user.firstname}` : null;
-			for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
-				const a = arr.find(a => a.asset_id === assetId);
-				if (a) { a.assigned_to = userId; a.auditor_name = auditorName; }
-			}
-		} else {
-			const err = await res.json();
-			toastState.addToast(err.error ?? 'Failed to assign auditor.', 'error');
+	const res = await fetch('/api/audit/assign', {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ assetId, userId }),
+	});
+	if (res.ok) {
+		const user = auditStore.users.find(u => u.id === userId);
+		const auditorName = user ? `${user.lastname}, ${user.firstname}` : null;
+		for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
+			const a = arr.find(a => a.asset_id === assetId);
+			if (a) { a.assigned_to = userId; a.auditor_name = auditorName; }
 		}
-	} finally {
-		auditUiStore.saving = false;
+	} else {
+		const err = await res.json();
+		toastState.addToast(err.error ?? 'Failed to assign auditor.', 'error');
 	}
 }
 
 export async function bulkAssign(assetIds: number[], userId: number) {
-	auditUiStore.saving = true;
-	try {
-		const res = await fetch('/api/audit/bulk-assign', {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ assetIds, userId }),
-		});
-		const json = await res.json();
-		if (res.ok) {
-			const user = auditStore.users.find(u => u.id === userId);
-			const auditorName = user ? `${user.lastname}, ${user.firstname}` : '\u2014';
-			const idSet = new Set(assetIds);
-			for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
-				for (const a of arr) {
-					if (idSet.has(a.asset_id)) {
-						a.assigned_to = userId;
-						a.auditor_name = auditorName;
-					}
+	const res = await fetch('/api/audit/bulk-assign', {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ assetIds, userId }),
+	});
+	const json = await res.json();
+	if (res.ok) {
+		const user = auditStore.users.find(u => u.id === userId);
+		const auditorName = user ? `${user.lastname}, ${user.firstname}` : '\u2014';
+		const idSet = new Set(assetIds);
+		for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
+			for (const a of arr) {
+				if (idSet.has(a.asset_id)) {
+					a.assigned_to = userId;
+					a.auditor_name = auditorName;
 				}
 			}
-			toastState.addToast(`Assigned ${assetIds.length} item${assetIds.length === 1 ? '' : 's'}.`, 'success');
-		} else {
-			toastState.addToast(json.error ?? 'Bulk assign failed.', 'error');
 		}
-	} finally {
-		auditUiStore.saving = false;
+		toastState.addToast(`Assigned ${assetIds.length} item${assetIds.length === 1 ? '' : 's'}.`, 'success');
+	} else {
+		toastState.addToast(json.error ?? 'Bulk assign failed.', 'error');
 	}
 }
 

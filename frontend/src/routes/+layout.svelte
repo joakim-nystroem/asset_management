@@ -157,7 +157,7 @@
                 Admin
               </a>
 
-              <form action="/logout" method="POST" class="w-full">
+              <form action="/logout" method="POST" class="w-full" onsubmit={() => realtime.disconnect()}>
                 <button
                   type="submit"
                   class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer"

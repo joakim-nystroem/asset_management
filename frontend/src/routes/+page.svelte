@@ -4,6 +4,8 @@
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
   import { urlStore } from '$lib/data/urlStore.svelte';
+  import { realtime } from '$lib/utils/realtimeManager.svelte';
+  import { connectionStore } from '$lib/data/connectionStore.svelte';
   import KeyboardHandler from '$lib/grid/components/keyboard-handler/KeyboardHandler.svelte';
   import Toolbar from '$lib/grid/components/toolbar/Toolbar.svelte';
   import GridContainer from '$lib/grid/components/grid-container/GridContainer.svelte';
@@ -49,6 +51,12 @@
     return i > 0 ? [{ key: f.slice(0, i), value: f.slice(i + 1) }] : [];
   });
 
+  // Subscribe to grid room when WS connects (re-subscribes after logout/reconnect)
+  $effect(() => {
+    if (connectionStore.status === 'connected') {
+      realtime.sendSubscribe('grid');
+    }
+  });
 
 </script>
 
