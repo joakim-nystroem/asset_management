@@ -1,21 +1,16 @@
 import type { LayoutServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
-import { db } from '$lib/db/conn';
+import { getActiveCycle } from '$lib/db/select/getActiveCycle';
 
 export const load = (async ({ locals }) => {
     if (!locals.user) {
         redirect(302, '/login');
     }
 
-    // Fetch active cycle (most recent unclosed)
-    const activeCycle = await db.selectFrom('asset_audit_cycles')
-        .select(['id', 'started_at', 'closed_at', 'started_by'])
-        .where('closed_at', 'is', null)
-        .orderBy('started_at', 'desc')
-        .executeTakeFirst();
+    const activeCycle = await getActiveCycle();
 
     return {
         user: locals.user,
-        activeCycle: activeCycle ?? null,
+        activeCycle,
     };
 }) satisfies LayoutServerLoad;

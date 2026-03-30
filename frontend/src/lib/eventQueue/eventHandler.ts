@@ -1,5 +1,4 @@
 // frontend/src/lib/grid/eventQueue/eventHandler.ts
-// Pure TypeScript event router. No Svelte, no getContext(), no runes.
 // Imports stores directly. Target functions mutate stores directly.
 
 import { toastState } from '$lib/toast/toastState.svelte';
@@ -11,6 +10,8 @@ import { urlStore } from '$lib/data/urlStore.svelte';
 import { scrollStore } from '$lib/data/scrollStore.svelte';
 import { pendingStore } from '$lib/data/cellStore.svelte';
 import { newRowStore } from '$lib/data/newRowStore.svelte';
+import { auditStore } from '$lib/data/auditStore.svelte';
+import { auditUiStore } from '$lib/data/auditUiStore.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
 
@@ -138,6 +139,68 @@ export async function processEvent(
 
     case 'PENDING_CLEAR_ALL':
       realtime.sendPendingClearAll();
+      break;
+
+    // ─── Audit outbound events ─────────────────────────────────────────────
+    case 'AUDIT_ASSIGN':
+      await handleAuditAssign(event.payload);
+      break;
+
+    case 'AUDIT_COMPLETE':
+      await handleAuditComplete(event.payload);
+      break;
+
+    case 'AUDIT_START':
+      await handleAuditStart(event.payload);
+      break;
+
+    case 'AUDIT_CLOSE':
+      await handleAuditClose(event.payload);
+      break;
+
+    case 'AUDIT_QUERY':
+      await handleAuditQuery(event.payload);
+      break;
+
+    case 'AUDIT_OVERVIEW_QUERY':
+      await handleAuditOverviewQuery(event.payload);
+      break;
+
+    // ─── Audit incoming WS events ──────────────────────────────────────────
+    case 'WS_AUDIT_ASSIGN_BROADCAST':
+      handleWsAuditAssign(event.payload);
+      break;
+
+    case 'WS_AUDIT_COMPLETE_BROADCAST':
+      handleWsAuditComplete(event.payload);
+      break;
+
+    case 'WS_AUDIT_START_BROADCAST':
+      await handleWsAuditStart();
+      break;
+
+    case 'WS_AUDIT_CLOSE_BROADCAST':
+      handleWsAuditClose();
+      break;
+
+    case 'WS_ROW_LOCKED':
+      handleWsRowLocked(event.payload);
+      break;
+
+    case 'WS_ROW_UNLOCKED':
+      handleWsRowUnlocked(event.payload);
+      break;
+
+    case 'WS_ROW_LOCK_REJECTED':
+      handleWsRowLockRejected(event.payload);
+      break;
+
+    case 'ROW_LOCK':
+      realtime.sendRowLock(event.payload.assetId);
+      break;
+
+    case 'ROW_UNLOCK':
+      realtime.sendRowUnlock(event.payload.assetId);
       break;
 
     default:
@@ -355,6 +418,19 @@ function handleWsExistingUsers(
     });
   }
   presenceStore.pendingCells = pendingEntries;
+
+  // Row locks
+  if (payload.rowLocks) {
+    presenceStore.rowLocks = {};
+    for (const [assetId, info] of Object.entries(payload.rowLocks as Record<string, any>)) {
+      presenceStore.rowLocks[assetId] = {
+        userId: info.userId,
+        firstname: info.firstname,
+        lastname: info.lastname,
+        color: info.color,
+      };
+    }
+  }
 }
 
 function handleWsUserPositionUpdate(
@@ -390,9 +466,8 @@ function handleWsUserLeft(
   payload: Record<string, any>,
 ): void {
   const userId = Number(payload.clientId);
-  const idx = presenceStore.users.findIndex((u: any) => u.id === userId);
-  if (idx === -1) { console.warn('[Presence] USER_LEFT for unknown user', userId); return; }
-  presenceStore.users.splice(idx, 1);
+  presenceStore.users = presenceStore.users.filter((u: any) => u.id !== userId);
+  presenceStore.pendingCells = presenceStore.pendingCells.filter((p) => p.userId !== userId);
 }
 
 function handleWsCellLocked(
@@ -471,7 +546,7 @@ function handleWsCommitBroadcast(
   const userId = Number(payload.userId);
   const changes = payload.changes || [];
 
-  // Apply each committed change to local assetStore
+  // Apply each committed change to local assetStore + auditStore
   for (const change of changes) {
     const assetId = Number(change.assetId);
     const key = change.key;
@@ -481,6 +556,12 @@ function handleWsCommitBroadcast(
     if (filtered) filtered[key] = value;
     const base = assetStore.baseAssets.find((a: any) => a.id === assetId);
     if (base) base[key] = value;
+
+    // Update audit views if the changed asset is in scope
+    for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
+      const audit = arr.find(a => a.asset_id === assetId);
+      if (audit && key in audit) (audit as any)[key] = value;
+    }
   }
 
   // Remove all pending entries for the committing user
@@ -510,5 +591,154 @@ function handleWsClientStateReconciled(
         (e: any) => !(e.row === Number(conflict.assetId) && e.col === conflict.key),
       );
     }
+  }
+}
+
+// ─── Audit Handlers ──────────────────────────────────────────────────────────
+
+async function handleAuditAssign(payload: Record<string, any>): Promise<void> {
+  const { assetIds, userId } = payload;
+  const res = await apiPost('/api/audit/bulk-assign', { assetIds, userId });
+  if (!res.success) {
+    toastState.addToast('Failed to assign auditor.', 'error');
+    return;
+  }
+
+  const user = auditStore.users.find(u => u.id === userId);
+  const auditorName = user ? `${user.lastname}, ${user.firstname}` : null;
+  const idSet = new Set(assetIds as number[]);
+  for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
+    for (const a of arr) {
+      if (idSet.has(a.asset_id)) {
+        a.assigned_to = userId;
+        a.auditor_name = auditorName;
+      }
+    }
+  }
+  toastState.addToast(`Assigned ${assetIds.length} item${assetIds.length === 1 ? '' : 's'}.`, 'success');
+  realtime.sendAuditAssign(assetIds, userId, auditorName ?? '');
+}
+
+async function handleAuditComplete(payload: Record<string, any>): Promise<void> {
+  const { assetId, result, comment } = payload;
+  const res = await apiPost('/api/audit/complete', { assetId, auditResult: result, comment });
+  if (!res.success) {
+    toastState.addToast('Failed to complete audit.', 'error');
+    return;
+  }
+
+  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
+    const a = arr.find(a => a.asset_id === assetId);
+    if (a) { a.completed_at = now; a.result = result; }
+  }
+  toastState.addToast('Audit completed.', 'success');
+  realtime.sendAuditComplete(assetId, result, now);
+}
+
+async function handleAuditStart(payload: Record<string, any>): Promise<void> {
+  if (!confirm('Start a new audit cycle? This will snapshot all current inventory items.')) return;
+  const res = await apiPost('/api/audit/start', {});
+  if (!res.success) {
+    toastState.addToast('Failed to start audit cycle.', 'error');
+    return;
+  }
+  const cycle = res.data?.cycle ?? null;
+  auditStore.cycle = cycle;
+  auditStore.baseAssignments = [];
+  auditStore.displayedAssignments = [];
+  toastState.addToast(`Audit started. ${res.data?.count ?? 0} items in scope.`, 'success');
+  realtime.sendAuditStart();
+}
+
+async function handleAuditClose(payload: Record<string, any>): Promise<void> {
+  if (!confirm('Close the audit cycle? All completed items will be archived.')) return;
+  const res = await apiPost('/api/audit/close', {});
+  if (!res.success) {
+    toastState.addToast('Failed to close audit cycle.', 'error');
+    return;
+  }
+  toastState.addToast(`Cycle closed. ${res.data?.archived ?? 0} items archived.`, 'success');
+  auditStore.baseAssignments = [];
+  auditStore.displayedAssignments = [];
+  auditStore.cycle = null;
+  realtime.sendAuditClose();
+}
+
+async function handleAuditQuery(payload: Record<string, any>): Promise<void> {
+  const filters = auditUiStore.filters;
+  const q = auditUiStore.searchTerm.trim();
+  if (filters.length === 0 && !q) {
+    auditStore.displayedAssignments = auditStore.baseAssignments;
+    return;
+  }
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  for (const f of filters) params.append('filter', `${f.key}:${f.value}`);
+  const res = await apiFetch('/api/audit/assignments', params);
+  if (res.success) {
+    auditStore.displayedAssignments = res.data.assignments;
+  } else {
+    toastState.addToast('Failed to filter assignments.', 'error');
+  }
+}
+
+async function handleAuditOverviewQuery(payload: Record<string, any>): Promise<void> {
+  // Same endpoint, same logic for now
+  await handleAuditQuery(payload);
+}
+
+// ─── Audit incoming WS handlers ─────────────────────────────────────────────
+
+function handleWsAuditAssign(payload: Record<string, any>): void {
+  const { assetIds, userId, auditorName } = payload;
+  const idSet = new Set(assetIds as number[]);
+  for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
+    for (const a of arr) {
+      if (idSet.has(a.asset_id)) {
+        a.assigned_to = userId;
+        a.auditor_name = auditorName;
+      }
+    }
+  }
+}
+
+function handleWsAuditComplete(payload: Record<string, any>): void {
+  const { assetId, result, completedAt } = payload;
+  for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
+    const a = arr.find(a => a.asset_id === assetId);
+    if (a) { a.completed_at = completedAt; a.result = result; }
+  }
+}
+
+async function handleWsAuditStart(): Promise<void> {
+  const res = await apiFetch('/api/audit/cycle');
+  auditStore.cycle = res.success ? res.data.cycle : null;
+}
+
+function handleWsAuditClose(): void {
+  auditStore.baseAssignments = [];
+  auditStore.displayedAssignments = [];
+  auditStore.cycle = null;
+}
+
+// ─── Row Lock handlers ──────────────────────────────────────────────────────
+
+function handleWsRowLocked(payload: Record<string, any>): void {
+  const { assetId, userId, firstname, lastname, color } = payload;
+  presenceStore.rowLocks[String(assetId)] = { userId, firstname, lastname, color };
+}
+
+function handleWsRowUnlocked(payload: Record<string, any>): void {
+  const { assetId } = payload;
+  delete presenceStore.rowLocks[String(assetId)];
+}
+
+function handleWsRowLockRejected(payload: Record<string, any>): void {
+  const { firstname, lastname, reason } = payload;
+  if (reason === 'row_being_edited') {
+    toastState.addToast(`Row is being edited by ${firstname} ${lastname}.`, 'warning');
+  } else {
+    toastState.addToast(`Row is locked by ${firstname} ${lastname}.`, 'warning');
   }
 }

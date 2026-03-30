@@ -68,6 +68,29 @@ function createRealtimeManager() {
         send('SUBSCRIBE', { room });
     }
 
+    function sendAuditAssign(assetIds: number[], userId: number, auditorName: string) {
+        send('AUDIT_ASSIGN', { assetIds, userId, auditorName });
+    }
+
+    function sendAuditComplete(assetId: number, result: string, completedAt: string) {
+        send('AUDIT_COMPLETE', { assetId, result, completedAt });
+    }
+
+    function sendAuditStart() {
+        send('AUDIT_START', {});
+    }
+
+    function sendAuditClose() {
+        send('AUDIT_CLOSE', {});
+    }
+
+    function sendRowLock(assetId: number) {
+        send('ROW_LOCK', { assetId });
+    }
+
+    function sendRowUnlock(assetId: number) {
+        send('ROW_UNLOCK', { assetId });
+    }
 
     function send(type: string, payload: any) {
         if (!shouldReconnect) return;
@@ -265,6 +288,12 @@ function createRealtimeManager() {
         sendPendingClearAll,
         sendCommitBroadcast,
         sendSubscribe,
+        sendAuditAssign,
+        sendAuditComplete,
+        sendAuditStart,
+        sendAuditClose,
+        sendRowLock,
+        sendRowUnlock,
         setLocalStateProvider,
     };
 
