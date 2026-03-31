@@ -6,6 +6,8 @@ const filterColumnMap: Record<string, string> = {
 	'node': 'ai.node',
 	'asset_type': 'ai.asset_type',
 	'assigned_to': 'aa.assigned_to',
+	'asset_id': 'aa.asset_id',
+	'wbd_tag': 'ai.wbd_tag',
 };
 
 export async function queryAuditAssignments(
@@ -42,6 +44,8 @@ export async function queryAuditAssignments(
 			eb('ai.model', 'like', like),
 			eb('ai.node', 'like', like),
 			eb('al.location_name', 'like', like),
+			eb('au.firstname', 'like', like),
+			eb('au.lastname', 'like', like),
 		]));
 	}
 
@@ -49,7 +53,6 @@ export async function queryAuditAssignments(
 		if (values.length === 0) continue;
 
 		if (key === 'status') {
-			// Status is derived from completed_at
 			const wantPending = values.includes('pending');
 			const wantCompleted = values.includes('completed');
 			if (wantPending && !wantCompleted) {
@@ -57,7 +60,6 @@ export async function queryAuditAssignments(
 			} else if (wantCompleted && !wantPending) {
 				query = query.where('aa.completed_at', 'is not', null);
 			}
-			// Both selected = no filter needed
 		} else {
 			const columnName = filterColumnMap[key] || key;
 			query = query.where(columnName as any, 'in', values);

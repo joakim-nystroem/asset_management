@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getAuditStatus } from '$lib/db/select/getAuditStatus';
+import { getAuditUserProgress } from '$lib/db/select/getAuditUserProgress';
 
 export const GET: RequestHandler = async ({ locals }) => {
     if (!locals.user) {
@@ -8,9 +8,9 @@ export const GET: RequestHandler = async ({ locals }) => {
     }
 
     try {
-        const status = await getAuditStatus();
-        return json(status);
+        const userProgress = await getAuditUserProgress();
+        return json(userProgress);
     } catch (error) {
-        return json({ error: 'Failed to get audit status' }, { status: 500 });
+        return json({ error: 'Failed to get user progress' }, { status: 500 });
     }
 };

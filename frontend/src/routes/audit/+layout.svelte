@@ -3,10 +3,25 @@
 	import type { LayoutProps } from './$types';
 	import { auditStore } from '$lib/data/auditStore.svelte';
 	import AuditProgress from '$lib/audit/components/audit-progress/AuditProgress.svelte';
+	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
 	import { realtime } from '$lib/utils/realtimeManager.svelte';
 	import { connectionStore } from '$lib/data/connectionStore.svelte';
 
 	let { data, children }: LayoutProps = $props();
+
+	// Seed audit store from layout data (single fetch for all tabs)
+	// svelte-ignore state_referenced_locally
+	auditStore.baseAssignments = data.assignments;
+	// svelte-ignore state_referenced_locally
+	auditStore.displayedAssignments = data.assignments;
+	// svelte-ignore state_referenced_locally
+	auditStore.users = data.users;
+	// svelte-ignore state_referenced_locally
+	auditStore.cycle = data.activeCycle;
+	// svelte-ignore state_referenced_locally
+	auditStore.progress = data.status;
+	// svelte-ignore state_referenced_locally
+	auditStore.userProgress = data.userProgress;
 
 	// Subscribe to audit room when WS connects (re-subscribes after logout/reconnect)
 	$effect(() => {
@@ -23,29 +38,46 @@
 
 	let activePath = $derived(page.url.pathname);
 	let hasCycle = $derived(auditStore.cycle !== null || auditStore.baseAssignments.length > 0);
+
+	// Reset UI state + displayedAssignments on tab navigation
+	$effect(() => {
+		activePath; // track path changes
+		auditStore.displayedAssignments = auditStore.baseAssignments;
+		auditUiStore.filters = [];
+		auditUiStore.searchTerm = '';
+		auditUiStore.sort = { key: null, direction: 'asc' };
+		auditUiStore.selectedIds = [];
+		auditUiStore.headerMenu = { visible: false, activeKey: '' };
+		auditUiStore.filterPanel = false;
+		auditUiStore.contextMenu = { visible: false, x: 0, y: 0, assetId: -1, col: '', value: '' };
+	});
 </script>
 
 <svelte:window onkeydown={(e) => { if (e.key === 'Tab') e.preventDefault(); }} />
 
 <div class="bg-neutral-50 dark:bg-slate-600 h-[calc(100dvh-3rem)] px-4 py-4 flex flex-col overflow-hidden">
 	<!-- Row 1: Tabs + Progress -->
-	<div class="flex items-center gap-4 flex-shrink-0 mb-2">
-		<nav class="flex gap-1">
-			{#each tabs as tab}
-				<a
-					href={tab.href}
-					class="px-4 py-2 rounded-sm text-sm font-medium
-						{activePath.startsWith(tab.href)
-							? 'bg-white dark:bg-slate-800 text-neutral-900 dark:text-neutral-100 shadow-sm border border-neutral-200 dark:border-slate-700'
-							: 'text-neutral-600 dark:text-neutral-400 hover:bg-white/50 dark:hover:bg-slate-700/50'}"
-				>
-					{tab.label}
-				</a>
-			{/each}
-		</nav>
+	<div class="flex justify-between items-center flex-shrink-0 mb-2">
+		<div class="w-1/2">
+			<nav class="flex gap-1">
+				{#each tabs as tab}
+					<a
+						href={tab.href}
+						class="px-4 py-2 rounded-sm text-sm font-medium
+							{activePath.startsWith(tab.href)
+								? 'bg-white dark:bg-slate-800 text-neutral-900 dark:text-neutral-100 shadow-sm border border-neutral-200 dark:border-slate-700'
+								: 'text-neutral-600 dark:text-neutral-400 hover:bg-white/50 dark:hover:bg-slate-700/50'}"
+					>
+						{tab.label}
+					</a>
+				{/each}
+			</nav>
+		</div>
 
 		{#if hasCycle}
-			<AuditProgress />
+			<div class="w-1/2">
+				<AuditProgress />
+			</div>
 		{/if}
 	</div>
 

@@ -1,5 +1,1 @@
-import type { PageServerLoad } from './$types';
-
-export const load = (async () => {
-    return {};
-}) satisfies PageServerLoad;
+// Data fetched in +layout.server.ts

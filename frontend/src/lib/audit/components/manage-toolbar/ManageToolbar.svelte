@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { auditStore } from '$lib/data/auditStore.svelte';
 	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
-	import { startAudit, closeCycle } from '$lib/audit/components/cycle-status/cycleStatus.svelte.ts';
+	import { enqueue } from '$lib/eventQueue/eventQueue';
 	import { handleSearch, handleClearSearch, handleBulkAssign, clearSelection } from './manageToolbar.svelte.ts';
 	import AuditFilterPanel from '$lib/audit/components/audit-filter-panel/AuditFilterPanel.svelte';
 	import AuditCellDropdown from '$lib/audit/components/audit-cell-dropdown/AuditCellDropdown.svelte';
@@ -109,14 +109,14 @@
 	<!-- Start / Close Audit -->
 	{#if !auditStore.cycle && auditStore.baseAssignments.length === 0}
 		<button
-			onclick={startAudit}
+			onclick={() => enqueue({ type: 'AUDIT_START', payload: {} })}
 			class="px-3 py-1 rounded text-base font-semibold bg-green-600 hover:bg-green-700 text-white cursor-pointer transition-colors"
 		>
 			Start Audit
 		</button>
 	{:else}
 		<button
-			onclick={closeCycle}
+			onclick={() => enqueue({ type: 'AUDIT_CLOSE', payload: {} })}
 			disabled={pending > 0}
 			class="px-3 py-1 rounded text-base font-semibold transition-colors
 				{pending > 0

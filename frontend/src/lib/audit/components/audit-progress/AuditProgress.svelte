@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { auditStore } from '$lib/data/auditStore.svelte';
-	import { getProgress } from '$lib/audit/components/audit-layout/auditLayout.svelte.ts';
 
-	let progress = $derived(getProgress(auditStore.baseAssignments, auditStore.selectedAuditor));
+	let progress = $derived(auditStore.progress);
+	let pct = $derived.by(() => {
+		if (progress.total === 0) return 0;
+		return Math.round((progress.completed / progress.total) * 100);
+	});
 </script>
 
 <div class="flex-1 min-w-0 flex flex-col gap-1">
@@ -17,14 +20,14 @@
 			</span>
 		</div>
 		<div>
-			<span class="font-semibold justify-self-end {progress.pct === 100 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}">{progress.pct}%</span>
+			<span class="font-semibold justify-self-end {pct === 100 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}">{pct}%</span>
 		</div>
 	</div>
 	<div class="w-full h-1 bg-neutral-200 dark:bg-slate-700 rounded-sm overflow-hidden">
 		<div
 			class="h-full transition-all duration-500
-				{progress.pct === 100 ? 'bg-green-500' : 'bg-amber-500'}"
-			style="width: {progress.pct}%"
+				{pct === 100 ? 'bg-green-500' : 'bg-amber-500'}"
+			style="width: {pct}%"
 		></div>
 	</div>
 </div>

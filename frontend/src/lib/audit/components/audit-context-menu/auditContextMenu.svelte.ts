@@ -1,7 +1,7 @@
 // AuditContextMenu companion — context menu action helpers
 
 import { auditUiStore } from '$lib/data/auditUiStore.svelte';
-import { queryAuditFiltered } from '$lib/audit/components/manage-grid/manageGrid.svelte.ts';
+import { enqueue } from '$lib/eventQueue/eventQueue';
 
 export function contextFilterByValue() {
 	const { col, value } = auditUiStore.contextMenu;
@@ -10,7 +10,7 @@ export function contextFilterByValue() {
 	// Don't add duplicate filter
 	if (!auditUiStore.filters.some(f => f.key === col && f.value === value)) {
 		auditUiStore.filters.push({ key: col, value });
-		queryAuditFiltered();
+		enqueue({ type: 'AUDIT_QUERY', payload: {} });
 	}
 	auditUiStore.contextMenu.visible = false;
 }

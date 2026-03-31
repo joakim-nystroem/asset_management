@@ -1,13 +1,16 @@
-import { db } from '$lib/db/conn';
+import { db, type Database } from '$lib/db/conn';
+import type { Transaction } from 'kysely';
 
 export async function logChange(
     assetId: number,
     columnName: string,
     oldValue: string | null,
     newValue: string | null,
-    modifiedBy: string
+    modifiedBy: string,
+    trx?: Transaction<Database>,
 ) {
-    await db.insertInto('change_log')
+    const qb = trx ?? db;
+    await qb.insertInto('change_log')
         .values({
             asset_id: assetId,
             column_name: columnName,

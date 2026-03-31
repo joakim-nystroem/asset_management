@@ -119,7 +119,7 @@ export interface AssetAuditCyclesTable {
     id: ColumnType<number, never, never>;
     started_at: ColumnType<Date, string, never>;
     closed_at: ColumnType<Date | null, string | null, string | null>;
-    started_by: number | null;
+    started_by: number;
     closed_by: number | null;
 }
 

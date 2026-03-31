@@ -2,7 +2,7 @@
 
 import { auditStore } from '$lib/data/auditStore.svelte';
 import { auditUiStore } from '$lib/data/auditUiStore.svelte';
-import { queryAuditFiltered } from '$lib/audit/components/manage-grid/manageGrid.svelte.ts';
+import { enqueue } from '$lib/eventQueue/eventQueue';
 
 export function getUniqueValues(columnKey: string): string[] {
 	// Cascading: if other columns have filters, derive from displayed (filtered) data.
@@ -41,7 +41,7 @@ export function toggleFilter(columnKey: string, value: string) {
 	} else {
 		auditUiStore.filters.push({ key: columnKey, value: filterValue });
 	}
-	queryAuditFiltered();
+	enqueue({ type: 'AUDIT_QUERY', payload: {} });
 }
 
 export function isFilterActive(columnKey: string, value: string): boolean {

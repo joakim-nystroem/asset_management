@@ -1,33 +1,33 @@
 // ManageToolbar companion — search, filter, bulk assign helpers
 
 import { auditUiStore } from '$lib/data/auditUiStore.svelte';
-import { queryAuditFiltered, bulkAssign } from '$lib/audit/components/manage-grid/manageGrid.svelte.ts';
+import { enqueue } from '$lib/eventQueue/eventQueue';
 
 export function handleSearch() {
-	queryAuditFiltered();
+	enqueue({ type: 'AUDIT_QUERY', payload: {} });
 }
 
 export function handleClearSearch() {
 	auditUiStore.searchTerm = '';
-	queryAuditFiltered();
+	enqueue({ type: 'AUDIT_QUERY', payload: {} });
 }
 
 export function removeFilter(key: string, value: string) {
 	const idx = auditUiStore.filters.findIndex(f => f.key === key && f.value === value);
 	if (idx >= 0) {
 		auditUiStore.filters.splice(idx, 1);
-		queryAuditFiltered();
+		enqueue({ type: 'AUDIT_QUERY', payload: {} });
 	}
 }
 
 export function clearAllFilters() {
 	auditUiStore.filters = [];
-	queryAuditFiltered();
+	enqueue({ type: 'AUDIT_QUERY', payload: {} });
 }
 
 export async function handleBulkAssign(userId: number) {
 	if (auditUiStore.selectedIds.length === 0 || !userId) return;
-	await bulkAssign([...auditUiStore.selectedIds], userId);
+	enqueue({ type: 'AUDIT_ASSIGN', payload: { assetIds: [...auditUiStore.selectedIds], userId } });
 	auditUiStore.selectedIds = [];
 }
 

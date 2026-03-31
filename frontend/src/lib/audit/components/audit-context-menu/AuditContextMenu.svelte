@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { auditStore } from '$lib/data/auditStore.svelte';
 	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
-	import { assignSingle } from '$lib/audit/components/manage-grid/manageGrid.svelte.ts';
+	import { enqueue } from '$lib/eventQueue/eventQueue';
 	import { contextFilterByValue, closeContextMenu } from './auditContextMenu.svelte.ts';
 
 	let assignOpen = $state(false);
 
 	function handleAssign(userId: number) {
-		assignSingle(auditUiStore.contextMenu.assetId, userId);
+		enqueue({ type: 'AUDIT_ASSIGN', payload: { assetIds: [auditUiStore.contextMenu.assetId], userId } });
 		assignOpen = false;
 		closeContextMenu();
 	}

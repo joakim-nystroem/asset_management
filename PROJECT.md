@@ -1,174 +1,258 @@
-# Audit Feature — Full Plan
+# Asset Management
 
-## Overview
+A collaborative asset tracking app — a spreadsheet-like grid where multiple users can browse, search, filter, and edit organizational assets in real time. Asset rows have dynamic columns that vary per view (e.g. default, audit, network) — columns are not fixed at the type level, they're determined by what the DB query returns. Rows are typed as `Record<string, any>`. Users see each other's cursors, cell locks, and pending changes. Changes are committed to a MariaDB database, with a Go WebSocket hub handling presence and live updates.
 
-Replace the admin-only audit page with a standalone `/audit` route accessible to all logged-in users. Three sub-routes under a shared layout handle the full audit lifecycle: viewing status, managing cycles/assignments, and performing audits.
+## Tech Stack
 
-## Route Structure
+- **Frontend:** SvelteKit, Svelte 5 (runes), Tailwind CSS
+- **Backend:** SvelteKit server routes, Kysely ORM, MariaDB
+- **Realtime:** Go WebSocket hub (`api/`)
+- **Base path:** `/asset`
+
+This is a focused codebase — understand the whole before changing a part.
+
+## Directory Structure
 
 ```
-/audit/                → +layout.server.ts (login guard, active cycle context)
-                       → +layout.svelte (tab nav, WS audit room subscription)
-/audit/overview        → tab label: "Overview"
-/audit/manage          → tab label: "Manage"
-/audit/perform         → tab label: "Audit"
+frontend/src/
+├── lib/
+│   ├── data/          # Module-level $state stores (pure data, no helpers)
+│   ├── utils/         # Shared helper functions (gridHelpers.ts, realtimeManager)
+│   ├── grid/
+│   │   ├── components/   # Grid UI components (folder-per-component)
+│   │   ├── eventQueue/   # Event queue system (enqueue → handler → router)
+│   │   ├── gridConfig.ts # Grid constants (row height, column width)
+│   │   └── validation.ts # Cell validation rules
+│   ├── audit/
+│   │   ├── components/   # Audit UI components (folder-per-component)
+│   │   └── utils/        # Audit-specific helpers
+│   ├── db/            # Kysely database queries (select/, create/, update/, delete/)
+│   ├── toast/         # Toast notification system
+│   └── types.ts       # Shared TypeScript types
+├── routes/            # SvelteKit pages and API routes
+api/
+├── main.go            # HTTP server + WS upgrade
+└── internal/          # WebSocket hub, presence, locking, pending state
 ```
 
-Shared layout provides:
-- Tab navigation (active state derived from `$page.url.pathname`)
-- Login redirect guard
-- Active cycle context fetched once in `+layout.server.ts` (cycle ID, status, start date)
-- WebSocket subscription to `audit` room on layout mount, unsubscribe on unmount
+## Svelte 5 Runes
 
-## WebSocket
+Svelte 5 runes exclusively. No legacy `let` exports, no `$:` reactive statements.
 
-All audit sub-routes share a single `audit` room. The client subscribes when entering `/audit/*` and unsubscribes when leaving. The Go hub broadcasts audit events (item completed, assignment changed, cycle started/closed) to all clients in the room. Each page renders what it cares about and ignores the rest.
+- `$state()` — reactive state
+- `$derived()` — computed values
+- `$effect()` — side effects
+- `$props()` — component props
+- `$state.snapshot()` — plain-object copy of a `$state` proxy
 
-Two rooms total in the app: `grid` and `audit`. Same pattern extends if more sections are added later.
+## State Management
 
-## Audit Cycle Model
+### Global stores
 
-- Cycles are identified by year/number: `2026/1`, `2026/2`, etc. (4 per year per SLA)
-- Starting a cycle snapshots all eligible items (status: stored, prod, staging — excludes broken, decommissioned, etc.)
-- Each snapshot captures current item status for later comparison
-- Closing a cycle is only possible when all items are completed
+Module-level `$state` singletons in `$lib/data/`. Imported directly — no provider components.
 
-## Color System (follows app-wide conventions)
+```ts
+// $lib/data/someStore.svelte.ts
+export const someStore = $state({
+  value: '',
+});
+```
 
-**Buttons:**
-- Start audit → green (constructive)
-- Close audit → amber (consequential, proceed with caution)
+Store files are pure data — only `$state` definitions and type exports. All helper functions go in `$lib/utils/`.
 
-**Progress bars:**
-- In progress → amber
-- 100% complete → green
+**Stores:**
+- `assetStore` — base + displayed asset arrays, metadata lists (locations, statuses, conditions, departments)
+- `cellStore` — editing state, pending edits, undo/redo history, selection range, clipboard
+- `uiStore` — panel visibility (context menu, header menu, filter panel, suggestion menu), sort, column widths, row heights
+- `presenceStore` — other users' cursor positions, locks, and pending cells
+- `connectionStore` — WebSocket connection status (connected/disconnected/reconnecting)
+- `queryStore` — active view, search term, filter list
+- `scrollStore` — scroll position, visible row range, scroll-to signals
+- `urlStore` — current URL search string for `replaceState` sync
+- `newRowStore` — uncommitted new rows pending creation
+- `auditStore` — audit cycle state, assignments, completion data
+- `auditUiStore` — audit-specific UI state (filters, selections, panel visibility)
 
-**Audit item statuses:**
-- Passed / verified → green
-- Wrong location, damaged, conditional → amber (cautionary, needs attention)
-- Missing, broken, failed → red (serious problem)
+### Scoped contexts
 
----
+`setContext`/`getContext` when state is scoped to a component subtree. Currently used for `viewport` dimensions (owned by GridContainer, consumed by virtualGridContainer.svelte.ts).
 
-## Stage 1 — Move & Reorganize ← CURRENT
+**Rule:** If only one subtree needs it → context. If multiple unrelated components need it → store.
 
-Structural only. No new features.
+## Component Conventions
 
-- Remove `'audit'` from `VALID_VIEWS` in grid page's `+page.server.ts`
-- Remove `"audit"` from admin layout menu items
-- Create `/audit` route structure with shared layout and three placeholder sub-routes
-- Add "Audit" link to user menu → `/audit/overview`
-- Move reusable logic from `/admin/audit` to `/audit/manage`
-- Delete `/admin/audit`
+### Folder-per-component with companion `.svelte.ts`
 
-### What Stays Untouched
-- All `/api/audit/*` API routes
-- Mobile audit page (`/mobile/audit`)
-- Database schema
-- Go WebSocket hub
+```
+components/toolbar/
+├── Toolbar.svelte        # Rendering + template
+└── toolbar.svelte.ts     # Component-specific reactive logic
+```
 
----
+The `.svelte.ts` companion holds extracted logic. Keep these files even if empty to maintain the convention. Empty companions should contain a single comment: `// ComponentName companion — helpers moved to $lib/utils/gridHelpers.ts`
 
-## Stage 2 — Overview & Manage
+### `.svelte.ts` vs `.ts`
 
-### Overview Page (`/audit/overview`)
+- **`.svelte.ts`** — files that declare runes (`$state`, `$derived`, `$effect`). Required for the Svelte compiler to process runes.
+- **`.ts`** — plain TypeScript. Can import and mutate `$state` store objects (they're just proxies), but cannot declare new runes.
 
-**Purpose:** Read-only dashboard. View audit progress and history.
+## Event Queue
 
-**Cycle selector:**
-- Dropdown at the top to switch between current and past cycles (year/number format)
-- Current cycle selected by default
+All state-mutating actions flow through a serial FIFO queue.
 
-**Progress bar:**
-- Overall cycle completion — amber while in progress, green at 100%
-- Updates in realtime via WebSocket
+```
+Component → enqueue({ type, payload }) → eventHandler.ts (switch/router) → mutates stores
+```
 
-**User filter:**
-- Dropdown to scope the view to a specific user's assignments
-- Default: "All users"
-- Shows per-user progress bar when a user is selected
+- `enqueue()` takes a single argument: `{ type: string, payload: Record<string, any> }`
+- `eventHandler.ts` is the central router — imports stores directly, handles all event types
+- WS events are prefixed with `WS_` (e.g. `WS_CELL_LOCKED`, `WS_USER_LEFT`)
+- Components enqueue directly — Toolbar, EditHandler, HeaderMenu, FilterPanel, ContextMenu all call `enqueue()` themselves
+- EventListener handles multi-source convergent events only (selection → position sync, keyboard shortcuts, WS bridge effects)
 
-**Item list:**
-- Simplified read-only grid showing all audit items for the selected cycle
-- Columns: asset tag, location, asset type, node, assignee, status
-- Filterable by status: all / completed / pending / status changes
-- "Status changes" filter shows items where status differs between previous audit snapshot and current snapshot (e.g., was "stored" in 2025/4, now "broken" in 2026/1)
+### When to enqueue vs. call directly
 
-**CSV export:**
-- Download button — exports currently viewed data (respects cycle selection and filters)
-- Includes audit results and status deltas for SLA submission
+Enqueue when the action involves:
+- **API calls** — commits, queries, view changes (async fetch, stores mutated only after DB confirms)
+- **Incoming WS events** — presence updates, lock/unlock, pending broadcasts (server-pushed → store updates)
+- **Outbound WS sends** — position updates, edit start/end, pending cell signals
 
-### Manage Page (`/audit/manage`)
+Events are processed one at a time, in order. This prevents races (e.g. a commit can't interleave with a query).
 
-**Purpose:** Configure and run audit cycles. Assign items to auditors.
+**Call directly** for pure UI state — toggling menus, updating local variables, selection changes.
 
-**Cycle controls (top of page):**
-- Status text: "Audit inactive" or "Audit started on [date]"
-- Start audit button (green) — visible when no active cycle. Snapshots eligible items into audit scope
-- Close audit button (amber) — visible when cycle active, enabled only when all items completed
+## Realtime / WebSocket
 
-**Audit scope:** Only items with status stored, prod, or staging are included. Broken, decommissioned, etc. are excluded from the snapshot.
+- **`realtimeManager`** (`$lib/utils/realtimeManager.svelte.ts`) — singleton, pure transport layer
+- Enqueues incoming WS messages with `WS_` prefix directly into the event queue
+- Exposes typed send methods: `sendPositionUpdate`, `sendEditStart`, `sendEditEnd`, `sendCellPending`, etc.
+- **Server owns presence truth** — Go hub maintains per-user state, handles disconnect cleanup, echo suppression
+- **Pending state is local-first** — survives disconnection, but WS required to commit
 
-**Assignment grid:**
-- Simplified flex grid (not editable — no cell states, no WS presence)
-- Same visual language as the main grid, stripped down
-- Columns: checkbox, location, asset type, node, assignee
+### Lock Guards
 
-**Selection:**
-- Per-row checkbox
-- Header checkbox selects all currently filtered/visible rows
+Three entry points for cell editing (GridRow double-click, ContextMenu edit, F2 key). All check:
+1. `presenceStore.users` — is the cell locked by another user?
+2. `presenceStore.pendingCells` — does another user have pending changes?
 
-**Assignment — two methods:**
-- **Bulk:** toolbar above the grid. Select rows via checkboxes, pick a user from dropdown, apply
-- **Individual:** per-row dropdown in the assignee column. Click, pick a user from the list
-- Both use the existing custom dropdown and scrollbar components
+### Context menu close on scroll
 
-**Filters:**
-- Filterable by location, asset type, node, assignee
-- Filter → select → assign is the core workflow ("All items in Harajuku to Mike")
+The context menu is closed at **user-scroll entry points** (wheel, scrollbar thumb drag, auto-scroll start, arrow keys), not via a reactive `$effect` on `scrollStore.scrollTop`. This prevents false closes from programmatic position resets.
 
----
+## Server-Side Patterns
 
-## Stage 3 — Perform Audit
+### SvelteKit load functions
 
-### Perform Page (`/audit/perform`)
+`+page.server.ts` files use `Promise.all` for parallel data fetching:
 
-**Purpose:** The auditor's working view. Verify items and commit results.
+```ts
+const [assets, locations, statuses] = await Promise.all([
+  queryAssets(...),
+  getLocations(),
+  getStatuses(),
+]);
+```
 
-**Personal progress bar:**
-- Scoped to the current user's assignments only
-- Amber while in progress, green at 100%
-- Updates in realtime via WebSocket
+### MariaDB dates
 
-**Search bar:**
-- At the top of the page for searching asset tags
-- Supports USB barcode reader input (types tag + enter)
-- Focuses the grid to the matching item
+Format as `YYYY-MM-DD HH:MM:SS`:
+```ts
+new Date().toISOString().slice(0, 19).replace('T', ' ')
+```
 
-**Item grid:**
-- Simplified filterable grid showing the auditor's assigned items
-- Columns: asset tag, location, asset type, node, status
-- Filterable by status (pending/completed), location, etc.
+### After inserts, always refetch
 
-**Audit flow (per item):**
-1. Click a row → detail view opens
-2. Review full asset details — what's expected vs. what you're verifying
-3. If discrepancies found → update status (damaged, wrong location, missing, etc.) and optionally edit fields
-4. If everything checks out → confirm
-5. Accountability confirmation popup: "I confirm I have verified this item" — applies regardless of outcome (pass or fail). This is an integrity checkpoint, not a status selection.
-6. Commit → item marked complete, progress bar updates via WebSocket
+Don't optimistically patch IDs. Refetch from the database to get server-assigned values.
 
-**Design intent:** The confirmation is about auditor accountability, not asset status. The auditor is attesting they physically verified the item. Prevents clicking through without checking.
+### Undo/redo history persists across commits
 
----
+Committing does NOT clear undo/redo stacks — users can undo after a commit. Use `resetAfterCommit()` (selection/clipboard only). Discarding, searching, changing views, or changing filters clears everything via `resetEditState()` (includes history).
 
-## Stage 4 — Polish & Future
+## Styling
 
-- Role gating (only specific users can start/close cycles)
-- Period scoping for audit cycles (date ranges — under consideration)
-- Notifications when assignments change
-- Due dates and deadline tracking
-- Photo/evidence attachment
-- Dashboard charts/visualizations
-- Overdue indicators — highlight items or users behind schedule
-- Activity log — who completed what, when (audit trail)
+- **Tailwind CSS** for all styling
+- **Dark mode** via `dark:` class variants (toggled on `<html>` element)
+- **Z-index** uses 10-step groups (10, 20, 30...) to avoid conflicts
+- **Dynamic inline styles** only for computed positioning (overlays, scroll transforms, menu placement)
+
+## Error Handling
+
+### Event handler pattern
+
+API failures show a toast and return early — no rollback, no retry. Stores are only mutated after a successful response.
+
+```
+fetch → fail? → toast error, return
+fetch → ok?   → mutate stores, toast success
+```
+
+Auth guards (`if (!user)`) toast a warning and return before any API call.
+
+### WS disconnection
+
+Pending edits survive disconnection (local-first). The user can keep editing, but commits require a live WS connection. On reconnect, `CLIENT_STATE` is sent and the server reconciles (may reject conflicting locks/pending cells via `WS_CLIENT_STATE_RECONCILED`).
+
+## Go WebSocket Hub (`api/internal/`)
+
+### Message Format
+
+All messages are JSON: `{ "type": "MESSAGE_TYPE", "payload": { ... } }`
+
+### Concurrency Model
+
+- One goroutine per client for reading, one for writing
+- Hub runs in its own goroutine, processes register/unregister/broadcast via channels
+- Shared state protected by mutexes: `UserPresence`, `CellLockManager`, `PendingCellManager` each have their own `sync.RWMutex`
+- `userClients` maps a userID to multiple clients (supports multiple tabs)
+
+### Message Types (client → server)
+
+`USER_POSITION_UPDATE`, `USER_DESELECTED`, `CELL_EDIT_START`, `CELL_EDIT_END`, `CELL_PENDING`, `CELL_PENDING_CLEAR`, `PENDING_CLEAR_ALL`, `COMMIT_BROADCAST`, `CLIENT_STATE`, `PING`
+
+### State Managers
+
+- **UserPresence** — tracks cursor position per user (`map[userID]*UserPosition`, mutex-protected)
+- **CellLockManager** — tracks which cells are being edited (`"assetId:key"` → `CellLockInfo`, with reverse index `userID → set of lock keys` for disconnect cleanup)
+- **PendingCellManager** — same structure as locks but for uncommitted pending changes
+
+## Rules
+
+- Never use `$:` or `let` exports — Svelte 5 runes only
+- Never put helper functions in store files — stores are pure data (`$lib/data/`), helpers go in `$lib/utils/`
+- Never call `realtime.send*()` from components directly — enqueue an event, let eventHandler route it
+- Never mutate stores before API confirmation — fetch first, mutate on success
+- Never use `.toISOString()` for MariaDB dates — format as `YYYY-MM-DD HH:MM:SS`
+- Never optimistically patch IDs after inserts — always refetch from DB
+- Never pass `$state` proxies to `enqueue()` or API calls — always `$state.snapshot()` first. Proxies are reactive references that can change before the handler processes them.
+
+## Common Tasks
+
+### Adding a new store
+
+1. Create `$lib/data/newStore.svelte.ts` with `export const newStore = $state({ ... })`
+2. Import directly where needed — no provider wiring
+
+### Adding a new event type
+
+1. Add the case to `eventHandler.ts` switch statement
+2. Write the handler function in the same file
+3. Enqueue from the component: `enqueue({ type: 'NEW_EVENT', payload: { ... } })`
+
+### Adding a new grid column/view
+
+1. Add the view name to `VALID_VIEWS` in `+page.server.ts`
+2. Add the corresponding SQL query logic in `$lib/db/select/queryAssets.ts`
+3. Add validation rules if needed in `validation.ts`
+
+## Component Tree (Grid)
+
+```
+GridContainer
+  ├─ GridHeader (outside scroll viewport, horizontally translated)
+  ├─ VirtualScrollManager (owns scroll position, visible range, CustomScrollbar, auto-scroll)
+  │    ├─ GridOverlays (receives scrollTop, visibleRange as props)
+  │    ├─ [row container] (virtual scroll positioned)
+  │    │    └─ GridRow
+  │    └─ EditHandler (receives scrollTop as prop)
+  └─ ContextMenu
+```

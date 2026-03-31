@@ -2,20 +2,15 @@
 	import CustomScrollbar from '$lib/utils/custom-scrollbar/CustomScrollbar.svelte';
 	import { auditStore } from '$lib/data/auditStore.svelte';
 	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
-	import { createManageScroll, ROW_HEIGHT, assignSingle } from './manageGrid.svelte.ts';
+	import { createManageScroll, ROW_HEIGHT } from './manageGrid.svelte.ts';
+	import { enqueue } from '$lib/eventQueue/eventQueue';
 	import AuditHeader from '$lib/audit/components/audit-header/AuditHeader.svelte';
 	import AuditContextMenu from '$lib/audit/components/audit-context-menu/AuditContextMenu.svelte';
 	import Checkbox from '$lib/utils/checkbox/Checkbox.svelte';
 	import AuditCellDropdown from '$lib/audit/components/audit-cell-dropdown/AuditCellDropdown.svelte';
 	import { openCellDropdown, closeCellDropdown } from '$lib/audit/components/audit-cell-dropdown/auditCellDropdown.svelte.ts';
 
-	const COLUMNS = [
-		{ key: 'location', label: 'Location' },
-		{ key: 'node', label: 'Node' },
-		{ key: 'asset_type', label: 'Asset Type' },
-		{ key: 'assigned_to', label: 'Assignee' },
-		{ key: 'status', label: 'Status' },
-	];
+	const VISIBLE_KEYS = ['location', 'node', 'asset_type', 'assigned_to', 'status'];
 
 	const scroll = createManageScroll();
 
@@ -115,7 +110,7 @@
 <div class="flex flex-col flex-1 min-h-0">
 	<!-- Grid container -->
 	<div class="bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 rounded-sm overflow-hidden flex flex-col flex-1 min-h-0">
-		<AuditHeader columns={COLUMNS} />
+		<AuditHeader keys={VISIBLE_KEYS} />
 
 		<!-- Virtual scroll viewport -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -149,7 +144,7 @@
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<!-- svelte-ignore a11y_click_events_have_key_events -->
 						<div
-							oncontextmenu={(e) => handleContextMenu(e, assignment.asset_id, 'assigned_to', assignment.auditor_name || '')}
+							oncontextmenu={(e) => handleContextMenu(e, assignment.asset_id, 'assigned_to', String(assignment.assigned_to ?? ''))}
 							onclick={() => {
 								if (auditUiStore.cellDropdown.visible && auditUiStore.cellDropdown.assetId === assignment.asset_id) {
 									closeCellDropdown();
@@ -167,7 +162,7 @@
 										{ id: null, label: 'Unassigned' },
 									]}
 									currentId={assignment.assigned_to}
-									onselect={(id) => assignSingle(assignment.asset_id, id ?? 0)}
+									onselect={(id) => enqueue({ type: 'AUDIT_ASSIGN', payload: { assetIds: [assignment.asset_id], userId: id ?? 0 } })}
 								/>
 							{/if}
 						</div>

@@ -1,15 +1,15 @@
 // AuditFilterPanel companion — remove filter + clear all helpers
 
 import { auditUiStore } from '$lib/data/auditUiStore.svelte';
-import { queryAuditFiltered } from '$lib/audit/components/manage-grid/manageGrid.svelte.ts';
+import { enqueue } from '$lib/eventQueue/eventQueue';
 
 export function removeFilter(index: number) {
 	auditUiStore.filters.splice(index, 1);
-	queryAuditFiltered();
+	enqueue({ type: 'AUDIT_QUERY', payload: {} });
 }
 
 export function clearAllFilters() {
 	auditUiStore.filters = [];
 	auditUiStore.filterPanel = false;
-	queryAuditFiltered();
+	enqueue({ type: 'AUDIT_QUERY', payload: {} });
 }

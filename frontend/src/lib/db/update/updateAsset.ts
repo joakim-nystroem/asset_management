@@ -1,4 +1,5 @@
-import { db } from '$lib/db/conn';
+import { db, type Database } from '$lib/db/conn';
+import type { Transaction } from 'kysely';
 
 const assetInventoryCols = [
     'bu_estate', 'shelf_cabinet_table', 'node', 'asset_type',
@@ -25,41 +26,42 @@ const extensionTableMap: Record<string, { table: string; idColumn: string }> = {
     switch_port: { table: 'asset_network_details', idColumn: 'asset_id' },
 };
 
-export async function updateAsset(id: number, key: string, value: any, username: string) {
+export async function updateAsset(id: number, key: string, value: any, username: string, trx?: Transaction<Database>) {
+    const qb = trx ?? db;
     const modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     switch (key) {
         case 'status':
-            return await db.updateTable('asset_inventory')
+            return await qb.updateTable('asset_inventory')
                 .set({
-                    status_id: db.selectFrom('asset_status').select('id').where('status_name', '=', value as string),
+                    status_id: qb.selectFrom('asset_status').select('id').where('status_name', '=', value as string),
                     modified_by: username,
                     modified: modified as any
                 })
                 .where('id', '=', id)
                 .execute();
         case 'condition':
-            return await db.updateTable('asset_inventory')
+            return await qb.updateTable('asset_inventory')
                 .set({
-                    condition_id: db.selectFrom('asset_condition').select('id').where('condition_name', '=', value as string),
+                    condition_id: qb.selectFrom('asset_condition').select('id').where('condition_name', '=', value as string),
                     modified_by: username,
                     modified: modified as any
                 })
                 .where('id', '=', id)
                 .execute();
         case 'location':
-            return await db.updateTable('asset_inventory')
+            return await qb.updateTable('asset_inventory')
                 .set({
-                    location_id: db.selectFrom('asset_locations').select('id').where('location_name', '=', value as string),
+                    location_id: qb.selectFrom('asset_locations').select('id').where('location_name', '=', value as string),
                     modified_by: username,
                     modified: modified as any
                 })
                 .where('id', '=', id)
                 .execute();
         case 'department':
-            return await db.updateTable('asset_inventory')
+            return await qb.updateTable('asset_inventory')
                 .set({
-                    department_id: db.selectFrom('asset_departments').select('id').where('department_name', '=', value as string),
+                    department_id: qb.selectFrom('asset_departments').select('id').where('department_name', '=', value as string),
                     modified_by: username,
                     modified: modified as any
                 })
@@ -68,7 +70,7 @@ export async function updateAsset(id: number, key: string, value: any, username:
     }
 
     if (assetInventoryCols.includes(key)) {
-        return await db.updateTable('asset_inventory')
+        return await qb.updateTable('asset_inventory')
             .set({ [key]: value, modified_by: username, modified } as any)
             .where('id', '=', id)
             .execute();
@@ -77,12 +79,12 @@ export async function updateAsset(id: number, key: string, value: any, username:
     // Handle extension table columns
     const mapping = extensionTableMap[key];
     if (mapping) {
-        await db.updateTable(mapping.table as any)
+        await qb.updateTable(mapping.table as any)
             .set({ [key]: value } as any)
             .where(mapping.idColumn, '=', id)
             .execute();
         // Also update modified tracking on the main asset
-        await db.updateTable('asset_inventory')
+        await qb.updateTable('asset_inventory')
             .set({ modified_by: username, modified: modified as any })
             .where('id', '=', id)
             .execute();

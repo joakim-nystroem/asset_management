@@ -32,10 +32,24 @@ export interface AuditCycle {
 	started_by: number;
 }
 
+export interface AuditProgress {
+	total: number;
+	pending: number;
+	completed: number;
+}
+
+export interface AuditUserProgress {
+	userId: number | null;
+	name: string;
+	total: number;
+	completed: number;
+}
+
 export const auditStore = $state({
 	baseAssignments: [] as AuditAssignment[],
 	displayedAssignments: [] as AuditAssignment[],
 	users: [] as AuditUser[],
 	cycle: null as AuditCycle | null,
-	selectedAuditor: null as number | null,
+	progress: { total: 0, pending: 0, completed: 0 } as AuditProgress,
+	userProgress: [] as AuditUserProgress[],
 });

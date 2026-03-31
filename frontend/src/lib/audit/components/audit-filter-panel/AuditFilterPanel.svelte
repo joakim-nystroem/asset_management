@@ -1,6 +1,15 @@
 <script lang="ts">
 	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
+	import { auditStore } from '$lib/data/auditStore.svelte';
 	import { removeFilter, clearAllFilters } from './auditFilterPanel.svelte.ts';
+
+	function displayValue(filter: { key: string; value: string }): string {
+		if (filter.key === 'assigned_to') {
+			const user = auditStore.users.find(u => u.id === Number(filter.value));
+			return user ? `${user.lastname}, ${user.firstname}` : filter.value;
+		}
+		return filter.value;
+	}
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -38,7 +47,7 @@
 								{filter.key.replaceAll('_', ' ')}
 							</div>
 							<div class="text-sm font-medium text-neutral-900 dark:text-neutral-100 truncate">
-								{filter.value}
+								{displayValue(filter)}
 							</div>
 						</div>
 						<button

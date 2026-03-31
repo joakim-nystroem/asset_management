@@ -3,11 +3,6 @@
 import { auditStore } from '$lib/data/auditStore.svelte';
 import { auditUiStore } from '$lib/data/auditUiStore.svelte';
 
-export interface AuditColumn {
-	key: string;
-	label: string;
-}
-
 export function handleHeaderClick(key: string) {
 	if (auditUiStore.headerMenu.visible && auditUiStore.headerMenu.activeKey === key) {
 		auditUiStore.headerMenu.visible = false;

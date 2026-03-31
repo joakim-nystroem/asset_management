@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { db } from '$lib/db/conn';
 import { updateAsset } from '$lib/db/update/updateAsset';
 import { logChange } from '$lib/db/create/logChange';
 
@@ -42,6 +43,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.user) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const user = locals.user;
     const changes = await request.json();
 
     // Validate changes is an array
@@ -82,21 +84,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     try {
-        for (const change of changes) {
-            await updateAsset(
-                parseInt(change.rowId),
-                change.columnId,
-                change.newValue,
-                locals.user.username,
-            );
-            await logChange(
-                parseInt(change.rowId),
-                change.columnId,
-                change.oldValue ?? null,
-                change.newValue ?? null,
-                locals.user.username,
-            );
-        }
+        await db.transaction().execute(async (trx) => {
+            for (const change of changes) {
+                await updateAsset(
+                    parseInt(change.rowId),
+                    change.columnId,
+                    change.newValue,
+                    user.username,
+                    trx,
+                );
+                await logChange(
+                    parseInt(change.rowId),
+                    change.columnId,
+                    change.oldValue ?? null,
+                    change.newValue ?? null,
+                    user.username,
+                    trx,
+                );
+            }
+        });
         return json({ success: true });
     } catch (error) {
         return json(
