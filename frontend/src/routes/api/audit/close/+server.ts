@@ -9,10 +9,11 @@ export const POST: RequestHandler = async ({ locals }) => {
     }
 
     try {
-        // Check all items are completed
-        const pending = await db.selectFrom('asset_audit')
-            .select(db.fn.count('asset_id').as('count'))
-            .where('completed_at', 'is', null)
+        // Check all items are completed (no items in asset_audit without a current_audit match)
+        const pending = await db.selectFrom('asset_audit as aa')
+            .leftJoin('current_audit as ca', 'ca.asset_id', 'aa.asset_id')
+            .select(sql<number>`COUNT(aa.asset_id)`.as('count'))
+            .where('ca.asset_id', 'is', null)
             .executeTakeFirst();
 
         if (Number(pending?.count ?? 0) > 0) {
@@ -22,8 +23,7 @@ export const POST: RequestHandler = async ({ locals }) => {
             );
         }
 
-        // Check there are rows to close
-        const total = await db.selectFrom('asset_audit')
+        const total = await db.selectFrom('current_audit')
             .select(db.fn.count('asset_id').as('count'))
             .executeTakeFirst();
 
@@ -34,22 +34,34 @@ export const POST: RequestHandler = async ({ locals }) => {
 
         const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-        // Atomic close: bulk copy → update cycle record → clear working table
-        await sql`
-            START TRANSACTION;
+        // Atomic close: bulk copy current_audit → history, close cycle, clear working tables
+        await db.transaction().execute(async (trx) => {
+            await trx.insertInto('asset_audit_history')
+                .columns([
+                    'audit_start_date', 'asset_id', 'assigned_to', 'completed_at',
+                    'result_id', 'result',
+                    'location', 'node', 'asset_type', 'department', 'status', 'condition',
+                    'manufacturer', 'model', 'serial_number', 'wbd_tag', 'shelf_cabinet_table',
+                ])
+                .expression(
+                    trx.selectFrom('current_audit')
+                        .select([
+                            'audit_start_date', 'asset_id', 'assigned_to', 'completed_at',
+                            'result_id', 'result',
+                            'location', 'node', 'asset_type', 'department', 'status', 'condition',
+                            'manufacturer', 'model', 'serial_number', 'wbd_tag', 'shelf_cabinet_table',
+                        ])
+                )
+                .execute();
 
-            INSERT INTO asset_audit_history (audit_start_date, asset_id, assigned_to, completed_at, result)
-            SELECT audit_start_date, asset_id, assigned_to, completed_at, result
-            FROM asset_audit;
+            await trx.updateTable('asset_audit_cycles')
+                .set({ closed_at: now, closed_by: locals.user!.id })
+                .where('closed_at', 'is', null)
+                .execute();
 
-            UPDATE asset_audit_cycles
-            SET closed_at = ${now}, closed_by = ${locals.user.id}
-            WHERE closed_at IS NULL;
-
-            DELETE FROM asset_audit;
-
-            COMMIT;
-        `.execute(db);
+            await trx.deleteFrom('current_audit').execute();
+            await trx.deleteFrom('asset_audit').execute();
+        });
 
         return json({ success: true, archived: totalCount });
     } catch (error) {

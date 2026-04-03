@@ -1,33 +1,53 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/db/conn';
+import { sql } from 'kysely';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.user) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { assetId, auditResult } = await request.json();
+    const { assetId, resultId } = await request.json();
 
-    if (!assetId || !auditResult) {
-        return json({ error: 'Missing assetId or auditResult' }, { status: 400 });
+    if (!assetId || !resultId) {
+        return json({ error: 'Missing assetId or resultId' }, { status: 400 });
     }
 
     const completedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
     try {
-        const result = await db.updateTable('asset_audit')
-            .set({
-                completed_at: completedAt,
-                result: auditResult,
-            })
+        // Verify the assignment exists and belongs to this user
+        const assignment = await db.selectFrom('asset_audit')
+            .select(['asset_id', 'audit_start_date', 'assigned_to'])
             .where('asset_id', '=', assetId)
             .where('assigned_to', '=', locals.user.id)
-            .execute();
+            .executeTakeFirst();
 
-        if (result[0].numUpdatedRows === BigInt(0)) {
+        if (!assignment) {
             return json({ error: 'Audit assignment not found or not authorized' }, { status: 404 });
         }
+
+        // Insert snapshot into current_audit: audit fields + frozen inventory data
+        await sql`
+            INSERT INTO current_audit (
+                asset_id, audit_start_date, assigned_to, completed_at, result_id,
+                location, node, asset_type, department, status, \`condition\`,
+                manufacturer, model, serial_number, wbd_tag, shelf_cabinet_table
+            )
+            SELECT
+                aa.asset_id, aa.audit_start_date, aa.assigned_to, ${completedAt}, ${resultId},
+                al.location_name, ai.node, ai.asset_type, ad.department_name,
+                ast.status_name, ac.condition_name,
+                ai.manufacturer, ai.model, ai.serial_number, ai.wbd_tag, ai.shelf_cabinet_table
+            FROM asset_audit aa
+            INNER JOIN asset_inventory ai ON ai.id = aa.asset_id
+            LEFT JOIN asset_locations al ON ai.location_id = al.id
+            LEFT JOIN asset_status ast ON ai.status_id = ast.id
+            LEFT JOIN asset_condition ac ON ai.condition_id = ac.id
+            LEFT JOIN asset_departments ad ON ai.department_id = ad.id
+            WHERE aa.asset_id = ${assetId}
+        `.execute(db);
 
         return json({ success: true });
     } catch (error) {

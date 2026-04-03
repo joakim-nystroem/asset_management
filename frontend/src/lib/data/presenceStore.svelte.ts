@@ -20,5 +20,5 @@ type PendingCellEntry = {
 export const presenceStore = $state({
   users: [] as PresenceEntry[],
   pendingCells: [] as PendingCellEntry[],
-  rowLocks: {} as Record<string, { userId: string; firstname: string; lastname: string; color: string }>,
+  rowLocks: {} as Record<string, { userId: number; firstname: string; lastname: string; color: string }>,
 });

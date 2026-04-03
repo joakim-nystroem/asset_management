@@ -102,8 +102,26 @@ export interface AssetAuditTable {
     asset_id: ColumnType<number, number, never>;
     audit_start_date: ColumnType<Date, string, never>;
     assigned_to: number | null;
-    completed_at: ColumnType<Date | null, string | null, string | null>;
+}
+
+export interface CurrentAuditTable {
+    asset_id: ColumnType<number, number, never>;
+    audit_start_date: ColumnType<Date, string, never>;
+    assigned_to: number;
+    completed_at: ColumnType<Date, string, never>;
+    result_id: number | null;
     result: string | null;
+    location: string | null;
+    node: string | null;
+    asset_type: string | null;
+    department: string | null;
+    status: string | null;
+    condition: string | null;
+    manufacturer: string | null;
+    model: string | null;
+    serial_number: string | null;
+    wbd_tag: string | null;
+    shelf_cabinet_table: string | null;
 }
 
 export interface AssetAuditHistoryTable {
@@ -112,7 +130,24 @@ export interface AssetAuditHistoryTable {
     asset_id: ColumnType<number, number, never>;
     assigned_to: ColumnType<number, number, never>;
     completed_at: ColumnType<Date, string, never>;
+    result_id: number | null;
     result: string | null;
+    location: string | null;
+    node: string | null;
+    asset_type: string | null;
+    department: string | null;
+    status: string | null;
+    condition: string | null;
+    manufacturer: string | null;
+    model: string | null;
+    serial_number: string | null;
+    wbd_tag: string | null;
+    shelf_cabinet_table: string | null;
+}
+
+export interface AuditResultTable {
+    id: ColumnType<number, never, never>;
+    name: string;
 }
 
 export interface AssetAuditCyclesTable {
@@ -141,9 +176,11 @@ export interface Database {
     asset_network_details: NetworkDetailsTable;
     asset_ped_details: PedDetailsTable;
     asset_audit: AssetAuditTable;
+    current_audit: CurrentAuditTable;
     asset_audit_history: AssetAuditHistoryTable;
     audit_settings: AuditSettingsTable;
     asset_audit_cycles: AssetAuditCyclesTable;
+    audit_results: AuditResultTable;
 }
 
 const dialect = new MysqlDialect({

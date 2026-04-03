@@ -8,7 +8,7 @@ export function handleFilterByValue(
   key: string,
   value: string,
 ) {
-  if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
+  if (pendingStore.edits.length > 0 || newRowStore.newRows.length > 0) {
     enqueue(
       { type: 'DISCARD', payload: {} },
     );

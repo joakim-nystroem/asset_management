@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
 	import { auditStore } from '$lib/data/auditStore.svelte';
-	import { removeFilter, clearAllFilters } from './auditFilterPanel.svelte.ts';
+	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
+	import { enqueue } from '$lib/eventQueue/eventQueue';
 
 	function displayValue(filter: { key: string; value: string }): string {
 		if (filter.key === 'assigned_to') {
@@ -10,12 +10,25 @@
 		}
 		return filter.value;
 	}
+
+	function removeFilter(index: number) {
+		auditUiStore.filters = auditUiStore.filters.filter((_, i) => i !== index);
+		auditUiStore.sort = { key: null, direction: 'asc' };
+		enqueue({ type: 'AUDIT_QUERY', payload: { filters: $state.snapshot(auditUiStore.filters), q: auditUiStore.searchQuery } });
+		if (auditUiStore.filters.length === 0) auditUiStore.filterPanel = false;
+	}
+
+	function clearAllFilters() {
+		auditUiStore.filters = [];
+		auditUiStore.sort = { key: null, direction: 'asc' };
+		auditUiStore.filterPanel = false;
+		enqueue({ type: 'AUDIT_QUERY', payload: { filters: [], q: auditUiStore.searchQuery } });
+	}
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-	data-panel="filter-panel"
 	class="absolute top-full left-0 mt-1 w-80 bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-700 rounded-lg shadow-xl z-50"
 	onclick={(e) => e.stopPropagation()}
 >

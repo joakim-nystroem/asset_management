@@ -162,9 +162,13 @@ export async function processEvent(
       await handleAuditQuery(event.payload);
       break;
 
+    case 'AUDIT_HISTORY_QUERY':
+      await handleAuditHistoryQuery(event.payload);
+      break;
+
     // ─── Audit incoming WS events ──────────────────────────────────────────
     case 'WS_AUDIT_ASSIGN_BROADCAST':
-      handleWsAuditAssign(event.payload);
+      await handleWsAuditAssign(event.payload);
       break;
 
     case 'WS_AUDIT_COMPLETE_BROADCAST':
@@ -268,16 +272,15 @@ async function handleCommitCreate(
   }
 
   newRowStore.newRows = [];
-  newRowStore.hasNewRows = false;
   pendingStore.edits = [];
 
   // Refetch using current view/search/filter state
-  const hasFilters = queryStore.q || queryStore.filters.length > 0;
+  const hasActiveQuery = queryStore.q || queryStore.filters.length > 0;
   const params = buildQueryParams(queryStore.view, queryStore.q, queryStore.filters);
 
   const refetch = await apiFetch('/api/assets', params);
   if (refetch.success) {
-    if (hasFilters) {
+    if (hasActiveQuery) {
       assetStore.displayedAssets = refetch.data.assets;
     } else {
       assetStore.baseAssets = refetch.data.assets;
@@ -305,9 +308,9 @@ async function handleQuery(
   payload: Record<string, any>,
 ): Promise<void> {
   const { view, q, filters } = payload;
-  const hasFilters = q || (filters && filters.length > 0);
+  const hasActiveQuery = q || (filters && filters.length > 0);
 
-  if (!hasFilters) {
+  if (!hasActiveQuery) {
     assetStore.displayedAssets = assetStore.baseAssets;
     scrollStore.scrollTop = 0;
     scrollStore.scrollLeft = 0;
@@ -353,7 +356,6 @@ function handleDiscard(
 ): void {
   pendingStore.edits = [];
   newRowStore.newRows = [];
-  newRowStore.hasNewRows = false;
   assetStore.displayedAssets = assetStore.displayedAssets.filter((a: any) => a.id > 0);
   realtime.sendPendingClearAll();
   toastState.addToast('Changes discarded.', 'info');
@@ -463,7 +465,6 @@ function handleWsUserLeft(
 ): void {
   const userId = Number(payload.clientId);
   presenceStore.users = presenceStore.users.filter((u: any) => u.id !== userId);
-  presenceStore.pendingCells = presenceStore.pendingCells.filter((p) => p.userId !== userId);
 }
 
 function handleWsCellLocked(
@@ -613,11 +614,13 @@ async function handleAuditAssign(payload: Record<string, any>): Promise<void> {
   }
   toastState.addToast(`Assigned ${assetIds.length} item${assetIds.length === 1 ? '' : 's'}.`, 'success');
   realtime.sendAuditAssign(assetIds, userId, auditorName ?? '');
+  const progressRes = await apiFetch('/api/audit/user-progress');
+  if (progressRes.success) auditStore.userProgress = progressRes.data;
 }
 
 async function handleAuditComplete(payload: Record<string, any>): Promise<void> {
-  const { assetId, result, comment, userId } = payload;
-  const res = await apiPost('/api/audit/complete', { assetId, auditResult: result, comment });
+  const { assetId, resultId, userId } = payload;
+  const res = await apiPost('/api/audit/complete', { assetId, resultId });
   if (!res.success) {
     toastState.addToast('Failed to complete audit.', 'error');
     return;
@@ -626,34 +629,37 @@ async function handleAuditComplete(payload: Record<string, any>): Promise<void> 
   const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
   for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
     const a = arr.find(a => a.asset_id === assetId);
-    if (a) { a.completed_at = now; a.result = result; }
+    if (a) { a.completed_at = now; a.result_id = resultId; }
   }
   updateProgressOnComplete(userId);
   toastState.addToast('Audit completed.', 'success');
-  realtime.sendAuditComplete(assetId, result, now, userId);
+  realtime.sendAuditComplete(assetId, resultId, now, userId);
 }
 
 async function handleAuditStart(payload: Record<string, any>): Promise<void> {
-  if (!confirm('Start a new audit cycle? This will snapshot all current inventory items.')) return;
   const res = await apiPost('/api/audit/start', {});
   if (!res.success) {
     toastState.addToast('Failed to start audit cycle.', 'error');
     return;
   }
-  const cycle = res.data?.cycle ?? null;
-  auditStore.cycle = cycle;
-  // Fetch the freshly created snapshot assignments
-  const assignRes = await apiFetch('/api/audit/assignments');
+  // Start endpoint returns { success, count } — fetch cycle + assignments separately
+  const [cycleRes, assignRes] = await Promise.all([
+    apiFetch('/api/audit/cycle'),
+    apiFetch('/api/audit/assignments'),
+  ]);
+  if (cycleRes.success) auditStore.cycle = cycleRes.data.cycle;
   if (assignRes.success) {
     auditStore.baseAssignments = assignRes.data.assignments;
     auditStore.displayedAssignments = assignRes.data.assignments;
   }
-  toastState.addToast(`Audit started. ${res.data?.count ?? 0} items in scope.`, 'success');
+  // Fresh cycle: all items pending, none completed
+  const count = res.data?.count ?? 0;
+  auditStore.progress = { total: count, pending: count, completed: 0 };
+  toastState.addToast(`Audit started. ${count} items in scope.`, 'success');
   realtime.sendAuditStart();
 }
 
 async function handleAuditClose(payload: Record<string, any>): Promise<void> {
-  if (!confirm('Close the audit cycle? All completed items will be archived.')) return;
   const res = await apiPost('/api/audit/close', {});
   if (!res.success) {
     toastState.addToast('Failed to close audit cycle.', 'error');
@@ -667,15 +673,14 @@ async function handleAuditClose(payload: Record<string, any>): Promise<void> {
 }
 
 async function handleAuditQuery(payload: Record<string, any>): Promise<void> {
-  const filters = auditUiStore.filters;
-  const q = auditUiStore.searchTerm.trim();
-  if (filters.length === 0 && !q) {
+  const { filters, q } = payload;
+  if ((!filters || filters.length === 0) && !q) {
     auditStore.displayedAssignments = auditStore.baseAssignments;
     return;
   }
   const params = new URLSearchParams();
   if (q) params.set('q', q);
-  for (const f of filters) params.append('filter', `${f.key}:${f.value}`);
+  if (filters) for (const f of filters) params.append('filter', `${f.key}:${f.value}`);
   const res = await apiFetch('/api/audit/assignments', params);
   if (res.success) {
     auditStore.displayedAssignments = res.data.assignments;
@@ -684,9 +689,29 @@ async function handleAuditQuery(payload: Record<string, any>): Promise<void> {
   }
 }
 
+async function handleAuditHistoryQuery(payload: Record<string, any>): Promise<void> {
+  const { startDate } = payload;
+  if (!startDate) return;
+  const params = new URLSearchParams({ start_date: startDate });
+  const [historyRes, progressRes] = await Promise.all([
+    apiFetch('/api/audit/history', params),
+    apiFetch('/api/audit/history-progress', params),
+  ]);
+  if (historyRes.success) {
+    auditStore.historyAssignments = historyRes.data.assignments;
+  } else {
+    toastState.addToast('Failed to fetch audit history.', 'error');
+  }
+  if (progressRes.success) {
+    auditStore.historyUserProgress = progressRes.data;
+  }
+  // Set after data arrives to avoid flickering empty cards
+  auditUiStore.viewingHistory = true;
+}
+
 // ─── Audit incoming WS handlers ─────────────────────────────────────────────
 
-function handleWsAuditAssign(payload: Record<string, any>): void {
+async function handleWsAuditAssign(payload: Record<string, any>): Promise<void> {
   const { assetIds, userId, auditorName } = payload;
   const idSet = new Set(assetIds as number[]);
   for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
@@ -697,13 +722,15 @@ function handleWsAuditAssign(payload: Record<string, any>): void {
       }
     }
   }
+  const progressRes = await apiFetch('/api/audit/user-progress');
+  if (progressRes.success) auditStore.userProgress = progressRes.data;
 }
 
 function handleWsAuditComplete(payload: Record<string, any>): void {
-  const { assetId, result, completedAt, userId } = payload;
+  const { assetId, resultId, completedAt, userId } = payload;
   for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
     const a = arr.find(a => a.asset_id === assetId);
-    if (a) { a.completed_at = completedAt; a.result = result; }
+    if (a) { a.completed_at = completedAt; a.result_id = resultId; }
   }
   updateProgressOnComplete(userId);
 }
@@ -733,7 +760,10 @@ function updateProgressOnComplete(userId: number): void {
   auditStore.progress = { total: auditStore.progress.total, completed, pending };
 
   const user = auditStore.userProgress.find(u => u.userId === userId);
-  if (user) user.completed++;
+  if (user) {
+    user.completed++;
+    user.lastCompletedAt = new Date().toISOString();
+  }
 }
 
 // ─── Row Lock handlers ──────────────────────────────────────────────────────

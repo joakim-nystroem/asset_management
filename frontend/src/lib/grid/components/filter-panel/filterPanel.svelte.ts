@@ -6,7 +6,7 @@ import { enqueue } from '$lib/eventQueue/eventQueue';
 import { resetEditState } from '$lib/utils/gridHelpers';
 
 export function clearAllFilters() {
-  if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
+  if (pendingStore.edits.length > 0 || newRowStore.newRows.length > 0) {
     enqueue(
       { type: 'DISCARD', payload: {} },
     );
@@ -20,7 +20,7 @@ export function clearAllFilters() {
 }
 
 export function removeFilter(index: number) {
-  if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
+  if (pendingStore.edits.length > 0 || newRowStore.newRows.length > 0) {
     enqueue(
       { type: 'DISCARD', payload: {} },
     );

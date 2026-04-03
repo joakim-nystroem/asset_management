@@ -1,0 +1,21 @@
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import { getAuditHistoryProgress } from '$lib/db/select/getAuditHistoryProgress';
+
+export const GET: RequestHandler = async ({ locals, url }) => {
+    if (!locals.user) {
+        return json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const startDate = url.searchParams.get('start_date');
+    if (!startDate) {
+        return json({ error: 'start_date parameter required' }, { status: 400 });
+    }
+
+    try {
+        const userProgress = await getAuditHistoryProgress(startDate);
+        return json(userProgress);
+    } catch (error) {
+        return json({ error: 'Failed to get history progress' }, { status: 500 });
+    }
+};

@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { auditStore } from '$lib/data/auditStore.svelte';
 	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
-	import { handleSort } from '$lib/audit/components/audit-header/auditHeader.svelte.ts';
-	import { getUniqueValues, toggleFilter, isFilterActive } from './auditHeaderMenu.svelte.ts';
+	import { enqueue } from '$lib/eventQueue/eventQueue';
+	import { sortAssignments } from '$lib/audit/components/audit-header/auditHeader.svelte.ts';
+	import { getUniqueValues, isFilterActive } from './auditHeaderMenu.svelte.ts';
 
 	interface Props {
 		activeKey: string;
@@ -24,17 +26,47 @@
 	});
 
 	let values = $derived(
-		getUniqueValues(activeKey).filter(v =>
-			v.toLowerCase().includes(filterSearchTerm.toLowerCase())
-		)
+		getUniqueValues(auditStore.baseAssignments, auditStore.displayedAssignments, auditUiStore.filters, activeKey)
+			.filter(v => v.toLowerCase().includes(filterSearchTerm.toLowerCase()))
 	);
+
+	function handleSort(key: string, direction: 'asc' | 'desc') {
+		if (auditUiStore.sort.key === key && auditUiStore.sort.direction === direction) {
+			auditUiStore.sort.key = null;
+			auditStore.displayedAssignments = [...auditStore.displayedAssignments].sort(
+				(a, b) => a.asset_id - b.asset_id,
+			);
+		} else {
+			auditUiStore.sort.key = key;
+			auditUiStore.sort.direction = direction;
+			auditStore.displayedAssignments = sortAssignments(auditStore.displayedAssignments, key, direction);
+		}
+		auditUiStore.headerMenu = { visible: false, activeKey: '' };
+	}
+
+	function toggleFilter(columnKey: string, value: string) {
+		let filterValue = value;
+		if (columnKey === 'status') {
+			filterValue = value === 'Done' ? 'completed' : 'pending';
+		} else if (columnKey === 'assigned_to') {
+			const user = auditStore.users.find(u => `${u.lastname}, ${u.firstname}` === value);
+			if (user) filterValue = String(user.id);
+		}
+		const idx = auditUiStore.filters.findIndex(f => f.key === columnKey && f.value === filterValue);
+		if (idx >= 0) {
+			auditUiStore.filters = auditUiStore.filters.filter((_, i) => i !== idx);
+		} else {
+			auditUiStore.filters = [...auditUiStore.filters, { key: columnKey, value: filterValue }];
+		}
+		auditUiStore.sort = { key: null, direction: 'asc' };
+		enqueue({ type: 'AUDIT_QUERY', payload: { filters: $state.snapshot(auditUiStore.filters), q: auditUiStore.searchQuery } });
+	}
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
 	bind:this={menuElement}
-	data-panel="header-menu"
 	class="absolute top-full left-0 z-50 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm text-neutral-900 dark:text-neutral-100 min-w-48 font-normal normal-case cursor-default text-left flex flex-col"
 	onclick={(e) => e.stopPropagation()}
 >
@@ -77,7 +109,6 @@
 		{#if filterOpen}
 			{@const focusOnInit = (node: HTMLElement) => { node.focus(); }}
 			<div
-				data-panel="header-menu"
 				class="absolute z-50 top-0 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm w-48 {submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}"
 			>
 				<div class="px-2 py-1 border-b border-neutral-200 dark:border-slate-700 mb-1">
@@ -97,7 +128,7 @@
 							onclick={() => toggleFilter(activeKey, item)}
 						>
 							<div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
-								{#if isFilterActive(activeKey, item)}✓{/if}
+								{#if isFilterActive(auditUiStore.filters, activeKey, item)}✓{/if}
 							</div>
 							<div class="truncate">{item}</div>
 						</button>

@@ -3,7 +3,11 @@ import { getLocations } from '$lib/db/select/getLocations';
 import { getStatuses } from '$lib/db/select/getStatuses';
 import { getConditions } from '$lib/db/select/getConditions';
 
-export async function GET({ params }) {
+export async function GET({ params, locals }) {
+  if (!locals.user) {
+    return json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { category } = params;
   
   try {

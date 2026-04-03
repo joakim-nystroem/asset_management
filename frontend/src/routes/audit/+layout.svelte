@@ -3,9 +3,10 @@
 	import type { LayoutProps } from './$types';
 	import { auditStore } from '$lib/data/auditStore.svelte';
 	import AuditProgress from '$lib/audit/components/audit-progress/AuditProgress.svelte';
-	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
 	import { realtime } from '$lib/utils/realtimeManager.svelte';
 	import { connectionStore } from '$lib/data/connectionStore.svelte';
+	import { auditUiStore, resetAuditUiState } from '$lib/data/auditUiStore.svelte';
+	import { setAuditOpenPanel } from '$lib/audit/utils/auditHelpers';
 
 	let { data, children }: LayoutProps = $props();
 
@@ -22,6 +23,8 @@
 	auditStore.progress = data.status;
 	// svelte-ignore state_referenced_locally
 	auditStore.userProgress = data.userProgress;
+	// svelte-ignore state_referenced_locally
+	auditStore.closedCycles = data.closedCycles;
 
 	// Subscribe to audit room when WS connects (re-subscribes after logout/reconnect)
 	$effect(() => {
@@ -37,23 +40,34 @@
 	] as const;
 
 	let activePath = $derived(page.url.pathname);
-	let hasCycle = $derived(auditStore.cycle !== null || auditStore.baseAssignments.length > 0);
+	let hasCycle = $derived(auditStore.cycle !== null);
+	let showProgress = $derived(hasCycle && !auditUiStore.viewingHistory);
 
-	// Reset UI state + displayedAssignments on tab navigation
+	$inspect(hasCycle, 'hasCycle');
+	$inspect(showProgress, 'showProgress');
+
+	// Reset displayedAssignments on tab navigation.
+	// All UI state (filters, search, sort, selection, panels) resets naturally via contexts + local component state.
 	$effect(() => {
 		activePath; // track path changes
 		auditStore.displayedAssignments = auditStore.baseAssignments;
-		auditUiStore.filters = [];
-		auditUiStore.searchTerm = '';
-		auditUiStore.sort = { key: null, direction: 'asc' };
-		auditUiStore.selectedIds = [];
-		auditUiStore.headerMenu = { visible: false, activeKey: '' };
-		auditUiStore.filterPanel = false;
-		auditUiStore.contextMenu = { visible: false, x: 0, y: 0, assetId: -1, col: '', value: '' };
+		auditStore.historyAssignments = [];
+		auditStore.historyUserProgress = [];
+		resetAuditUiState();
 	});
 </script>
 
-<svelte:window onkeydown={(e) => { if (e.key === 'Tab') e.preventDefault(); }} />
+<svelte:window
+	onkeydown={(e) => {
+		if (e.key === 'Tab') e.preventDefault();
+		if (e.key === 'Escape') setAuditOpenPanel();
+	}}
+	onclick={(e) => {
+		const target = e.target as HTMLElement;
+		if (target.closest('[data-panel]')) return;
+		setAuditOpenPanel();
+	}}
+/>
 
 <div class="bg-neutral-50 dark:bg-slate-600 h-[calc(100dvh-3rem)] px-4 py-4 flex flex-col overflow-hidden">
 	<!-- Row 1: Tabs + Progress -->
@@ -74,7 +88,7 @@
 			</nav>
 		</div>
 
-		{#if hasCycle}
+		{#if showProgress}
 			<div class="w-1/2">
 				<AuditProgress />
 			</div>

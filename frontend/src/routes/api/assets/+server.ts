@@ -3,7 +3,11 @@ import { queryAssets } from '$lib/db/select/queryAssets';
 
 const VALID_VIEWS = ['default', 'audit', 'ped', 'galaxy', 'network'];
 
-export async function GET({ url }) {
+export async function GET({ url, locals }) {
+    if (!locals.user) {
+        return json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const q = url.searchParams.get('q') || null;
     const view = url.searchParams.get('view') || 'default';
     const resolvedView = VALID_VIEWS.includes(view) ? view : 'default';

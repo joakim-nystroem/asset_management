@@ -132,8 +132,8 @@
       if (anchor.row === -1) return;
 
       if (e.metaKey || e.ctrlKey) {
-        let targetRow = selectionStore.selectionEnd.row;
-        let targetCol = selectionStore.selectionEnd.col;
+        let targetRow = selectionStore.selectionStart.row;
+        let targetCol = selectionStore.selectionStart.col;
         switch (e.key) {
           case 'ArrowUp':    targetRow = assets[0]?.id ?? targetRow; break;
           case 'ArrowDown':  targetRow = assets[assets.length - 1]?.id ?? targetRow; break;

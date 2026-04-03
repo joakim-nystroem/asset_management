@@ -1,18 +1,21 @@
 import { db } from '$lib/db/conn';
-import { sql } from 'kysely';
 
 export async function getAuditStatus() {
-    const row = await db.selectFrom('asset_audit')
-        .select([
-            db.fn.count('asset_id').as('total'),
-            sql<number>`SUM(CASE WHEN completed_at IS NULL THEN 1 ELSE 0 END)`.as('pending'),
-            sql<number>`SUM(CASE WHEN completed_at IS NOT NULL THEN 1 ELSE 0 END)`.as('completed'),
-        ])
-        .executeTakeFirst();
+    const [totalRow, completedRow] = await Promise.all([
+        db.selectFrom('asset_audit')
+            .select(db.fn.count('asset_id').as('count'))
+            .executeTakeFirst(),
+        db.selectFrom('current_audit')
+            .select(db.fn.count('asset_id').as('count'))
+            .executeTakeFirst(),
+    ]);
+
+    const total = Number(totalRow?.count ?? 0);
+    const completed = Number(completedRow?.count ?? 0);
 
     return {
-        total: Number(row?.total ?? 0),
-        pending: Number(row?.pending ?? 0),
-        completed: Number(row?.completed ?? 0),
+        total,
+        pending: total - completed,
+        completed,
     };
 }

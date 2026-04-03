@@ -3,24 +3,19 @@
   import FilterPanel from "$lib/grid/components/filter-panel/filterPanel.svelte";
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
-  import { uiStore, columnWidthStore } from '$lib/data/uiStore.svelte';
+  import { uiStore } from '$lib/data/uiStore.svelte';
   import { setOpenPanel } from '$lib/utils/gridHelpers';
   import { pendingStore, selectionStore, clipboardStore, historyStore } from '$lib/data/cellStore.svelte';
   import { newRowStore } from '$lib/data/newRowStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
-  import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+
   import { enqueue } from '$lib/eventQueue/eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
   import { validateNewRow } from '$lib/grid/validation';
   import { resetEditState, resetAfterCommit } from '$lib/utils/gridHelpers';
 
-  // Local search input — only pushed to queryStore on explicit action
-  let searchInput = $state('');
-
-  // Sync from queryStore on page load (URL → store → input)
-  $effect(() => {
-    searchInput = queryStore.q;
-  });
+  // Local search input — seeded from queryStore on mount, only pushed back on explicit action
+  let searchInput = $state(queryStore.q);
 
   const VIEW_CONFIGS = [
     { name: 'default', label: 'Default' },
@@ -43,7 +38,7 @@
   let viewDropdownOpen = $state(false);
 
   function handleSearch() {
-    if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
+    if (pendingStore.edits.length > 0 || newRowStore.newRows.length > 0) {
       enqueue(
         { type: 'DISCARD', payload: {} },
       );
@@ -56,7 +51,7 @@
   }
 
   function handleClearSearch() {
-    if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
+    if (pendingStore.edits.length > 0 || newRowStore.newRows.length > 0) {
       enqueue(
         { type: 'DISCARD', payload: {} },
       );
@@ -71,7 +66,7 @@
 
   function handleViewChange(viewName: string) {
     viewDropdownOpen = false;
-    if (pendingStore.edits.length > 0 || newRowStore.hasNewRows) {
+    if (pendingStore.edits.length > 0 || newRowStore.newRows.length > 0) {
       enqueue(
         { type: 'DISCARD', payload: {} },
       );
@@ -97,7 +92,6 @@
       if (key !== 'id') newRow[key] = '';
     }
     newRowStore.newRows = [...newRowStore.newRows, newRow];
-    newRowStore.hasNewRows = true;
     assetStore.displayedAssets = [...assetStore.displayedAssets, newRow];
     scrollStore.scrollToRow = assetStore.displayedAssets.length - 1;
   }
@@ -109,25 +103,6 @@
     resetEditState();
   }
 
-  function navigateToError() {
-    const invalidEdit = pendingStore.edits.find((e) => !e.isValid);
-    if (!invalidEdit) return;
-
-    const assets = assetStore.displayedAssets;
-    const rowIndex = assets.findIndex((a: any) => a.id === invalidEdit.row);
-    if (rowIndex < 0) return;
-
-    scrollStore.scrollToRow = rowIndex;
-
-    // Compute column bounds for horizontal scroll
-    const keys = Object.keys(assets[0] ?? {});
-    const colIdx = keys.indexOf(invalidEdit.col);
-    if (colIdx >= 0) {
-      let left = 0;
-      for (let c = 0; c < colIdx; c++) left += columnWidthStore.widths.get(keys[c]) ?? DEFAULT_WIDTH + 5;
-      scrollStore.scrollToCol = { left, right: left + (columnWidthStore.widths.get(invalidEdit.col) ?? DEFAULT_WIDTH + 5) };
-    }
-  }
 </script>
 
 <div class="flex flex-col">
@@ -198,7 +173,7 @@
             <span>New Row</span>
           </button>
         {/if}
-        {#if newRowStore.hasNewRows && user}
+        {#if newRowStore.newRows.length > 0 && user}
           <div class="flex gap-2 items-center">
             <button
               onclick={() => {
@@ -240,18 +215,9 @@
               Discard
             </button>
             {#if hasInvalid}
-              <div class="flex items-center gap-2 text-xs">
-                <span class="text-yellow-600 dark:text-yellow-400 font-medium">
-                  Invalid cells found
-                </span>
-                <button
-                  onclick={navigateToError}
-                  class="cursor-pointer bg-yellow-600 hover:bg-yellow-500 px-2 py-1 rounded text-neutral-100"
-                  title="Next error"
-                >
-                Go To
-                </button>
-              </div>
+              <span class="text-yellow-600 dark:text-yellow-400 font-medium text-xs">
+                Invalid cells found
+              </span>
             {/if}
           </div>
         {:else if pendingStore.edits.length > 0 && user}
@@ -284,18 +250,9 @@
               Discard
             </button>
             {#if hasInvalid}
-              <div class="flex items-center gap-2 text-xs">
-                <span class="text-yellow-600 dark:text-yellow-400 font-medium">
-                  Invalid cells found
-                </span>
-                <button
-                  onclick={navigateToError}
-                  class="cursor-pointer bg-yellow-600 hover:bg-yellow-500 px-2 py-1 rounded text-neutral-100"
-                  title="Next error"
-                >
-                Go To
-                </button>
-              </div>
+              <span class="text-yellow-600 dark:text-yellow-400 font-medium text-xs">
+                Invalid cells found
+              </span>
             {/if}
           </div>
         {/if}

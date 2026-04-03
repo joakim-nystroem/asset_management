@@ -25,8 +25,8 @@ export const POST: RequestHandler = async ({ locals }) => {
         // TODO: Add status exclusion filter once statuses are cleaned up
         // e.g. .where('status_id', 'not in', [retiredId, brokenId])
         await sql`
-            INSERT INTO asset_audit (asset_id, audit_start_date, assigned_to, completed_at, result)
-            SELECT id, ${today}, NULL, NULL, NULL
+            INSERT INTO asset_audit (asset_id, audit_start_date)
+            SELECT id, ${today}
             FROM asset_inventory
         `.execute(db);
 

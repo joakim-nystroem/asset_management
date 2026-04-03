@@ -72,8 +72,8 @@ function createRealtimeManager() {
         send('AUDIT_ASSIGN', { assetIds, userId, auditorName });
     }
 
-    function sendAuditComplete(assetId: number, result: string, completedAt: string, userId: number) {
-        send('AUDIT_COMPLETE', { assetId, result, completedAt, userId });
+    function sendAuditComplete(assetId: number, resultId: number, completedAt: string, userId: number) {
+        send('AUDIT_COMPLETE', { assetId, resultId, completedAt, userId });
     }
 
     function sendAuditStart() {

@@ -7,6 +7,9 @@ export async function getAuditAssignments(userId: number) {
         .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
         .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
         .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id')
+        .leftJoin('current_audit as ca', 'ca.asset_id', 'aa.asset_id')
+        .where('aa.assigned_to', '=', userId)
+        .where('ca.asset_id', 'is', null)
         .select([
             'ai.id', 'ai.asset_type', 'ai.wbd_tag', 'ai.serial_number',
             'ai.manufacturer', 'ai.model', 'al.location_name as location',
@@ -14,10 +17,7 @@ export async function getAuditAssignments(userId: number) {
             'ai.bu_estate', 'ad.department_name as department', 'ai.shelf_cabinet_table',
             'ai.asset_set_type', 'ai.comment',
             'aa.audit_start_date',
-            'aa.result',
         ])
-        .where('aa.assigned_to', '=', userId)
-        .where('aa.completed_at', 'is', null)
         .orderBy('ai.id')
         .execute();
 }

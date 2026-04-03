@@ -1,7 +1,5 @@
 // Shared audit scroll factory
 
-import { auditUiStore } from '$lib/data/auditUiStore.svelte';
-
 export const ROW_HEIGHT = 36;
 const OVERSCAN = 10;
 
@@ -37,8 +35,6 @@ export function createAuditScroll() {
 
 	function handleWheel(e: WheelEvent) {
 		e.preventDefault();
-		auditUiStore.contextMenu.visible = false;
-		auditUiStore.cellDropdown.visible = false;
 		scrollTop = clamp(scrollTop + e.deltaY, 0, maxScroll);
 	}
 
@@ -85,6 +81,11 @@ export function createAuditScroll() {
 		if (!isAutoScrolling) {
 			resetAutoScroll();
 		}
+	});
+
+	// Clean up on component destroy
+	$effect(() => {
+		return () => resetAutoScroll();
 	});
 
 	return {

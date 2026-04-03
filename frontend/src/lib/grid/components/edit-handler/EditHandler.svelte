@@ -120,7 +120,7 @@
   $effect(() => {
     if (editingStore.isPasting) {
       untrack(() => editingStore.isPasting = false);
-      if (newRowStore.hasNewRows && selectionStore.selectionStart.row > 0) {
+      if (newRowStore.newRows.length > 0 && selectionStore.selectionStart.row > 0) {
         toastState.addToast('Commit or discard new rows before editing.', 'warning');
         return;
       }
@@ -307,6 +307,7 @@
   }
 
   function handleBlur() {
+    if (!editingStore.isEditing) return;
     if (editKey && isConstrained(editKey)) {
       if (isValidOption(editKey, editingStore.editValue.trim())) {
         saveEdit();
