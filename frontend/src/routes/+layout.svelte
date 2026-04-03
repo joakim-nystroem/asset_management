@@ -5,8 +5,19 @@
 
   import { realtime } from '$lib/utils/realtimeManager.svelte.js';
   import { connectionStore } from '$lib/data/connectionStore.svelte';
+  import { assetStore } from '$lib/data/assetStore.svelte';
   import ToastContainer from '$lib/toast/ToastContainer.svelte';
   let { children, data } = $props();
+
+  // Seed metadata once — available everywhere
+  // svelte-ignore state_referenced_locally
+  assetStore.locations = data.locations ?? [];
+  // svelte-ignore state_referenced_locally
+  assetStore.statuses = data.statuses ?? [];
+  // svelte-ignore state_referenced_locally
+  assetStore.conditions = data.conditions ?? [];
+  // svelte-ignore state_referenced_locally
+  assetStore.departments = data.departments ?? [];
   // svelte-ignore state_referenced_locally
   let darkMode = $state(data.theme === 'dark');
   let showUserMenu = $state(false);

@@ -43,9 +43,6 @@
 	let hasCycle = $derived(auditStore.cycle !== null);
 	let showProgress = $derived(hasCycle && !auditUiStore.viewingHistory);
 
-	$inspect(hasCycle, 'hasCycle');
-	$inspect(showProgress, 'showProgress');
-
 	// Reset displayedAssignments on tab navigation.
 	// All UI state (filters, search, sort, selection, panels) resets naturally via contexts + local component state.
 	$effect(() => {

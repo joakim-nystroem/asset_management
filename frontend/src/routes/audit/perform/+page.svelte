@@ -1,10 +1,12 @@
 <script lang="ts">
-    import type { PageProps } from './$types';
+	import { page } from '$app/state';
+	import PerformToolbar from '$lib/audit/components/perform-toolbar/PerformToolbar.svelte';
+	import PerformGrid from '$lib/audit/components/perform-grid/PerformGrid.svelte';
 
-    let { data }: PageProps = $props();
+	let userId = $derived(page.data.user.id as number);
 </script>
 
-<div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm p-6">
-    <h1 class="text-2xl font-bold text-neutral-800 dark:text-neutral-100 mb-2">Audit</h1>
-    <p class="text-neutral-500 dark:text-neutral-400">Perform audits and verify items — coming in Stage 3.</p>
+<div class="flex flex-col flex-1 min-h-0 gap-2">
+	<PerformToolbar {userId} />
+	<PerformGrid {userId} />
 </div>

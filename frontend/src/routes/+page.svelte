@@ -30,15 +30,6 @@
   assetStore.baseAssets = data.assets ?? [];
   // svelte-ignore state_referenced_locally
   assetStore.displayedAssets = data.searchResults ?? data.assets ?? [];
-  // svelte-ignore state_referenced_locally
-  assetStore.locations = data.locations ?? [];
-  // svelte-ignore state_referenced_locally
-  assetStore.statuses = data.statuses ?? [];
-  // svelte-ignore state_referenced_locally
-  assetStore.conditions = data.conditions ?? [];
-  // svelte-ignore state_referenced_locally
-  assetStore.departments = data.departments ?? [];
-
 
   // Seed query store from URL params (server-resolved)
   // svelte-ignore state_referenced_locally
