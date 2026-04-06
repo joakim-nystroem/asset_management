@@ -330,6 +330,9 @@
             <button onclick={() => applyZoom(2)} class="px-5 py-2.5 text-sm font-medium rounded-lg {currentZoom === 2 ? 'bg-blue-600 text-white' : 'bg-neutral-700 text-neutral-300'}">
                 x2
             </button>
+            <button onclick={() => applyZoom(5)} class="px-5 py-2.5 text-sm font-medium rounded-lg {currentZoom === 5 ? 'bg-blue-600 text-white' : 'bg-neutral-700 text-neutral-300'}">
+                x5
+            </button>
         </div>
     </div>
 {/if}
