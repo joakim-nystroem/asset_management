@@ -12,11 +12,11 @@
 	<div class="flex text-sm justify-between">
 		<div class="flex gap-2">
 			<span>
-				<span class="font-semibold text-amber-600 dark:text-amber-400">{progress.pending}</span><span class="text-neutral-500 dark:text-neutral-400">/{progress.total} pending</span>
+				<span class="font-semibold text-green-600 dark:text-green-400">{progress.completed}</span><span class="text-neutral-500 dark:text-neutral-400">/{progress.total} Completed</span>
 			</span>
 			<span class="text-neutral-500 dark:text-neutral-400">|</span>
 			<span>
-				<span class="font-semibold text-green-600 dark:text-green-400">{progress.completed}</span> <span class="text-neutral-500 dark:text-neutral-400">done</span>
+				<span class="font-semibold text-amber-600 dark:text-amber-400">{progress.pending}</span> <span class="text-neutral-500 dark:text-neutral-400">Pending</span>
 			</span>
 		</div>
 		<div>

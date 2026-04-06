@@ -67,7 +67,7 @@
     const text = editingStore.editValue;
     tabAnchor = text;
     filteredOptions = filterOptions(options, text, constrained);
-    selectedIndex = filteredOptions.length > 0 ? 0 : -1;
+    selectedIndex = (constrained && filteredOptions.length > 0) ? 0 : -1;
     scroll.setScroll(0, 0, 0, 0);
   }
 

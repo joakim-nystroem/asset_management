@@ -94,11 +94,7 @@
 	{#if hasCycle && totalAssigned > 0}
 		<div class="flex items-center gap-3 text-sm">
 			<span class="text-neutral-500 dark:text-neutral-400">
-				<span class="font-semibold text-amber-600 dark:text-amber-400">{pendingCount}</span> pending
-			</span>
-			<span class="text-neutral-300 dark:text-neutral-600">|</span>
-			<span class="text-neutral-500 dark:text-neutral-400">
-				<span class="font-semibold text-green-600 dark:text-green-400">{completedCount}</span> done
+				<span class="text-green-600 dark:text-green-400">{completedCount}</span> / {totalAssigned} Completed
 			</span>
 		</div>
 	{/if}

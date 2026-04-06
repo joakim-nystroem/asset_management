@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AuditAssignment } from '$lib/data/auditStore.svelte';
+	import { auditStore, type AuditAssignment } from '$lib/data/auditStore.svelte';
 	import { enqueue } from '$lib/eventQueue/eventQueue';
 	import { toastState } from '$lib/toast/toastState.svelte';
 	import { assetStore } from '$lib/data/assetStore.svelte';
@@ -88,7 +88,17 @@
 	let suggestVisible = $state(false);
 
 	let isConstrained = $derived(editField !== null && editField in constrainedFields);
-	let allOptions = $derived(editField && constrainedFields[editField] ? constrainedFields[editField] : []);
+	let allOptions = $derived.by(() => {
+		if (!editField) return [];
+		if (constrainedFields[editField]) return constrainedFields[editField];
+		// Free text: unique values from all assignments for this column
+		const unique = new Set<string>();
+		for (const a of auditStore.baseAssignments) {
+			const val = String((a as any)[editField] ?? '').trim();
+			if (val) unique.add(val);
+		}
+		return Array.from(unique).sort();
+	});
 
 	let filteredOptions = $state<string[]>([]);
 
@@ -104,7 +114,20 @@
 			}
 			selectedIndex = filteredOptions.length > 0 ? Math.max(0, filteredOptions.findIndex(o => o === editValue)) : -1;
 		} else {
-			filteredOptions = [];
+			if (!text || !text.trim()) {
+				filteredOptions = [];
+			} else {
+				const lower = text.toLowerCase().trim();
+				filteredOptions = allOptions
+					.filter(o => o.toLowerCase().includes(lower) && o.toLowerCase() !== lower)
+					.sort((a, b) => {
+						const aStarts = a.toLowerCase().startsWith(lower);
+						const bStarts = b.toLowerCase().startsWith(lower);
+						if (aStarts && !bStarts) return -1;
+						if (!aStarts && bStarts) return 1;
+						return a.localeCompare(b);
+					});
+			}
 			selectedIndex = -1;
 		}
 		scroll.setScroll(0, 0, 0, 0);
@@ -146,9 +169,23 @@
 			}
 			if (e.key === 'Tab') {
 				e.preventDefault();
-				const matches = tabAnchor
-					? allOptions.filter(o => o.toLowerCase().includes(tabAnchor.toLowerCase()))
+				suggestVisible = true;
+				updateSuggestPos();
+				const lower = tabAnchor ? tabAnchor.toLowerCase() : '';
+				let matches = lower
+					? allOptions.filter(o => o.toLowerCase().includes(lower))
 					: allOptions;
+				if (!isConstrained && lower) {
+					matches = matches
+						.filter(o => o.toLowerCase() !== lower)
+						.sort((a, b) => {
+							const aStarts = a.toLowerCase().startsWith(lower);
+							const bStarts = b.toLowerCase().startsWith(lower);
+							if (aStarts && !bStarts) return -1;
+							if (!aStarts && bStarts) return 1;
+							return a.localeCompare(b);
+						});
+				}
 				if (matches.length === 0) return;
 				const currentValue = filteredOptions[selectedIndex] ?? '';
 				const currentIdx = matches.indexOf(currentValue);
@@ -318,6 +355,7 @@
 
 <!-- Backdrop -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
+<!-- svelte-ignore a11y_click_events_have_key_events -->
 <div
 	class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40"
 	onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
@@ -399,6 +437,7 @@
 			<!-- EDIT VIEW -->
 			<div class="px-6 py-5 space-y-4">
 				<div class="relative">
+					<!-- svelte-ignore a11y_label_has_associated_control -->
 					<label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
 						{fieldGroups.flatMap(g => g.fields).find(f => f.key === editField)?.label ?? editField}
 					</label>
@@ -524,6 +563,7 @@
 				</div>
 
 				<div>
+					<!-- svelte-ignore a11y_label_has_associated_control -->
 					<label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Select Issue Type</label>
 					<div class="flex flex-col gap-1.5">
 						{#each auditIssues as issue}
@@ -540,6 +580,7 @@
 
 				{#if selectedIssue === 'Other'}
 					<div>
+						<!-- svelte-ignore a11y_label_has_associated_control -->
 						<label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Describe the issue</label>
 						<textarea
 							bind:value={issueComment}

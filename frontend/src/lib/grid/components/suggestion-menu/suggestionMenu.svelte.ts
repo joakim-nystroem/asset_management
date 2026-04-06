@@ -61,7 +61,15 @@ export function filterOptions(
 export function getTabMatches(allOptions: string[], tabAnchor: string): string[] {
   if (!tabAnchor) return allOptions;
   const lower = tabAnchor.toLowerCase();
-  return allOptions.filter(opt => opt.toLowerCase().includes(lower));
+  return allOptions
+    .filter(opt => opt.toLowerCase().includes(lower))
+    .sort((a, b) => {
+      const aStarts = a.toLowerCase().startsWith(lower);
+      const bStarts = b.toLowerCase().startsWith(lower);
+      if (aStarts && !bStarts) return -1;
+      if (!aStarts && bStarts) return 1;
+      return a.localeCompare(b);
+    });
 }
 
 /** Check if a value is in the full options list. */
