@@ -32,6 +32,12 @@
           uiStore.contextMenu.visible = false;
           return;
         }
+        const rowLock = presenceStore.rowLocks[String(row)];
+        if (rowLock) {
+          toastState.addToast(`Row is locked by ${rowLock.firstname} ${rowLock.lastname}`, 'warning');
+          uiStore.contextMenu.visible = false;
+          return;
+        }
         const lock = presenceStore.users.find(u => u.row === row && u.col === col && u.isLocked);
         if (lock) {
           toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');

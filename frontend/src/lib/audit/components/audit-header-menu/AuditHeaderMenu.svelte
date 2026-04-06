@@ -47,7 +47,7 @@
 	function toggleFilter(columnKey: string, value: string) {
 		let filterValue = value;
 		if (columnKey === 'status') {
-			filterValue = value === 'Done' ? 'completed' : 'pending';
+			filterValue = value === 'Completed' ? 'completed' : 'pending';
 		} else if (columnKey === 'assigned_to') {
 			const user = auditStore.users.find(u => `${u.lastname}, ${u.firstname}` === value);
 			if (user) filterValue = String(user.id);

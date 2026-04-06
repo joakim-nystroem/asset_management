@@ -3,6 +3,7 @@ package internal
 import (
 	"encoding/json"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -112,26 +113,65 @@ func (c *Client) handleSubscribe(payload interface{}) {
 		return
 	}
 
+	// Phase 1: Remove from old room under write lock, collect old room name
+	var oldRoom string
 	c.hub.mutex.Lock()
-	defer c.hub.mutex.Unlock()
-
-	// Remove from previous room if any
 	if c.room != "" && c.room != room {
+		oldRoom = c.room
 		if roomClients, ok := c.hub.rooms[c.room]; ok {
 			delete(roomClients, c)
 			if len(roomClients) == 0 {
 				delete(c.hub.rooms, c.room)
 			}
 		}
-		log.Printf("[Room] %s (%s %s) left room '%s'", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, c.room)
+		c.room = ""
+		log.Printf("[Room] %s (%s %s) left room '%s'", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, oldRoom)
+	}
+	c.hub.mutex.Unlock()
+
+	// Phase 2: Cleanup + broadcast to old room (no hub mutex held)
+	if oldRoom != "" {
+		c.hub.presence.Remove(c)
+
+		removedLocks := c.hub.cellLocks.RemoveAllForClient(c)
+		for _, lockKey := range removedLocks {
+			parts := strings.SplitN(lockKey, ":", 2)
+			if len(parts) == 2 {
+				c.hub.BroadcastToRoom(oldRoom, "CELL_UNLOCKED", map[string]interface{}{
+					"assetId": parts[0],
+					"key":     parts[1],
+				}, nil)
+			}
+		}
+
+		removedPending := c.hub.pendingCells.RemoveAllForClient(c)
+		if len(removedPending) > 0 {
+			cells := make([]map[string]interface{}, 0, len(removedPending))
+			for _, cellKey := range removedPending {
+				parts := strings.SplitN(cellKey, ":", 2)
+				if len(parts) == 2 {
+					cells = append(cells, map[string]interface{}{"assetId": parts[0], "key": parts[1]})
+				}
+			}
+			c.hub.BroadcastToRoom(oldRoom, "PENDING_CLEAR_BROADCAST", map[string]interface{}{"cells": cells}, nil)
+		}
+
+		removedRowLocks := c.hub.rowLocks.RemoveAllForClient(c)
+		for _, assetId := range removedRowLocks {
+			c.hub.BroadcastMessage("ROW_UNLOCKED", map[string]interface{}{"assetId": assetId}, nil)
+		}
+
+		c.hub.BroadcastToRoom(oldRoom, "USER_LEFT", map[string]interface{}{"clientId": c.userID}, nil)
 	}
 
-	// Add to new room
+	// Phase 3: Add to new room under write lock
+	c.hub.mutex.Lock()
 	if _, ok := c.hub.rooms[room]; !ok {
 		c.hub.rooms[room] = make(map[*Client]bool)
 	}
 	c.hub.rooms[room][c] = true
 	c.room = room
+	c.hub.mutex.Unlock()
 
 	log.Printf("[Room] %s (%s %s) joined room '%s'", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, room)
 }

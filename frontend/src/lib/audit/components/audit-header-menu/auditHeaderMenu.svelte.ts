@@ -19,7 +19,7 @@ export function getUniqueValues(
 		const hasPending = source.some(a => !a.completed_at);
 		const hasDone = source.some(a => a.completed_at);
 		if (hasPending) statuses.push('Pending');
-		if (hasDone) statuses.push('Done');
+		if (hasDone) statuses.push('Completed');
 		return statuses;
 	}
 	if (columnKey === 'assigned_to') {
@@ -40,7 +40,7 @@ export function getUniqueValues(
 export function isFilterActive(filters: AuditFilter[], columnKey: string, value: string): boolean {
 	let filterValue = value;
 	if (columnKey === 'status') {
-		filterValue = value === 'Done' ? 'completed' : 'pending';
+		filterValue = value === 'Completed' ? 'completed' : 'pending';
 	} else if (columnKey === 'assigned_to') {
 		const user = auditStore.users.find(u => `${u.lastname}, ${u.firstname}` === value);
 		if (user) filterValue = String(user.id);

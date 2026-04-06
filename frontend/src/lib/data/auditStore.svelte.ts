@@ -42,6 +42,7 @@ export interface AuditCycle {
 	started_at: string | Date;
 	closed_at: string | Date | null;
 	started_by: number;
+	closed_by: number | null;
 }
 
 export interface AuditProgress {

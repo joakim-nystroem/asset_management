@@ -1,6 +1,9 @@
-import { db } from '$lib/db/conn';
+import { db, type Database } from '$lib/db/conn';
+import type { Transaction } from 'kysely';
 
-export async function createAsset(row: any, username: string): Promise<number> {
+export async function createAsset(row: any, username: string, trx?: Transaction<Database>): Promise<number> {
+    const qb = trx ?? db;
+
     // Build the insert values object
     const values: any = {
         asset_type: row.asset_type || '',
@@ -21,47 +24,44 @@ export async function createAsset(row: any, username: string): Promise<number> {
 
     // Resolve FK for location
     if (row.location) {
-        values.location_id = db
+        values.location_id = qb
             .selectFrom('asset_locations')
             .select('id')
             .where('location_name', '=', row.location);
     } else {
-        // If no location provided, we need a default location_id
-        // Based on the schema, location_id is NOT NULL, so we need to handle this
-        // For now, we'll throw an error if location is missing
         throw new Error('Location is required');
     }
 
     // Resolve FK for status (default to status_id 2 if not provided)
     if (row.status) {
-        values.status_id = db
+        values.status_id = qb
             .selectFrom('asset_status')
             .select('id')
             .where('status_name', '=', row.status);
     } else {
-        values.status_id = 2; // Default from schema
+        values.status_id = 2;
     }
 
     // Resolve FK for condition (default to condition_id 2 if not provided)
     if (row.condition) {
-        values.condition_id = db
+        values.condition_id = qb
             .selectFrom('asset_condition')
             .select('id')
             .where('condition_name', '=', row.condition);
     } else {
-        values.condition_id = 2; // Default from schema
+        values.condition_id = 2;
     }
 
     // Resolve FK for department
     if (row.department) {
-        values.department_id = db
+        values.department_id = qb
             .selectFrom('asset_departments')
             .select('id')
             .where('department_name', '=', row.department);
     }
 
     // Insert the row
-    const result = await db
+    const result = await qb
         .insertInto('asset_inventory')
         .values(values)
         .executeTakeFirst();

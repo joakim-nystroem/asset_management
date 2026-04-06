@@ -42,6 +42,7 @@ export const POST: RequestHandler = async ({ locals }) => {
                     'result_id', 'result',
                     'location', 'node', 'asset_type', 'department', 'status', 'condition',
                     'manufacturer', 'model', 'serial_number', 'wbd_tag', 'shelf_cabinet_table',
+                    'bu_estate', 'asset_set_type', 'comment',
                 ])
                 .expression(
                     trx.selectFrom('current_audit')
@@ -50,6 +51,7 @@ export const POST: RequestHandler = async ({ locals }) => {
                             'result_id', 'result',
                             'location', 'node', 'asset_type', 'department', 'status', 'condition',
                             'manufacturer', 'model', 'serial_number', 'wbd_tag', 'shelf_cabinet_table',
+                            'bu_estate', 'asset_set_type', 'comment',
                         ])
                 )
                 .execute();

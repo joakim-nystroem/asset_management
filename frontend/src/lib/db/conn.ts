@@ -122,6 +122,9 @@ export interface CurrentAuditTable {
     serial_number: string | null;
     wbd_tag: string | null;
     shelf_cabinet_table: string | null;
+    bu_estate: string | null;
+    asset_set_type: string | null;
+    comment: string | null;
 }
 
 export interface AssetAuditHistoryTable {
@@ -143,6 +146,9 @@ export interface AssetAuditHistoryTable {
     serial_number: string | null;
     wbd_tag: string | null;
     shelf_cabinet_table: string | null;
+    bu_estate: string | null;
+    asset_set_type: string | null;
+    comment: string | null;
 }
 
 export interface AuditResultTable {

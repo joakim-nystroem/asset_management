@@ -100,6 +100,41 @@ export function computeLocalPendingOverlays(
   return overlays;
 }
 
+export function computeRowLockOverlays(
+  rowLocks: Record<string, { userId: number; firstname: string; lastname: string; color: string }>,
+  visibleRange: { startIndex: number; endIndex: number },
+  scrollTop: number,
+) {
+  const entries = Object.entries(rowLocks);
+  if (entries.length === 0) return [];
+
+  const assets = assetStore.displayedAssets;
+  const keys = Object.keys(assets[0] ?? {});
+  const { startIndex, endIndex } = visibleRange;
+  const rowHeight = DEFAULT_ROW_HEIGHT;
+
+  let totalWidth = 0;
+  for (const key of keys) totalWidth += getWidth(key);
+
+  const firstCellWidth = keys.length > 0 ? getWidth(keys[0]) : 0;
+  const overlays: { top: number; width: number; height: number; color: string; name: string; firstCellWidth: number }[] = [];
+
+  for (const [assetId, lock] of entries) {
+    const rowIdx = assets.findIndex((a: Record<string, any>) => a.id === Number(assetId));
+    if (rowIdx === -1 || rowIdx < startIndex || rowIdx >= endIndex) continue;
+
+    overlays.push({
+      top: rowIdx * rowHeight - scrollTop,
+      width: totalWidth,
+      height: rowHeight,
+      color: lock.color || '#6b7280',
+      name: `${lock.firstname || ''} ${lock.lastname || ''}`.trim(),
+      firstCellWidth,
+    });
+  }
+  return overlays;
+}
+
 export function computeRemotePendingOverlays(
   pendingCells: { assetId: number; key: string; color: string; firstname: string; lastname: string }[],
   visibleRange: { startIndex: number; endIndex: number },
@@ -134,3 +169,4 @@ export function computeRemotePendingOverlays(
   }
   return overlays;
 }
+

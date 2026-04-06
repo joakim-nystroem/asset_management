@@ -66,20 +66,20 @@ export async function queryAuditAssignments(
 			'ar.name as result_name',
 			sql<string>`CONCAT(au.lastname, ', ', au.firstname)`.as('auditor_name'),
 			'aa.asset_id as id',
-			sql<null>`NULL`.as('bu_estate'),
+			'ca.bu_estate',
 			'ca.department',
 			'ca.location',
 			'ca.shelf_cabinet_table',
 			'ca.node',
 			'ca.asset_type',
-			sql<null>`NULL`.as('asset_set_type'),
+			'ca.asset_set_type',
 			'ca.manufacturer',
 			'ca.model',
 			'ca.wbd_tag',
 			'ca.serial_number',
 			'ca.status',
 			'ca.condition',
-			sql<null>`NULL`.as('comment'),
+			'ca.comment',
 		]);
 
 	// Apply search to both queries
@@ -90,13 +90,10 @@ export async function queryAuditAssignments(
 			eb('al.location_name', 'like', like),
 			eb('ai.node', 'like', like),
 			eb('ai.asset_type', 'like', like),
-			eb('ai.serial_number', 'like', like),
 			eb('ai.wbd_tag', 'like', like),
-			eb('ai.manufacturer', 'like', like),
-			eb('ai.model', 'like', like),
-			eb('ad.department_name', 'like', like),
 			eb('au.firstname', 'like', like),
 			eb('au.lastname', 'like', like),
+			eb(sql`'pending'`, 'like', like),
 		]);
 		pendingQuery = pendingQuery.where(pendingSearchCondition);
 
@@ -104,13 +101,10 @@ export async function queryAuditAssignments(
 			eb('ca.location', 'like', like),
 			eb('ca.node', 'like', like),
 			eb('ca.asset_type', 'like', like),
-			eb('ca.serial_number', 'like', like),
 			eb('ca.wbd_tag', 'like', like),
-			eb('ca.manufacturer', 'like', like),
-			eb('ca.model', 'like', like),
-			eb('ca.department', 'like', like),
 			eb('au.firstname', 'like', like),
 			eb('au.lastname', 'like', like),
+			eb(sql`'completed'`, 'like', like),
 		]);
 		completedQuery = completedQuery.where(completedSearchCondition);
 	}

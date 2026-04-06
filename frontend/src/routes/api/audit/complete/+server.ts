@@ -33,13 +33,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             INSERT INTO current_audit (
                 asset_id, audit_start_date, assigned_to, completed_at, result_id,
                 location, node, asset_type, department, status, \`condition\`,
-                manufacturer, model, serial_number, wbd_tag, shelf_cabinet_table
+                manufacturer, model, serial_number, wbd_tag, shelf_cabinet_table,
+                bu_estate, asset_set_type, comment
             )
             SELECT
                 aa.asset_id, aa.audit_start_date, aa.assigned_to, ${completedAt}, ${resultId},
                 al.location_name, ai.node, ai.asset_type, ad.department_name,
                 ast.status_name, ac.condition_name,
-                ai.manufacturer, ai.model, ai.serial_number, ai.wbd_tag, ai.shelf_cabinet_table
+                ai.manufacturer, ai.model, ai.serial_number, ai.wbd_tag, ai.shelf_cabinet_table,
+                ai.bu_estate, ai.asset_set_type, ai.comment
             FROM asset_audit aa
             INNER JOIN asset_inventory ai ON ai.id = aa.asset_id
             LEFT JOIN asset_locations al ON ai.location_id = al.id
@@ -49,7 +51,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             WHERE aa.asset_id = ${assetId}
         `.execute(db);
 
-        return json({ success: true });
+        const countRow = await db.selectFrom('current_audit')
+            .select(db.fn.count('asset_id').as('count'))
+            .executeTakeFirst();
+
+        return json({ success: true, completedCount: Number(countRow?.count ?? 0) });
     } catch (error) {
         return json(
             {

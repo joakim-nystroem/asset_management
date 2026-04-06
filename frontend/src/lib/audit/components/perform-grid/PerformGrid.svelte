@@ -11,7 +11,7 @@
 
 	let hasCycle = $derived(auditStore.cycle !== null);
 	let displayed = $derived(
-		auditStore.baseAssignments.filter(a => a.assigned_to === userId && !a.completed_at)
+		auditStore.displayedAssignments.filter(a => a.assigned_to === userId && !a.completed_at)
 	);
 
 	$effect(() => {
@@ -57,6 +57,15 @@
 
 	// --- Detail panel ---
 	let selectedAssetId = $state<number | null>(null);
+
+	$effect(() => {
+		return () => {
+			if (selectedAssetId !== null) {
+				enqueue({ type: 'ROW_UNLOCK', payload: { assetId: selectedAssetId } });
+			}
+		};
+	});
+
 	let selectedAssignment = $derived(
 		selectedAssetId !== null
 			? displayed.find(a => a.asset_id === selectedAssetId) ?? null
@@ -132,7 +141,7 @@
 								{#if assignment.completed_at}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
 										<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-										Done
+										Completed
 									</span>
 								{:else}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">

@@ -464,7 +464,7 @@ func (h *Hub) cleanupClient(client *Client) {
 
 	removedRowLocks := h.rowLocks.RemoveAllForClient(client)
 	for _, assetId := range removedRowLocks {
-		h.BroadcastToRoom(client.room, "ROW_UNLOCKED", map[string]interface{}{
+		h.BroadcastMessage("ROW_UNLOCKED", map[string]interface{}{
 			"assetId": assetId,
 		}, nil)
 	}

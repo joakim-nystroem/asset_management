@@ -23,6 +23,9 @@ export async function queryAuditHistory(startDate: string) {
             'aah.serial_number',
             'aah.wbd_tag',
             'aah.shelf_cabinet_table',
+            'aah.bu_estate',
+            'aah.asset_set_type',
+            'aah.comment',
             'ar.name as result_name',
             sql<string>`CONCAT(u.lastname, ', ', u.firstname)`.as('auditor_name'),
         ])

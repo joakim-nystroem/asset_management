@@ -8,7 +8,7 @@
 	import ManageContextMenu from '$lib/audit/components/manage-context-menu/ManageContextMenu.svelte';
 	import ManageCellDropdown from '$lib/audit/components/manage-cell-dropdown/ManageCellDropdown.svelte';
 	import Checkbox from '$lib/utils/checkbox/Checkbox.svelte';
-	const VISIBLE_KEYS = ['location', 'node', 'asset_type', 'assigned_to', 'status'];
+	const VISIBLE_KEYS = ['location', 'node', 'asset_type', 'wbd_tag', 'assigned_to', 'status'];
 
 	const scroll = createManageScroll();
 
@@ -130,6 +130,7 @@
 							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'location', assignment.location || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 truncate text-neutral-700 dark:text-neutral-200">{assignment.location || ''}</div>
 							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'node', assignment.node || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 truncate text-neutral-600 dark:text-neutral-300">{assignment.node || ''}</div>
 							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'asset_type', assignment.asset_type || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 truncate text-neutral-700 dark:text-neutral-200">{assignment.asset_type || ''}</div>
+							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'wbd_tag', assignment.wbd_tag || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600 truncate text-neutral-600 dark:text-neutral-300">{assignment.wbd_tag || ''}</div>
 							<!-- svelte-ignore a11y_click_events_have_key_events -->
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
 							<div
@@ -155,7 +156,7 @@
 								{#if assignment.completed_at}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
 										<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-										Done
+										Completed
 									</span>
 								{:else}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">

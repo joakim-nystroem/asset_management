@@ -7,9 +7,21 @@
   import { toastState } from '$lib/toast/toastState.svelte';
 
   import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+  import { columnConstraints } from '$lib/grid/validation';
+
   function getCellError(key: string): string | null {
     const edit = pendingStore.edits.find(e => e.row === asset.id && e.col === key && !e.isValid);
     return edit?.validationError ?? null;
+  }
+
+  function isRequiredEmpty(key: string): boolean {
+    if (asset.id >= 0) return false;
+    const c = columnConstraints[key];
+    if (!c) return false;
+    if (c.type !== 'unique' && !('required' in c && c.required)) return false;
+    const pending = pendingStore.edits.find(e => e.row === asset.id && e.col === key);
+    const value = pending ? pending.value : String(asset[key] ?? '');
+    return !value.trim();
   }
 
   type Props = {
@@ -62,6 +74,11 @@
         toastState.addToast('ID column cannot be edited.', 'warning');
         return;
       }
+      const rowLock = presenceStore.rowLocks[String(asset.id)];
+      if (rowLock) {
+        toastState.addToast(`Row is locked by ${rowLock.firstname} ${rowLock.lastname}`, 'warning');
+        return;
+      }
       const lock = presenceStore.users.find(u => u.row === asset.id && u.col === key && u.isLocked);
       if (lock) {
         toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');
@@ -107,6 +124,12 @@
     }}
   >
     <span class="truncate w-full">{key === 'id' && asset[key] < -1000 ? `NEW-${Math.abs(asset[key]) - 1000}` : asset[key]}</span>
+    {#if isRequiredEmpty(key)}
+      <svg class="absolute right-1 top-1/2 -translate-y-1/2 w-2.5 h-2.5 pointer-events-none text-amber-600 dark:text-amber-500" viewBox="0 0 8 18" fill="none">
+        <line x1="4" y1="1" x2="4" y2="11" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="4" cy="16" r="1.5" fill="currentColor"/>
+      </svg>
+    {/if}
     {#if getCellError(key)}
       <div class="absolute top-full right-3 mt-1 z-[50] pointer-events-none opacity-0 group-hover/cell:opacity-100 transition-opacity whitespace-nowrap bg-red-600 text-white text-xs px-2 py-1 rounded shadow-lg">
         {getCellError(key)}

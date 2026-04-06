@@ -11,7 +11,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const rows = await request.json();
 
-    // Validate rows is an array
     if (!Array.isArray(rows)) {
         return json({ error: 'Invalid request: rows must be an array' }, { status: 400 });
     }
@@ -21,13 +20,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     }
 
     try {
-        const createdRows = [];
+        const createdRows = await db.transaction().execute(async (trx) => {
+            const results = [];
 
-        for (const row of rows) {
-            // Create the asset and get the inserted ID
-            const insertedId = await createAsset(row, locals.user.username);
-
-            // Log the creation for each field
             const fieldsToLog = [
                 'asset_type', 'manufacturer', 'model', 'serial_number', 'wbd_tag',
                 'asset_set_type', 'bu_estate', 'department', 'location', 'node',
@@ -35,40 +30,37 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                 'under_warranty_until', 'warranty_details'
             ];
 
-            for (const field of fieldsToLog) {
-                if (row[field] !== undefined && row[field] !== null && row[field] !== '') {
-                    await logChange(
-                        insertedId,
-                        field,
-                        null,
-                        String(row[field]),
-                        locals.user.username
-                    );
+            for (const row of rows) {
+                const insertedId = await createAsset(row, locals.user!.username, trx);
+
+                for (const field of fieldsToLog) {
+                    if (row[field] !== undefined && row[field] !== null && row[field] !== '') {
+                        await logChange(insertedId, field, null, String(row[field]), locals.user!.username, trx);
+                    }
                 }
+
+                const createdRow = await trx
+                    .selectFrom('asset_inventory as ai')
+                    .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
+                    .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
+                    .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
+                    .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id')
+                    .select([
+                        'ai.id', 'ai.bu_estate', 'ad.department_name as department', 'al.location_name as location',
+                        'ai.shelf_cabinet_table', 'ai.node', 'ai.asset_type', 'ai.asset_set_type',
+                        'ai.manufacturer', 'ai.model', 'ai.wbd_tag', 'ai.serial_number',
+                        'ast.status_name as status', 'ac.condition_name as condition',
+                        'ai.comment', 'ai.under_warranty_until', 'ai.warranty_details',
+                        'ai.modified', 'ai.modified_by'
+                    ])
+                    .where('ai.id', '=', insertedId)
+                    .executeTakeFirst();
+
+                if (createdRow) results.push(createdRow);
             }
 
-            // Fetch the created row with all joins to return it in the same format as searchAssets
-            const createdRow = await db
-                .selectFrom('asset_inventory as ai')
-                .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
-                .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
-                .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
-                .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id')
-                .select([
-                    'ai.id', 'ai.bu_estate', 'ad.department_name as department', 'al.location_name as location',
-                    'ai.shelf_cabinet_table', 'ai.node', 'ai.asset_type', 'ai.asset_set_type',
-                    'ai.manufacturer', 'ai.model', 'ai.wbd_tag', 'ai.serial_number',
-                    'ast.status_name as status', 'ac.condition_name as condition',
-                    'ai.comment', 'ai.under_warranty_until', 'ai.warranty_details',
-                    'ai.modified', 'ai.modified_by'
-                ])
-                .where('ai.id', '=', insertedId)
-                .executeTakeFirst();
-
-            if (createdRow) {
-                createdRows.push(createdRow);
-            }
-        }
+            return results;
+        });
 
         return json({ createdRows });
     } catch (error) {

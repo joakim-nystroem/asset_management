@@ -19,7 +19,18 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       .where('asset_id', 'in', assetIds)
       .execute();
 
-    return json({ success: true, updated: Number(result[0].numUpdatedRows) });
+    const updated = Number(result[0].numUpdatedRows);
+    const expected = assetIds.length;
+
+    if (updated !== expected) {
+      return json({
+        success: true,
+        updated,
+        warning: `${expected - updated} item(s) were not found in the audit scope`,
+      });
+    }
+
+    return json({ success: true, updated });
   } catch (error) {
     return json(
       { error: 'Failed to assign auditor', message: error instanceof Error ? error.message : 'Unknown error' },

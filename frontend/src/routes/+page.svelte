@@ -6,6 +6,12 @@
   import { urlStore } from '$lib/data/urlStore.svelte';
   import { realtime } from '$lib/utils/realtimeManager.svelte';
   import { connectionStore } from '$lib/data/connectionStore.svelte';
+  import { resetEditState } from '$lib/utils/gridHelpers';
+
+  // Reset selection/edit state when navigating away from grid
+  $effect(() => {
+    return () => resetEditState();
+  });
   import KeyboardHandler from '$lib/grid/components/keyboard-handler/KeyboardHandler.svelte';
   import Toolbar from '$lib/grid/components/toolbar/Toolbar.svelte';
   import GridContainer from '$lib/grid/components/grid-container/GridContainer.svelte';

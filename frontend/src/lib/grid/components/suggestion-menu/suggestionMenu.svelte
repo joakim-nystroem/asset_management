@@ -16,7 +16,7 @@
   // svelte-ignore state_referenced_locally
   let filteredOptions = $state<string[]>(constrained ? options : []);
   // svelte-ignore state_referenced_locally
-  let selectedIndex = $state(constrained ? Math.max(0, options.findIndex(opt => opt === editingStore.editValue)) : -1);
+  let selectedIndex = $state(-1);
   let tabAnchor = $state(editingStore.editValue);
 
   // --- Scroll state ---
@@ -67,7 +67,7 @@
     const text = editingStore.editValue;
     tabAnchor = text;
     filteredOptions = filterOptions(options, text, constrained);
-    selectedIndex = (constrained && filteredOptions.length > 0) ? 0 : -1;
+    selectedIndex = -1;
     scroll.setScroll(0, 0, 0, 0);
   }
 

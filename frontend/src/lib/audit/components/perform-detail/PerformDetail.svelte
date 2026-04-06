@@ -19,7 +19,6 @@
 	let view = $state<'detail' | 'edit' | 'confirm' | 'report'>('detail');
 	let editField = $state<string | null>(null);
 	let editValue = $state('');
-	let saving = $state(false);
 	let completing = $state(false);
 	let selectedIssue = $state('');
 	let issueComment = $state('');
@@ -112,7 +111,7 @@
 				const lower = text.toLowerCase().trim();
 				filteredOptions = allOptions.filter(o => o.toLowerCase().includes(lower));
 			}
-			selectedIndex = filteredOptions.length > 0 ? Math.max(0, filteredOptions.findIndex(o => o === editValue)) : -1;
+			selectedIndex = -1;
 		} else {
 			if (!text || !text.trim()) {
 				filteredOptions = [];
@@ -237,7 +236,7 @@
 		if (isConstrained) {
 			suggestVisible = true;
 			filteredOptions = allOptions;
-			selectedIndex = Math.max(0, allOptions.findIndex(o => o === editValue));
+			selectedIndex = -1;
 			tabAnchor = editValue;
 			scroll.setScroll(0, 0, 0, 0);
 			updateSuggestPos();
@@ -264,43 +263,29 @@
 		editField = null;
 	}
 
-	async function saveEdit() {
-		if (!editField || saving) return;
+	function saveEdit() {
+		if (!editField) return;
 		const trimmed = editValue.trim();
-		// Constrained fields: reject invalid values
 		if (isConstrained && !allOptions.includes(trimmed)) {
 			toastState.addToast('Select a valid option.', 'warning');
 			return;
 		}
-		saving = true;
 
-		try {
-			const response = await fetch('/api/update', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify([{
-					rowId: String(assignment.asset_id),
-					columnId: editField,
-					oldValue: (assignment as any)[editField] ?? null,
-					newValue: editValue,
-				}]),
-			});
+		enqueue({
+			type: 'COMMIT_UPDATE',
+			payload: {
+				changes: [{
+					row: assignment.asset_id,
+					col: editField,
+					value: trimmed,
+					original: (assignment as any)[editField] ?? '',
+				}],
+				user: { id: userId },
+			},
+		});
 
-			if (!response.ok) {
-				toastState.addToast('Failed to save.', 'error');
-				saving = false;
-				return;
-			}
-
-			// Update local assignment
-			(assignment as any)[editField] = editValue;
-			toastState.addToast('Saved.', 'success');
-			backToDetail();
-		} catch {
-			toastState.addToast('Failed to save.', 'error');
-		} finally {
-			saving = false;
-		}
+		(assignment as any)[editField] = trimmed;
+		backToDetail();
 	}
 
 	function openConfirm() {
@@ -514,9 +499,8 @@
 					>Cancel</button>
 					<button
 						onclick={saveEdit}
-						disabled={saving}
-						class="flex-1 py-2 px-4 rounded text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-					>{saving ? 'Saving...' : 'Save'}</button>
+						class="flex-1 py-2 px-4 rounded text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
+					>Save</button>
 				</div>
 			</div>
 

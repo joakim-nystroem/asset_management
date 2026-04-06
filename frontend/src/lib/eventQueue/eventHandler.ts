@@ -631,9 +631,12 @@ async function handleAuditComplete(payload: Record<string, any>): Promise<void> 
     const a = arr.find(a => a.asset_id === assetId);
     if (a) { a.completed_at = now; a.result_id = resultId; }
   }
-  updateProgressOnComplete(userId);
+  const completed = res.data.completedCount;
+  auditStore.progress = { total: auditStore.progress.total, completed, pending: auditStore.progress.total - completed };
   toastState.addToast('Audit completed.', 'success');
-  realtime.sendAuditComplete(assetId, resultId, now, userId);
+  realtime.sendAuditComplete(assetId, resultId, now, userId, res.data.completedCount);
+  const progressRes = await apiFetch('/api/audit/user-progress');
+  if (progressRes.success) auditStore.userProgress = progressRes.data;
 }
 
 async function handleAuditStart(payload: Record<string, any>): Promise<void> {
@@ -727,21 +730,29 @@ async function handleWsAuditAssign(payload: Record<string, any>): Promise<void> 
 }
 
 function handleWsAuditComplete(payload: Record<string, any>): void {
-  const { assetId, resultId, completedAt, userId } = payload;
+  const { assetId, resultId, completedAt, userId, completedCount } = payload;
   for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
     const a = arr.find(a => a.asset_id === assetId);
     if (a) { a.completed_at = completedAt; a.result_id = resultId; }
   }
-  updateProgressOnComplete(userId);
+  auditStore.progress = { total: auditStore.progress.total, completed: completedCount, pending: auditStore.progress.total - completedCount };
+  apiFetch('/api/audit/user-progress').then(res => {
+    if (res.success) auditStore.userProgress = res.data;
+  });
 }
 
 async function handleWsAuditStart(): Promise<void> {
-  const [cycleRes, statusRes, progressRes] = await Promise.all([
+  const [cycleRes, assignRes, statusRes, progressRes] = await Promise.all([
     apiFetch('/api/audit/cycle'),
+    apiFetch('/api/audit/assignments'),
     apiFetch('/api/audit/status'),
     apiFetch('/api/audit/user-progress'),
   ]);
   auditStore.cycle = cycleRes.success ? cycleRes.data.cycle : null;
+  if (assignRes.success) {
+    auditStore.baseAssignments = assignRes.data.assignments;
+    auditStore.displayedAssignments = assignRes.data.assignments;
+  }
   if (statusRes.success) auditStore.progress = statusRes.data;
   if (progressRes.success) auditStore.userProgress = progressRes.data;
 }
@@ -752,18 +763,6 @@ function handleWsAuditClose(): void {
   auditStore.cycle = null;
   auditStore.progress = { total: 0, pending: 0, completed: 0 };
   auditStore.userProgress = [];
-}
-
-function updateProgressOnComplete(userId: number): void {
-  const completed = auditStore.progress.completed + 1;
-  const pending = auditStore.progress.pending - 1;
-  auditStore.progress = { total: auditStore.progress.total, completed, pending };
-
-  const user = auditStore.userProgress.find(u => u.userId === userId);
-  if (user) {
-    user.completed++;
-    user.lastCompletedAt = new Date().toISOString();
-  }
 }
 
 // ─── Row Lock handlers ──────────────────────────────────────────────────────
