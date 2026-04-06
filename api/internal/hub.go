@@ -254,7 +254,7 @@ func (c *Client) handleClientState(payload interface{}) {
 						"lastname":  c.userInfo.Lastname,
 						"color":     c.userInfo.Color,
 					}
-					c.hub.BroadcastToRoom(c.room, "ROW_LOCKED", broadcastPayload, nil)
+					c.hub.BroadcastToRoom(c.room, "ROW_LOCKED", broadcastPayload, c)
 				} else {
 					existing := c.hub.rowLocks.GetAll()[assetId]
 					conflict := map[string]interface{}{

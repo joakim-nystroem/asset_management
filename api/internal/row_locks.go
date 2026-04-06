@@ -175,7 +175,7 @@ func (c *Client) handleRowLock(payload interface{}) {
 			"lastname":  c.userInfo.Lastname,
 			"color":     c.userInfo.Color,
 		}
-		c.hub.BroadcastMessage("ROW_LOCKED", broadcastPayload, nil)
+		c.hub.BroadcastMessage("ROW_LOCKED", broadcastPayload, c)
 	} else {
 		existing := c.hub.rowLocks.GetAll()[assetId]
 		if existing != nil {
@@ -214,6 +214,6 @@ func (c *Client) handleRowUnlock(payload interface{}) {
 		log.Printf("[RowLock] %s (%s %s) unlocked row %s", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, assetId)
 		c.hub.BroadcastMessage("ROW_UNLOCKED", map[string]interface{}{
 			"assetId": assetId,
-		}, nil)
+		}, c)
 	}
 }

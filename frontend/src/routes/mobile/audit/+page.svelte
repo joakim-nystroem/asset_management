@@ -2,41 +2,40 @@
     import type { PageData } from './$types';
     import { base } from '$app/paths';
     import { onDestroy } from 'svelte';
+    import { realtime } from '$lib/utils/realtimeManager.svelte';
+    import { connectionStore } from '$lib/data/connectionStore.svelte';
+    import { auditStore } from '$lib/data/auditStore.svelte';
+    import { presenceStore } from '$lib/data/presenceStore.svelte';
+    import { toastState } from '$lib/toast/toastState.svelte';
 
     let { data }: { data: PageData } = $props();
+
+    // Subscribe to audit WS room
+    $effect(() => {
+        if (connectionStore.status === 'connected') {
+            realtime.sendSubscribe('audit');
+        }
+    });
+
+    // Seed auditStore from server data
     // svelte-ignore state_referenced_locally
-    let assets = $state(data.assets);
-    let locations: string[] = $derived(data.locations);
-    let statuses: string[] = $derived(data.statuses);
-    let conditions: string[] = $derived(data.conditions);
+    auditStore.baseAssignments = data.assets;
+    // svelte-ignore state_referenced_locally
+    auditStore.displayedAssignments = data.assets;
+    // svelte-ignore state_referenced_locally
+    auditStore.users = data.users;
+    // svelte-ignore state_referenced_locally
+    auditStore.cycle = data.cycle;
+    // svelte-ignore state_referenced_locally
+    auditStore.progress = data.status ?? { total: 0, pending: 0, completed: 0 };
+    // svelte-ignore state_referenced_locally
+    auditStore.userProgress = data.userProgress;
+
     let user = $derived(data.user);
 
     // Search state
     let searchTerm = $state('');
     let searchInput = $state('');
-
-    // View state: 'list' | 'detail' | 'edit' | 'confirm' | 'report'
-    let view = $state<'list' | 'detail' | 'edit' | 'confirm' | 'report'>('list');
-    let selectedAsset = $state<Record<string, any> | null>(null);
-    let editField = $state<string | null>(null);
-    let editValue = $state<string>('');
-    let saving = $state(false);
-    let completing = $state(false);
-    let saveMessage = $state<{ type: 'success' | 'error'; text: string } | null>(null);
-    let selectedIssue = $state('');
-    let issueComment = $state('');
-
-    // Audit issue categories
-    const auditIssues = [
-        'Item missing',
-        'Item damaged',
-        'Location incorrect',
-        'Details incorrect',
-        'Needs replacement',
-        'Duplicate entry',
-        'Not in use',
-        'Other',
-    ];
 
     // Scanner state
     let html5QrCode: any = $state(null);
@@ -44,11 +43,15 @@
     const scannerId = "barcode-reader-audit";
     let currentZoom = $state(1);
 
-    // Filtered results
+    // Derive from auditStore
+    let myAssignments = $derived(
+        auditStore.displayedAssignments.filter(a => a.assigned_to === user?.id && !a.completed_at)
+    );
+
     let results = $derived.by(() => {
-        if (!searchTerm) return [...assets];
+        if (!searchTerm) return [...myAssignments];
         const q = searchTerm.toLowerCase();
-        return assets.filter((a: Record<string, any>) => {
+        return myAssignments.filter((a) => {
             return Object.values(a).some(v =>
                 v != null && String(v).toLowerCase().includes(q)
             );
@@ -82,185 +85,8 @@
     const totalHeight = $derived(results.length * rowHeight + 60);
     const offsetY = $derived(startIndex * rowHeight);
 
-    // Constrained fields
-    const constrainedFields: Record<string, string[]> = $derived({
-        location: locations,
-        status: statuses,
-        condition: conditions,
-    });
-
-    // Fields to display
-    const fieldLabels: Record<string, string> = {
-        id: 'ID',
-        wbd_tag: 'WBD Tag',
-        asset_type: 'Asset Type',
-        asset_set_type: 'Asset Set Type',
-        manufacturer: 'Manufacturer',
-        model: 'Model',
-        serial_number: 'Serial Number',
-        bu_estate: 'BU / Estate',
-        department: 'Department',
-        location: 'Location',
-        node: 'Node',
-        shelf_cabinet_table: 'Shelf / Cabinet / Table',
-        status: 'Status',
-        condition: 'Condition',
-        comment: 'Comment',
-        audit_start_date: 'Audit Cycle Start',
-        result: 'Audit Result',
-    };
-
-    const editableFields = [
-        'wbd_tag', 'asset_type', 'asset_set_type', 'manufacturer', 'model',
-        'serial_number', 'bu_estate', 'department', 'location', 'node',
-        'shelf_cabinet_table', 'status', 'condition', 'comment',
-    ];
-
     function executeSearch() {
         searchTerm = searchInput;
-    }
-
-    function openDetail(asset: Record<string, any>) {
-        selectedAsset = { ...asset };
-        view = 'detail';
-        saveMessage = null;
-    }
-
-    function openEdit(field: string) {
-        editField = field;
-        editValue = selectedAsset?.[field] ?? '';
-        view = 'edit';
-        saveMessage = null;
-    }
-
-    function openConfirm() {
-        view = 'confirm';
-        saveMessage = null;
-    }
-
-    function openReport() {
-        selectedIssue = '';
-        issueComment = '';
-        view = 'report';
-        saveMessage = null;
-    }
-
-    async function submitReport() {
-        if (!selectedAsset || !selectedIssue) return;
-        completing = true;
-        saveMessage = null;
-
-        const auditResult = selectedIssue === 'Other' && issueComment
-            ? `Issue: ${selectedIssue} - ${issueComment}`
-            : `Issue: ${selectedIssue}`;
-
-        try {
-            const response = await fetch(`${base}/api/audit/complete`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    assetId: selectedAsset.id,
-                    auditResult,
-                }),
-            });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Report submission failed');
-            }
-
-            assets = assets.filter((a: Record<string, any>) => a.id !== selectedAsset!.id);
-            saveMessage = { type: 'success', text: 'Issue reported successfully' };
-            setTimeout(() => backToList(), 1000);
-        } catch (err) {
-            saveMessage = { type: 'error', text: err instanceof Error ? err.message : 'Failed to report issue' };
-            view = 'detail';
-        } finally {
-            completing = false;
-        }
-    }
-
-    function backToList() {
-        selectedAsset = null;
-        editField = null;
-        view = 'list';
-        saveMessage = null;
-    }
-
-    function backToDetail() {
-        editField = null;
-        view = 'detail';
-        saveMessage = null;
-    }
-
-    async function saveEdit() {
-        if (!selectedAsset || !editField) return;
-        saving = true;
-        saveMessage = null;
-
-        try {
-            const response = await fetch(`${base}/api/update`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify([{
-                    rowId: String(selectedAsset.id),
-                    columnId: editField,
-                    oldValue: selectedAsset[editField] ?? null,
-                    newValue: editValue,
-                }]),
-            });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Update failed');
-            }
-
-            // Update local state
-            selectedAsset[editField] = editValue;
-            const idx = assets.findIndex((a: Record<string, any>) => a.id === selectedAsset!.id);
-            if (idx !== -1) {
-                assets[idx] = { ...assets[idx], [editField!]: editValue };
-            }
-
-            saveMessage = { type: 'success', text: 'Saved successfully' };
-            setTimeout(() => backToDetail(), 800);
-        } catch (err) {
-            saveMessage = { type: 'error', text: err instanceof Error ? err.message : 'Save failed' };
-        } finally {
-            saving = false;
-        }
-    }
-
-    async function completeAudit() {
-        if (!selectedAsset) return;
-        completing = true;
-        saveMessage = null;
-
-        try {
-            const response = await fetch(`${base}/api/audit/complete`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    assetId: selectedAsset.id,
-                    auditResult: 'Record is up-to-date and correct',
-                }),
-            });
-
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || 'Audit completion failed');
-            }
-
-            // Remove from list
-            assets = assets.filter((a: Record<string, any>) => a.id !== selectedAsset!.id);
-            saveMessage = { type: 'success', text: 'Audit completed successfully' };
-            setTimeout(() => backToList(), 1000);
-        } catch (err) {
-            saveMessage = { type: 'error', text: err instanceof Error ? err.message : 'Failed to complete audit' };
-            view = 'detail';
-        } finally {
-            completing = false;
-        }
     }
 
     // Scanner
@@ -278,11 +104,24 @@
 
         setTimeout(async () => {
             if (!document.getElementById(scannerId)) return;
-            html5QrCode = new Html5Qrcode(scannerId);
+            const { Html5QrcodeSupportedFormats } = await import('html5-qrcode');
+            html5QrCode = new Html5Qrcode(scannerId, {
+                verbose: false,
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.CODE_128,
+                    Html5QrcodeSupportedFormats.CODE_39,
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.ITF,
+                    Html5QrcodeSupportedFormats.CODE_93,
+                ],
+            });
             try {
                 await html5QrCode.start(
                     { facingMode: "environment" },
-                    { fps: 20, qrbox: { width: 280, height: 160 }, aspectRatio: 1.777778, disableFlip: true },
+                    { fps: 30, aspectRatio: 1.777778, disableFlip: true },
                     (decodedText: string) => {
                         searchInput = decodedText;
                         searchTerm = decodedText;
@@ -354,7 +193,7 @@
         </a>
     </div>
 
-{:else if view === 'list'}
+{:else}
     <!-- LIST VIEW -->
     <div class="flex flex-col gap-3 p-4 h-full">
         <div class="flex items-center gap-2 mb-1">
@@ -369,7 +208,7 @@
 
         <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3">
             <p class="text-sm font-medium text-green-800 dark:text-green-300">
-                {assets.length} asset{assets.length !== 1 ? 's' : ''} assigned to you for audit
+                {myAssignments.length} asset{myAssignments.length !== 1 ? 's' : ''} assigned to you for audit
             </p>
         </div>
 
@@ -397,7 +236,6 @@
             </div>
         </div>
 
-
         {#if results.length === 0}
             <div class="flex flex-col items-center justify-center py-12 text-neutral-500 dark:text-neutral-400">
                 <svg class="w-12 h-12 mb-3 text-neutral-300 dark:text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -410,11 +248,21 @@
             <div bind:this={container} class="flex-grow overflow-y-auto" onscroll={(e) => scrollTop = e.currentTarget.scrollTop}>
                 <div style="height: {totalHeight}px; position: relative;">
                     <div style="position: absolute; top: {offsetY}px; left: 0; right: 0; width: 100%;">
-                        {#each visibleItems as asset (asset.id)}
-                            <button
-                                onclick={() => openDetail(asset)}
-                                class="w-full text-left p-4 border rounded-lg shadow-sm bg-white dark:bg-neutral-800 dark:border-neutral-700 mb-2 active:bg-neutral-50 dark:active:bg-neutral-700 transition-colors"
-                                style="height: {rowHeight - 8}px;"
+                        {#each visibleItems as asset (asset.asset_id)}
+                            {@const lockKey = String(asset.asset_id)}
+                            {@const lock = presenceStore.rowLocks[lockKey]}
+                            <a
+                                href="/mobile/audit/{asset.asset_id}"
+                                onclick={(e) => {
+                                    if (lock) {
+                                        e.preventDefault();
+                                        toastState.addToast(`Locked by ${lock.firstname} ${lock.lastname}`, 'error');
+                                    }
+                                }}
+                                class="block w-full text-left p-4 border rounded-lg shadow-sm mb-2 transition-colors
+                                    {lock ? 'border-l-4' : 'bg-white dark:bg-neutral-800 dark:border-neutral-700 active:bg-neutral-50 dark:active:bg-neutral-700'}"
+                                style="{lock ? `background-color: ${lock.color}15; border-left-color: ${lock.color};` : ''}"
+                                style:height="{rowHeight - 8}px"
                             >
                                 <div class="flex justify-between items-start">
                                     <div class="min-w-0 flex-1">
@@ -426,260 +274,31 @@
                                                 Audit started: {formatDate(asset.audit_start_date)}
                                             </p>
                                         {/if}
+                                        {#if lock}
+                                            <div class="flex items-center gap-1 text-xs mt-1" style="color: {lock.color}">
+                                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                                                </svg>
+                                                <span>{lock.firstname} {lock.lastname}</span>
+                                            </div>
+                                        {/if}
                                     </div>
                                     <svg class="w-5 h-5 text-neutral-400 flex-shrink-0 ml-2 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                     </svg>
                                 </div>
-                            </button>
+                            </a>
                         {/each}
                     </div>
                 </div>
             </div>
         {/if}
     </div>
-
-{:else if view === 'detail' && selectedAsset}
-    <!-- DETAIL VIEW -->
-    <div class="flex flex-col gap-3 p-4 h-full">
-        <div class="flex items-center gap-2 mb-1">
-            <button onclick={backToList} class="flex items-center text-blue-600 dark:text-blue-400 font-medium text-sm">
-                <svg class="w-5 h-5 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-            </button>
-            <h1 class="text-xl font-bold flex-1 text-center pr-10">Audit Review</h1>
-        </div>
-
-        {#if saveMessage}
-            <div class="p-3 rounded-lg text-sm font-medium {saveMessage.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}">
-                {saveMessage.text}
-            </div>
-        {/if}
-
-        <!-- Action buttons at top -->
-        <div class="flex gap-3">
-            <button
-                onclick={openConfirm}
-                class="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 active:bg-green-800 text-sm"
-            >
-                Complete Audit
-            </button>
-            <button
-                onclick={openReport}
-                class="flex-1 py-3 px-4 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 active:bg-amber-700 text-sm"
-            >
-                Report Issue
-            </button>
-        </div>
-
-        <div class="flex-grow overflow-y-auto">
-            <div class="bg-white dark:bg-neutral-800 rounded-xl border dark:border-neutral-700 divide-y dark:divide-neutral-700">
-                {#each Object.entries(fieldLabels) as [key, label]}
-                    <div class="flex items-center justify-between px-4 py-3 gap-2">
-                        <div class="min-w-0 flex-1">
-                            <p class="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">{label}</p>
-                            <p class="text-sm mt-0.5 break-words">{selectedAsset[key] ?? '-'}</p>
-                        </div>
-                        {#if editableFields.includes(key)}
-                            <button
-                                onclick={() => openEdit(key)}
-                                class="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-md hover:bg-blue-100 dark:hover:bg-blue-900/50 active:bg-blue-200"
-                            >
-                                Edit
-                            </button>
-                        {/if}
-                    </div>
-                {/each}
-            </div>
-        </div>
-    </div>
-
-{:else if view === 'confirm' && selectedAsset}
-    <!-- CONFIRM AUDIT VIEW -->
-    <div class="flex flex-col items-center justify-center min-h-[60vh] px-4 gap-6">
-        <div class="w-20 h-20 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
-            <svg class="w-10 h-10 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        </div>
-
-        <div class="text-center">
-            <h2 class="text-xl font-bold text-neutral-800 dark:text-neutral-100 mb-2">Complete Audit?</h2>
-            <p class="text-neutral-600 dark:text-neutral-400">
-                Mark asset <span class="font-semibold">{selectedAsset.wbd_tag || selectedAsset.id}</span> as audited?
-            </p>
-            <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
-                All details are correct and up-to-date.
-            </p>
-        </div>
-
-        {#if saveMessage}
-            <div class="w-full max-w-sm p-3 rounded-lg text-sm font-medium {saveMessage.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}">
-                {saveMessage.text}
-            </div>
-        {/if}
-
-        <div class="flex gap-3 w-full max-w-sm">
-            <button
-                onclick={backToDetail}
-                disabled={completing}
-                class="flex-1 py-3 px-4 border border-neutral-300 dark:border-neutral-600 rounded-lg font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
-            >
-                Cancel
-            </button>
-            <button
-                onclick={completeAudit}
-                disabled={completing}
-                class="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 active:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                {completing ? 'Completing...' : 'Confirm'}
-            </button>
-        </div>
-    </div>
-
-{:else if view === 'report' && selectedAsset}
-    <!-- REPORT ISSUE VIEW -->
-    <div class="flex flex-col gap-4 p-4 h-full">
-        <div class="flex items-center gap-2 mb-1">
-            <button onclick={backToDetail} class="flex items-center text-blue-600 dark:text-blue-400 font-medium text-sm">
-                <svg class="w-5 h-5 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-            </button>
-            <h1 class="text-xl font-bold flex-1 text-center pr-10">Report Issue</h1>
-        </div>
-
-        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
-            <p class="text-sm font-medium text-amber-800 dark:text-amber-300">
-                Reporting issue for: <span class="font-bold">{selectedAsset.wbd_tag || selectedAsset.id}</span>
-            </p>
-        </div>
-
-        <div class="bg-white dark:bg-neutral-800 rounded-xl border dark:border-neutral-700 p-4">
-            <label class="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-3">
-                Select Issue Type
-            </label>
-            <div class="flex flex-col gap-2">
-                {#each auditIssues as issue}
-                    <button
-                        onclick={() => { selectedIssue = issue; }}
-                        class="w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-colors {selectedIssue === issue ? 'bg-amber-100 dark:bg-amber-900/40 border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-300' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-600'}"
-                    >
-                        {issue}
-                    </button>
-                {/each}
-            </div>
-
-            {#if selectedIssue === 'Other'}
-                <div class="mt-3">
-                    <label class="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
-                        Describe the issue
-                    </label>
-                    <textarea
-                        bind:value={issueComment}
-                        placeholder="Enter details..."
-                        class="w-full p-3 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-amber-500 text-base resize-none"
-                        rows="3"
-                    ></textarea>
-                </div>
-            {/if}
-        </div>
-
-        {#if saveMessage}
-            <div class="p-3 rounded-lg text-sm font-medium {saveMessage.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}">
-                {saveMessage.text}
-            </div>
-        {/if}
-
-        <div class="flex gap-3 mt-2">
-            <button
-                onclick={backToDetail}
-                class="flex-1 py-3 px-4 border border-neutral-300 dark:border-neutral-600 rounded-lg font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
-            >
-                Cancel
-            </button>
-            <button
-                onclick={submitReport}
-                disabled={!selectedIssue || completing}
-                class="flex-1 py-3 px-4 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                {completing ? 'Submitting...' : 'Submit Report'}
-            </button>
-        </div>
-    </div>
-
-{:else if view === 'edit' && selectedAsset && editField}
-    <!-- EDIT FIELD VIEW -->
-    <div class="flex flex-col gap-4 p-4 h-full">
-        <div class="flex items-center gap-2 mb-1">
-            <button onclick={backToDetail} class="flex items-center text-blue-600 dark:text-blue-400 font-medium text-sm">
-                <svg class="w-5 h-5 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                </svg>
-                Back
-            </button>
-            <h1 class="text-xl font-bold flex-1 text-center pr-10">Edit {fieldLabels[editField] || editField}</h1>
-        </div>
-
-        <div class="bg-white dark:bg-neutral-800 rounded-xl border dark:border-neutral-700 p-4">
-            <label class="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">
-                {fieldLabels[editField] || editField}
-            </label>
-
-            {#if constrainedFields[editField]}
-                <select
-                    bind:value={editValue}
-                    class="w-full p-3 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                >
-                    <option value="">-- Select --</option>
-                    {#each constrainedFields[editField] as option}
-                        <option value={option}>{option}</option>
-                    {/each}
-                </select>
-            {:else}
-                <input
-                    type="text"
-                    bind:value={editValue}
-                    class="w-full p-3 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-                />
-            {/if}
-
-            <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
-                Current value: <span class="font-medium">{selectedAsset[editField] ?? 'empty'}</span>
-            </p>
-        </div>
-
-        {#if saveMessage}
-            <div class="p-3 rounded-lg text-sm font-medium {saveMessage.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}">
-                {saveMessage.text}
-            </div>
-        {/if}
-
-        <div class="flex gap-3 mt-2">
-            <button
-                onclick={backToDetail}
-                class="flex-1 py-3 px-4 border border-neutral-300 dark:border-neutral-600 rounded-lg font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
-            >
-                Cancel
-            </button>
-            <button
-                onclick={saveEdit}
-                disabled={saving}
-                class="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                {saving ? 'Saving...' : 'Save'}
-            </button>
-        </div>
-    </div>
 {/if}
 
 {#if isScanning}
     <!-- FULL-SCREEN SCANNER OVERLAY -->
     <div class="fixed inset-0 z-50 bg-black flex flex-col">
-        <!-- Header bar -->
         <div class="flex items-center justify-between px-4 py-3 bg-black/80">
             <h2 class="text-white font-semibold text-lg">Scan Barcode</h2>
             <button
@@ -690,12 +309,9 @@
             </button>
         </div>
 
-        <!-- Camera feed -->
         <div class="flex-grow relative overflow-hidden">
             <div id={scannerId} class="w-full h-full"></div>
-            <!-- Red alignment bar -->
             <div class="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-red-500 opacity-80 pointer-events-none z-10"></div>
-            <!-- Corner guides -->
             <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-44 pointer-events-none z-10">
                 <div class="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-white/60 rounded-tl"></div>
                 <div class="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-white/60 rounded-tr"></div>
@@ -704,7 +320,6 @@
             </div>
         </div>
 
-        <!-- Zoom controls at bottom -->
         <div class="flex gap-3 justify-center px-4 py-4 bg-black/80">
             <button onclick={() => applyZoom(0.5)} class="px-5 py-2.5 text-sm font-medium rounded-lg {currentZoom === 0.5 ? 'bg-blue-600 text-white' : 'bg-neutral-700 text-neutral-300'}">
                 x0.5
