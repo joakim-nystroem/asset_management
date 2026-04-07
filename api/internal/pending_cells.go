@@ -214,7 +214,7 @@ func (c *Client) handleCommitBroadcast(payload interface{}) {
 		"userId":  c.userID,
 		"changes": changes,
 	}
-	c.hub.BroadcastMessage("COMMIT_BROADCAST", broadcastPayload, c)
+	c.hub.BroadcastToAllRooms("COMMIT_BROADCAST", broadcastPayload, c)
 
 	log.Printf("[Commit] %s broadcast %d changes", c.userInfo.Username, len(changes))
 }

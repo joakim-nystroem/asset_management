@@ -68,6 +68,13 @@ function createRealtimeManager() {
         send('SUBSCRIBE', { room });
     }
 
+    function sendUnsubscribe() {
+        if (currentRoom) {
+            send('UNSUBSCRIBE', {});
+            currentRoom = '';
+        }
+    }
+
     function sendAuditAssign(assetIds: number[], userId: number, auditorName: string) {
         send('AUDIT_ASSIGN', { assetIds, userId, auditorName });
     }
@@ -288,6 +295,7 @@ function createRealtimeManager() {
         sendPendingClearAll,
         sendCommitBroadcast,
         sendSubscribe,
+        sendUnsubscribe,
         sendAuditAssign,
         sendAuditComplete,
         sendAuditStart,

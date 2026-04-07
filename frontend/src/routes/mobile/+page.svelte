@@ -1,3 +1,15 @@
+<script lang="ts">
+    import { realtime } from '$lib/utils/realtimeManager.svelte';
+    import { connectionStore } from '$lib/data/connectionStore.svelte';
+
+    // Leave any room when on the mobile landing page
+    $effect(() => {
+        if (connectionStore.status === 'connected') {
+            realtime.sendUnsubscribe();
+        }
+    });
+</script>
+
 <div class="flex flex-col items-center justify-center min-h-[70vh] px-4 gap-6">
     <h1 class="text-2xl font-bold text-neutral-800 dark:text-neutral-100 mb-2">Asset Master Mobile</h1>
 

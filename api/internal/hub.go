@@ -464,7 +464,7 @@ func (h *Hub) cleanupClient(client *Client) {
 
 	removedRowLocks := h.rowLocks.RemoveAllForClient(client)
 	for _, assetId := range removedRowLocks {
-		h.BroadcastMessage("ROW_UNLOCKED", map[string]interface{}{
+		h.BroadcastToAllRooms("ROW_UNLOCKED", map[string]interface{}{
 			"assetId": assetId,
 		}, nil)
 	}
@@ -522,6 +522,41 @@ func (h *Hub) BroadcastToRoom(room string, msgType string, data interface{}, sen
 		case client.send <- jsonMsg:
 		default:
 			log.Printf("User %s send buffer full in room '%s', skipping message", client.userInfo.Username, room)
+		}
+	}
+}
+
+// BroadcastToAllRooms sends a message to all clients that are in any room, excluding the sender
+func (h *Hub) BroadcastToAllRooms(msgType string, data interface{}, sender *Client) {
+	msg := Message{
+		Type:    msgType,
+		Payload: data,
+	}
+
+	jsonMsg, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("JSON Marshal error: %v", err)
+		return
+	}
+
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+
+	sent := make(map[*Client]bool)
+	for _, roomClients := range h.rooms {
+		for client := range roomClients {
+			if sender != nil && client == sender {
+				continue
+			}
+			if sent[client] {
+				continue
+			}
+			sent[client] = true
+			select {
+			case client.send <- jsonMsg:
+			default:
+				log.Printf("User %s send buffer full in BroadcastToAllRooms, skipping message", client.userInfo.Username)
+			}
 		}
 	}
 }

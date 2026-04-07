@@ -84,6 +84,8 @@ func (c *Client) readPump() {
 			c.handleClientState(msg.Payload)
 		case "SUBSCRIBE":
 			c.handleSubscribe(msg.Payload)
+		case "UNSUBSCRIBE":
+			c.handleUnsubscribe()
 		case "AUDIT_ASSIGN":
 			c.hub.BroadcastToRoom(c.room, "AUDIT_ASSIGN_BROADCAST", msg.Payload, c)
 		case "AUDIT_COMPLETE":
@@ -158,7 +160,7 @@ func (c *Client) handleSubscribe(payload interface{}) {
 
 		removedRowLocks := c.hub.rowLocks.RemoveAllForClient(c)
 		for _, assetId := range removedRowLocks {
-			c.hub.BroadcastMessage("ROW_UNLOCKED", map[string]interface{}{"assetId": assetId}, nil)
+			c.hub.BroadcastToAllRooms("ROW_UNLOCKED", map[string]interface{}{"assetId": assetId}, nil)
 		}
 
 		c.hub.BroadcastToRoom(oldRoom, "USER_LEFT", map[string]interface{}{"clientId": c.userID}, nil)
@@ -174,6 +176,57 @@ func (c *Client) handleSubscribe(payload interface{}) {
 	c.hub.mutex.Unlock()
 
 	log.Printf("[Room] %s (%s %s) joined room '%s'", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, room)
+}
+
+func (c *Client) handleUnsubscribe() {
+	var oldRoom string
+	c.hub.mutex.Lock()
+	if c.room != "" {
+		oldRoom = c.room
+		if roomClients, ok := c.hub.rooms[c.room]; ok {
+			delete(roomClients, c)
+			if len(roomClients) == 0 {
+				delete(c.hub.rooms, c.room)
+			}
+		}
+		c.room = ""
+		log.Printf("[Room] %s (%s %s) left room '%s'", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, oldRoom)
+	}
+	c.hub.mutex.Unlock()
+
+	if oldRoom != "" {
+		c.hub.presence.Remove(c)
+
+		removedLocks := c.hub.cellLocks.RemoveAllForClient(c)
+		for _, lockKey := range removedLocks {
+			parts := strings.SplitN(lockKey, ":", 2)
+			if len(parts) == 2 {
+				c.hub.BroadcastToRoom(oldRoom, "CELL_UNLOCKED", map[string]interface{}{
+					"assetId": parts[0],
+					"key":     parts[1],
+				}, nil)
+			}
+		}
+
+		removedPending := c.hub.pendingCells.RemoveAllForClient(c)
+		if len(removedPending) > 0 {
+			cells := make([]map[string]interface{}, 0, len(removedPending))
+			for _, cellKey := range removedPending {
+				parts := strings.SplitN(cellKey, ":", 2)
+				if len(parts) == 2 {
+					cells = append(cells, map[string]interface{}{"assetId": parts[0], "key": parts[1]})
+				}
+			}
+			c.hub.BroadcastToRoom(oldRoom, "PENDING_CLEAR_BROADCAST", map[string]interface{}{"cells": cells}, nil)
+		}
+
+		removedRowLocks := c.hub.rowLocks.RemoveAllForClient(c)
+		for _, assetId := range removedRowLocks {
+			c.hub.BroadcastToAllRooms("ROW_UNLOCKED", map[string]interface{}{"assetId": assetId}, nil)
+		}
+
+		c.hub.BroadcastToRoom(oldRoom, "USER_LEFT", map[string]interface{}{"clientId": c.userID}, nil)
+	}
 }
 
 func (c *Client) writePump() {

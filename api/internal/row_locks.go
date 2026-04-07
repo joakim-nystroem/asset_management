@@ -134,7 +134,7 @@ func (c *Client) handleRowLock(payload interface{}) {
 		if lockInfo.Client == c && existingAssetId != assetId {
 			if c.hub.rowLocks.Unlock(existingAssetId, c) {
 				log.Printf("[RowLock] %s released previous row lock %s", c.userInfo.Username, existingAssetId)
-				c.hub.BroadcastMessage("ROW_UNLOCKED", map[string]interface{}{
+				c.hub.BroadcastToAllRooms("ROW_UNLOCKED", map[string]interface{}{
 					"assetId": existingAssetId,
 				}, nil)
 			}
@@ -175,7 +175,7 @@ func (c *Client) handleRowLock(payload interface{}) {
 			"lastname":  c.userInfo.Lastname,
 			"color":     c.userInfo.Color,
 		}
-		c.hub.BroadcastMessage("ROW_LOCKED", broadcastPayload, c)
+		c.hub.BroadcastToAllRooms("ROW_LOCKED", broadcastPayload, c)
 	} else {
 		existing := c.hub.rowLocks.GetAll()[assetId]
 		if existing != nil {
@@ -212,7 +212,7 @@ func (c *Client) handleRowUnlock(payload interface{}) {
 
 	if c.hub.rowLocks.Unlock(assetId, c) {
 		log.Printf("[RowLock] %s (%s %s) unlocked row %s", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, assetId)
-		c.hub.BroadcastMessage("ROW_UNLOCKED", map[string]interface{}{
+		c.hub.BroadcastToAllRooms("ROW_UNLOCKED", map[string]interface{}{
 			"assetId": assetId,
 		}, c)
 	}
