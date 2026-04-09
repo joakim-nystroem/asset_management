@@ -221,7 +221,7 @@
     </div>
   </header>
   
-  <div class="flex-grow">
+  <div class="grow">
     {@render children?.()}
   </div>
 </div>
