@@ -1,3 +1,142 @@
 @import 'tailwindcss';
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+@utility text-shadow-warm {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+}
+
+@theme {
+  /* Buttons */
+  --color-btn-primary: var(--btn-primary);
+  --color-btn-primary-hover: var(--btn-primary-hover);
+  --color-btn-danger: var(--btn-danger);
+  --color-btn-danger-hover: var(--btn-danger-hover);
+  --color-btn-success: var(--btn-success);
+  --color-btn-success-hover: var(--btn-success-hover);
+  --color-btn-warning: var(--btn-warning);
+  --color-btn-warning-hover: var(--btn-warning-hover);
+  --color-btn-neutral: var(--btn-neutral);
+  --color-btn-neutral-hover: var(--btn-neutral-hover);
+
+  /* Grid cell states */
+  --color-cell-valid: var(--cell-valid);
+  --color-cell-valid-border: var(--cell-valid-border);
+  --color-cell-invalid: var(--cell-invalid);
+  --color-cell-invalid-border: var(--cell-invalid-border);
+  --color-cell-copy-border: var(--cell-copy-border);
+  --color-cell-paste-border: var(--cell-paste-border);
+
+  /* Text */
+  --color-text-primary: var(--txt-primary);
+  --color-text-secondary: var(--txt-secondary);
+  --color-text-muted: var(--txt-muted);
+  --color-text-accent: var(--txt-accent);
+  --color-text-completed: var(--txt-completed);
+  --color-text-warning: var(--txt-warning);
+  --color-text-danger: var(--txt-danger);
+  --color-text-danger-hover: var(--txt-danger-hover);
+
+  /* Backgrounds */
+  --color-bg-page: var(--bg-page);
+  --color-bg-card: var(--bg-card);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-input: var(--bg-input);
+  --color-bg-header: var(--bg-header);
+
+  /* Background hovers */
+  --color-bg-hover-menu: var(--bg-hover-menu);
+  --color-bg-hover-item: var(--bg-hover-item);
+  --color-bg-hover-row: var(--bg-hover-row);
+  --color-bg-hover-cell: var(--bg-hover-cell);
+
+  /* Borders */
+  --color-border: var(--bdr);
+  --color-border-strong: var(--bdr-strong);
+}
+
+:root {
+  --btn-primary: var(--color-blue-500);
+  --btn-primary-hover: var(--color-blue-600);
+  --btn-danger: var(--color-red-500);
+  --btn-danger-hover: var(--color-red-600);
+  --btn-success: var(--color-green-500);
+  --btn-success-hover: var(--color-green-600);
+  --btn-warning: var(--color-amber-500);
+  --btn-warning-hover: var(--color-amber-600);
+  --btn-neutral: var(--color-neutral-500);
+  --btn-neutral-hover: var(--color-neutral-600);
+
+  --cell-valid: var(--color-green-400);
+  --cell-valid-border: var(--color-green-400);
+  --cell-invalid: var(--color-yellow-400);
+  --cell-invalid-border: var(--color-yellow-500);
+  --cell-copy-border: var(--color-blue-600);
+  --cell-paste-border: var(--color-green-500);
+
+  --txt-primary: var(--color-neutral-900);
+  --txt-secondary: var(--color-neutral-700);
+  --txt-muted: var(--color-neutral-500);
+  --txt-accent: var(--color-blue-600);
+  --txt-completed: var(--color-green-600);
+  --txt-warning: var(--color-amber-600);
+  --txt-danger: var(--color-red-600);
+  --txt-danger-hover: var(--color-red-700);
+
+  --bg-page: var(--color-neutral-100);
+  --bg-card: var(--color-white);
+  --bg-elevated: var(--color-white);
+  --bg-input: var(--color-white);
+  --bg-header: var(--color-neutral-50);
+
+  --bg-hover-menu: var(--color-blue-50);
+  --bg-hover-item: var(--color-neutral-100);
+  --bg-hover-row: var(--color-neutral-50);
+  --bg-hover-cell: var(--color-blue-100);
+
+  --bdr: var(--color-neutral-200);
+  --bdr-strong: var(--color-neutral-300);
+}
+
+.dark {
+  --btn-primary: var(--color-blue-500);
+  --btn-primary-hover: var(--color-blue-600);
+  --btn-danger: var(--color-red-500);
+  --btn-danger-hover: var(--color-red-600);
+  --btn-success: var(--color-green-500);
+  --btn-success-hover: var(--color-green-600);
+  --btn-warning: var(--color-amber-500);
+  --btn-warning-hover: var(--color-amber-600);
+  --btn-neutral: var(--color-neutral-500);
+  --btn-neutral-hover: var(--color-neutral-600);
+
+  --cell-valid: var(--color-green-400);
+  --cell-valid-border: var(--color-green-600);
+  --cell-invalid: var(--color-yellow-400);
+  --cell-invalid-border: var(--color-yellow-600);
+  --cell-copy-border: var(--color-blue-500);
+  --cell-paste-border: var(--color-green-400);
+
+  --txt-primary: var(--color-neutral-100);
+  --txt-secondary: var(--color-neutral-300);
+  --txt-muted: var(--color-neutral-400);
+  --txt-accent: var(--color-blue-400);
+  --txt-completed: var(--color-green-400);
+  --txt-warning: var(--color-amber-400);
+  --txt-danger: var(--color-red-400);
+  --txt-danger-hover: var(--color-red-300);
+
+  --bg-page: var(--color-slate-600);
+  --bg-card: var(--color-slate-800);
+  --bg-elevated: var(--color-slate-700);
+  --bg-input: var(--color-slate-700);
+  --bg-header: var(--color-slate-700);
+
+  --bg-hover-menu: var(--color-slate-700);
+  --bg-hover-item: var(--color-slate-600);
+  --bg-hover-row: color-mix(in srgb, var(--color-slate-700) 30%, transparent);
+  --bg-hover-cell: var(--color-slate-600);
+
+  --bdr: var(--color-slate-700);
+  --bdr-strong: var(--color-slate-600);
+}

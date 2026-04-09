@@ -52,25 +52,6 @@ func (clm *CellLockManager) Lock(lockKey string, client *Client, assetID, key st
 	return true
 }
 
-func (clm *CellLockManager) Unlock(lockKey string, client *Client) bool {
-	clm.mutex.Lock()
-	defer clm.mutex.Unlock()
-
-	existing, ok := clm.locks[lockKey]
-	if !ok || existing.Client != client {
-		return false
-	}
-
-	delete(clm.locks, lockKey)
-	if userSet, ok := clm.userLocks[client]; ok {
-		delete(userSet, lockKey)
-		if len(userSet) == 0 {
-			delete(clm.userLocks, client)
-		}
-	}
-	return true
-}
-
 // RemoveAllForClient removes all locks for a client and returns the lock keys that were removed
 func (clm *CellLockManager) RemoveAllForClient(client *Client) []string {
 	clm.mutex.Lock()

@@ -1,11 +1,12 @@
 <script lang="ts">
   import type { PageProps } from './$types';
   import { tick } from 'svelte';
+  import { toastState } from '$lib/toast/toastState.svelte';
 
   let { data }: PageProps = $props();
 
   let pathname = $derived(data.fullPathname.split('/').slice(-1)[0]);
-  
+
   function getDynamicPropertyName(pathname: string): string {
 
     if (pathname === 'status') return 'status_name';
@@ -22,8 +23,9 @@
 
   let editingId = $state<number | null>(null);
   let editValue = $state('');
+  let deletingItem = $state<any | null>(null);
   let textareaRef = $state<HTMLTextAreaElement | null>(null);
-  
+
 
   async function refetchData() {
     try {
@@ -39,6 +41,7 @@
 
   async function startEdit(item: any) {
     editingId = item.id;
+    deletingItem = null;
     editValue = getDynamicName(item, pathname);
     await tick();
     textareaRef?.focus();
@@ -66,32 +69,48 @@
 
       if (res.ok) {
         await refetchData();
+      } else {
+        const data = await res.json();
+        toastState.addToast(data.error || 'Failed to save', 'error');
       }
     } catch (error) {
-      console.error('Error saving:', error);
+      toastState.addToast('Failed to save', 'error');
     } finally {
       cancelEdit();
     }
   }
 
-  async function deleteItem(item: any) {
-    if (!confirm(`Are you sure you want to delete "${getDynamicName(item, pathname)}"?`)) {
-      return;
-    }
+  
 
+  function confirmDelete(item: any) {
+    deletingItem = item;
+    editingId = null;
+  }
+
+  function cancelDelete() {
+    deletingItem = null;
+  }
+
+  async function deleteItem() {
+    if (!deletingItem) return;
     try {
       const propName = getDynamicPropertyName(pathname);
       const res = await fetch(`/api/delete/${pathname}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, [propName]: getDynamicName(item, pathname) }),
+        body: JSON.stringify({ id: deletingItem.id, [propName]: getDynamicName(deletingItem, pathname) }),
       });
 
       if (res.ok) {
         await refetchData();
+      } else {
+        const data = await res.json();
+        toastState.addToast(data.error || 'Failed to remove', 'error');
       }
     } catch (error) {
-      console.error('Error deleting:', error);
+      toastState.addToast('Failed to remove', 'error');
+    } finally {
+      deletingItem = null;
     }
   }
 
@@ -121,9 +140,12 @@
       if (res.ok) {
         newItemName = '';
         await refetchData();
+      } else {
+        const data = await res.json();
+        toastState.addToast(data.error || 'Failed to create item', 'error');
       }
     } catch (error) {
-      console.error('Error creating item:', error);
+      toastState.addToast('Failed to create item', 'error');
     }
   }
 
@@ -132,74 +154,86 @@
   });
 </script>
 
-<div class="px-2 h-full flex flex-col gap-4">
+<div class="h-full flex flex-col gap-3">
 
-  <!-- Page header + create form -->
-  <div class="flex items-center justify-between gap-4">
-    <h1 class="text-2xl font-bold text-neutral-800 dark:text-neutral-100 capitalize">{data.title} Management</h1>
-  </div>
+  <!-- Page header -->
+  <h1 class="text-lg font-semibold text-text-primary capitalize">{data.title}</h1>
 
-  <!-- Create new item card -->
-  <div class="bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm px-4 py-3 flex items-center gap-3">
-    <input
-      type="text"
-      bind:value={newItemName}
-      onkeydown={(e) => { if (e.key === 'Enter') createItem() }}
-      placeholder="New item name…"
-      class="flex-1 rounded-lg border border-neutral-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-neutral-800 dark:text-neutral-400 placeholder-neutral-400! dark:placeholder-neutral-400! px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-    />
-    <button
-      onclick={createItem}
-      class="px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white transition-colors cursor-pointer"
-    >
-      Create
-    </button>
-  </div>
-
-  <!-- Items list -->
-  <div class="h-full bg-white dark:bg-slate-800 rounded-xl border border-neutral-200 dark:border-slate-700 shadow-sm overflow-hidden overflow-auto">
-    <!-- Header -->
-    <div class="flex items-center px-4 py-2 border-b border-neutral-200 dark:border-slate-700 bg-neutral-50 dark:bg-slate-700/50 text-xs font-semibold text-neutral-600 dark:text-neutral-300 uppercase tracking-wide">
-      <div class="w-16 flex-shrink-0">ID</div>
-      <div class="flex-1 min-w-0">Name</div>
-      <div class="w-32 flex-shrink-0 text-right">Actions</div>
+  <!-- Items table -->
+  <div class="flex-1 min-h-0 bg-bg-card rounded-sm border border-border shadow-sm overflow-hidden flex flex-col">
+    <!-- Header with inline create -->
+    <div class="flex items-center px-4 py-2 border-b border-border bg-bg-header">
+      <div class="flex items-center gap-2 flex-1">
+        <input
+          type="text"
+          bind:value={newItemName}
+          onkeydown={(e) => { if (e.key === 'Enter') createItem() }}
+          placeholder="New name..."
+          class="w-64 rounded-sm bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pl-2 border border-border-strong dark:border-none focus:outline-none"
+        />
+        <button
+          onclick={createItem}
+          class="px-3 py-1.5 rounded-sm text-sm font-medium bg-btn-primary hover:bg-btn-primary-hover text-white text-shadow-warm cursor-pointer"
+        >
+          Add
+        </button>
+      </div>
+      <span class="text-xs text-text-muted">{pageItems.length} items</span>
     </div>
 
     <!-- Rows -->
-    <div class="overflow-y-auto" style="max-height: calc(100dvh - 17rem)">
+    <div class="overflow-y-auto max-h-[calc(100dvh-11.5rem)]">
       {#each pageItems as item}
-        <div class="flex items-center px-4 py-3 border-b border-neutral-100 dark:border-slate-700 hover:bg-neutral-50 dark:hover:bg-slate-700/30 transition-colors text-sm">
-          <div class="w-16 flex-shrink-0 text-neutral-500 dark:text-neutral-400 font-mono text-xs">{item.id}</div>
-          <div class="flex-1 min-w-0 text-neutral-700 dark:text-neutral-300">
+        <div class="flex items-center px-4 py-2.5 border-b border-border hover:bg-bg-hover-row text-sm">
+          <div class="w-14 flex-shrink-0 text-text-muted font-mono text-xs">{item.id}</div>
+          <div class="flex-1 min-w-0 text-text-secondary">
             {#if editingId === item.id}
               <textarea
                 bind:this={textareaRef}
                 bind:value={editValue}
                 onkeydown={handleKeydown}
                 onblur={saveEdit}
-                class="w-full h-9 resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 border-2 border-blue-500 rounded-lg px-2 py-1 text-sm focus:outline-none"
+                class="w-full h-8 resize-none bg-bg-input text-text-primary border border-blue-500 rounded-sm px-2 py-1 text-sm focus:outline-none"
               ></textarea>
             {:else}
               <span class="truncate block">{getDynamicName(item, pathname)}</span>
             {/if}
           </div>
-          <div class="w-32 flex-shrink-0 flex items-center justify-end gap-1.5">
+          <div class="flex gap-4">
             {#if editingId === item.id}
-              <button onclick={saveEdit} class="px-2.5 py-1 rounded-md text-xs font-semibold bg-green-600 hover:bg-green-700 text-white cursor-pointer transition-colors">Save</button>
-              <button onclick={cancelEdit} class="px-2.5 py-1 rounded-md text-xs font-medium border border-neutral-300 dark:border-slate-600 text-neutral-600 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer transition-colors">Cancel</button>
+              <button onclick={saveEdit} class="px-2.5 py-1 rounded-sm text-xs font-medium bg-btn-success hover:bg-btn-success-hover text-white text-shadow-warm cursor-pointer">Save</button>
+              <button onclick={cancelEdit} class="px-2.5 py-1 rounded-sm text-xs font-medium bg-btn-neutral hover:bg-btn-neutral-hover text-white cursor-pointer">Cancel</button>
             {:else}
-              <button onclick={() => startEdit(item)} class="px-2.5 py-1 rounded-md text-xs font-medium border border-blue-300 dark:border-blue-600 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer transition-colors">Edit</button>
-              <button onclick={() => deleteItem(item)} class="px-2.5 py-1 rounded-md text-xs font-medium border border-red-300 dark:border-red-600 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 cursor-pointer transition-colors">Delete</button>
+              <button onclick={() => startEdit(item)} class="px-2.5 py-1 rounded-sm text-xs font-medium bg-btn-primary hover:bg-btn-primary-hover text-white text-shadow-warm cursor-pointer">Edit</button>
+              <button onclick={() => confirmDelete(item)} class="px-2.5 py-1 rounded-sm text-xs font-medium bg-btn-danger hover:bg-btn-danger-hover text-white text-shadow-warm cursor-pointer">Remove</button>
             {/if}
           </div>
         </div>
       {/each}
 
       {#if pageItems.length === 0}
-        <div class="px-4 py-10 text-center text-sm text-neutral-400 dark:text-neutral-500">
-          No items yet. Create one above.
+        <div class="px-4 py-10 text-center text-sm text-text-muted">
+          No items yet — type a name above and click Add.
         </div>
       {/if}
     </div>
   </div>
 </div>
+
+<!-- Delete confirmation modal -->
+{#if deletingItem}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onkeydown={(e) => { if (e.key === 'Escape') cancelDelete() }} onclick={cancelDelete}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <div class="bg-bg-card rounded-sm border border-border shadow-lg p-5 w-80" onclick={(e) => e.stopPropagation()}>
+      <h3 class="text-sm font-semibold text-text-primary mb-2">Remove item</h3>
+      <p class="text-sm text-text-secondary mb-4">
+        Are you sure you want to remove <span class="font-medium text-text-primary">"{getDynamicName(deletingItem, pathname)}"</span>?
+      </p>
+      <div class="flex justify-end gap-2">
+        <button onclick={cancelDelete} class="px-3 py-1.5 rounded-sm text-sm font-medium bg-bg-header text-text-secondary hover:bg-bg-hover-item cursor-pointer">Cancel</button>
+        <button onclick={deleteItem} class="px-3 py-1.5 rounded-sm text-sm font-medium bg-btn-danger hover:bg-btn-danger-hover text-white text-shadow-warm cursor-pointer">Remove</button>
+      </div>
+    </div>
+  </div>
+{/if}

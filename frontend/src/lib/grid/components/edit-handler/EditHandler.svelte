@@ -80,8 +80,10 @@
   // --- Copy: build mini-grid from selection, store in clipboardStore + system clipboard ---
   $effect(() => {
     if (clipboardStore.isCopying) {
-      handleCopy();
-      clipboardStore.isCopying = false;
+      untrack(() => {
+        handleCopy();
+        clipboardStore.isCopying = false;
+      });
     }
   });
 
@@ -209,15 +211,19 @@
   // --- Undo/Redo ---
   $effect(() => {
     if (editingStore.isUndoing) {
-      handleUndo();
-      editingStore.isUndoing = false;
+      untrack(() => {
+        handleUndo();
+        editingStore.isUndoing = false;
+      });
     }
   });
 
   $effect(() => {
     if (editingStore.isRedoing) {
-      handleRedo();
-      editingStore.isRedoing = false;
+      untrack(() => {
+        handleRedo();
+        editingStore.isRedoing = false;
+      });
     }
   });
 
@@ -330,7 +336,7 @@
         onkeydown={handleKeydown}
         onmousedown={(e) => e.stopPropagation()}
         onblur={handleBlur}
-        class="w-full h-full resize-none bg-white dark:bg-slate-700 text-neutral-900 dark:text-neutral-100 text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
+        class="w-full h-full resize-none bg-bg-elevated text-text-primary text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
         style="overflow: hidden;"
       ></textarea>
       {#if uiStore.suggestionMenu.visible}

@@ -6,12 +6,17 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+// Lock ordering: each manager (presence, cellLocks, pendingCells, rowLocks)
+// uses its own independent mutex. No code path holds two manager locks
+// simultaneously. Hub.mutex protects client/room maps only.
 
 const (
 	healthCheckInterval = 30 * time.Second
@@ -443,6 +448,7 @@ func (h *Hub) unregisterClient(client *Client) {
 		}
 
 		close(client.send)
+		room := client.room // capture while mutex still held
 		h.mutex.Unlock()
 
 		log.Printf("User %s disconnected session", client.userInfo.Username)
@@ -450,14 +456,14 @@ func (h *Hub) unregisterClient(client *Client) {
 		h.wg.Add(1)
 		go func() {
 			defer h.wg.Done()
-			h.cleanupClient(client)
+			h.cleanupClient(client, room)
 		}()
 	} else {
 		h.mutex.Unlock()
 	}
 }
 
-func (h *Hub) cleanupClient(client *Client) {
+func (h *Hub) cleanupClient(client *Client, room string) {
 	h.presence.Remove(client)
 	h.cellLocks.RemoveAllForClient(client)
 	h.pendingCells.RemoveAllForClient(client)
@@ -470,7 +476,7 @@ func (h *Hub) cleanupClient(client *Client) {
 	}
 
 	payload := map[string]interface{}{"clientId": client.userID}
-	h.BroadcastToRoom(client.room, "USER_LEFT", payload, nil)
+	h.BroadcastToRoom(room, "USER_LEFT", payload, nil)
 }
 
 // BroadcastMessage queues a message for broadcast, excluding the sender if provided
@@ -607,10 +613,7 @@ func (h *Hub) checkStaleConnections() {
 }
 
 func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
-	// 1. Try to get Session ID from URL Param (Legacy/Manual)
 	sessionID := r.URL.Query().Get("session_id")
-
-	// 2. Fallback to Cookie (Secure/Automatic)
 	if sessionID == "" {
 		log.Println("WebSocket connection rejected: missing session_id")
 		http.Error(w, "Missing session_id", http.StatusUnauthorized)
@@ -625,7 +628,8 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	color := r.URL.Query().Get("color")
-	if color == "" {
+	validHex := regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
+	if !validHex.MatchString(color) {
 		color = "#6b7280"
 	}
 	userInfo.Color = color

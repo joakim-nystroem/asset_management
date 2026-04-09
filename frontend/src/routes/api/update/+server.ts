@@ -83,6 +83,25 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         }
     }
 
+    // Check unique columns before attempting update
+    const UNIQUE_COLUMNS = ['wbd_tag', 'serial_number'];
+    for (const change of changes) {
+        if (UNIQUE_COLUMNS.includes(change.columnId) && change.newValue) {
+            const existing = await db.selectFrom('asset_inventory')
+                .select('id')
+                .where(change.columnId as any, '=', change.newValue)
+                .where('id', '!=', parseInt(change.rowId))
+                .executeTakeFirst();
+
+            if (existing) {
+                return json(
+                    { error: `${change.columnId === 'wbd_tag' ? 'WBD Tag' : 'Serial Number'} "${change.newValue}" already exists` },
+                    { status: 409 },
+                );
+            }
+        }
+    }
+
     try {
         await db.transaction().execute(async (trx) => {
             for (const change of changes) {
@@ -104,7 +123,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             }
         });
         return json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.errno === 1062) {
+            return json(
+                { error: 'Duplicate value — this value already exists' },
+                { status: 409 },
+            );
+        }
         return json(
             {
                 error: 'Bulk update failed',

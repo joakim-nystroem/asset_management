@@ -3,20 +3,6 @@ import type { Handle } from '@sveltejs/kit';
 import { findSessionById } from '$lib/db/auth/findSessionById';
 import { db } from '$lib/db/conn';
 import { cleanupExpiredSessions } from '$lib/db/auth/cleanupExpiredSessions';
-import { createChangeLogTable } from '$lib/db/migrations/createChangeLog';
-
-// Run migrations once on startup
-let migrationsRun = false;
-async function runMigrations() {
-    if (migrationsRun) return;
-    migrationsRun = true;
-    try {
-        await createChangeLogTable();
-    } catch (_) {
-        // Table likely already exists
-    }
-}
-runMigrations();
 
 // Track last cleanup time
 let lastCleanup = 0;
@@ -35,7 +21,6 @@ export const handle: Handle = async ({ event, resolve }) => {
     const sessionId = event.cookies.get('sessionId');
 
     if (!sessionId) {
-        event.locals.user = null;
         return resolve(event);
     }
 
@@ -45,7 +30,6 @@ export const handle: Handle = async ({ event, resolve }) => {
         // Session is invalid or expired, clear cookies
         event.cookies.delete('sessionId', { path: '/' });
         event.cookies.delete('session_color', { path: '/' });
-        event.locals.user = null;
         return resolve(event);
     }
 
@@ -56,7 +40,9 @@ export const handle: Handle = async ({ event, resolve }) => {
         .where('id', '=', session.user_id)
         .executeTakeFirst();
 
-    event.locals.user = user || null;
+    if (user) {
+        event.locals.user = user;
+    }
 
     return resolve(event);
 };

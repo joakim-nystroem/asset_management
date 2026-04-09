@@ -1,4 +1,5 @@
-import type { PageServerLoad } from './$types';
+import type { LayoutServerLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 import { getAuditAssignments } from '$lib/db/select/getAuditAssignments';
 import { getLocations } from '$lib/db/select/getLocations';
 import { getStatuses } from '$lib/db/select/getStatuses';
@@ -9,9 +10,7 @@ import { getAuditStatus } from '$lib/db/select/getAuditStatus';
 import { getAuditUserProgress } from '$lib/db/select/getAuditUserProgress';
 
 export const load = (async ({ locals }) => {
-    if (!locals.user) {
-        return { assets: [], locations: [], statuses: [], conditions: [], user: null, cycle: null, users: [], status: null, userProgress: [] };
-    }
+    if (!locals.user) redirect(302, '/login');
 
     const [assets, locations, statuses, conditions, cycle, users, status, userProgress] = await Promise.all([
         getAuditAssignments(locals.user.id),
@@ -35,4 +34,4 @@ export const load = (async ({ locals }) => {
         status,
         userProgress,
     };
-}) satisfies PageServerLoad;
+}) satisfies LayoutServerLoad;

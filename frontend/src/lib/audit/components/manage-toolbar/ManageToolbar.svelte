@@ -53,8 +53,26 @@
 
 	function assignAssets(userId: number) {
 		if (auditUiStore.checkedIds.length === 0) return;
+
+		// Block completed items from reassignment
+		const completedIds = auditUiStore.checkedIds.filter(id => {
+			const a = auditStore.displayedAssignments.find(a => a.asset_id === id);
+			return a?.completed_at;
+		});
+		if (completedIds.length > 0) {
+			const msg = completedIds.length === auditUiStore.checkedIds.length
+				? 'Cannot reassign completed audit items.'
+				: `${completedIds.length} completed item${completedIds.length === 1 ? '' : 's'} skipped — cannot reassign.`;
+			toastState.addToast(msg, 'warning');
+			if (completedIds.length === auditUiStore.checkedIds.length) {
+				clearSelection();
+				return;
+			}
+		}
+
 		const ids = auditUiStore.checkedIds.filter(id => {
 			const a = auditStore.displayedAssignments.find(a => a.asset_id === id);
+			if (a?.completed_at) return false;
 			return !a || a.assigned_to !== userId;
 		});
 		if (ids.length === 0) {
@@ -81,14 +99,14 @@
 		<div class="relative">
 			<input
 				bind:value={searchInput}
-				class="bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pr-7 border border-neutral-300 dark:border-none focus:outline-none"
+				class="rounded-sm bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pl-2 pr-7 border border-border-strong dark:border-none focus:outline-none"
 				placeholder="Search..."
 				onkeydown={onSearchKeydown}
 			/>
 			{#if searchInput}
 				<button
 					onclick={handleClearSearch}
-					class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
+					class="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary cursor-pointer font-bold text-xs"
 					title="Clear search"
 				>
 					✕
@@ -97,7 +115,7 @@
 		</div>
 		<button
 			onclick={handleSearch}
-			class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded text-base text-neutral-100"
+			class="cursor-pointer bg-btn-primary hover:bg-btn-primary-hover px-3 py-1 rounded text-base text-white text-shadow-warm"
 		>Search</button>
 	</div>
 
@@ -112,7 +130,7 @@
 					auditUiStore.filterPanel = true;
 				}
 			}}
-			class="flex items-center gap-2 px-3 py-1 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-base cursor-pointer"
+			class="flex items-center gap-2 px-3 py-1 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-row text-base cursor-pointer"
 		>
 			Filters
 			{#if auditUiStore.filters.length > 0}
@@ -129,7 +147,7 @@
 	<!-- Bulk assign (appears when items selected) -->
 	{#if hasSelection}
 		<div class="flex items-center gap-2 ml-4">
-			<span class="text-sm text-neutral-600 dark:text-neutral-400 font-medium">
+			<span class="text-sm text-text-secondary font-medium">
 				{auditUiStore.checkedIds.length} selected
 			</span>
 			<div class="relative" data-panel="assign-dropdown">
@@ -142,20 +160,20 @@
 						auditUiStore.assignDropdown = true;
 					}
 				}}
-					class="flex items-center justify-between gap-2 bg-white dark:bg-slate-800 text-neutral-700 dark:text-neutral-200 py-1 px-3 border border-neutral-300 dark:border-slate-600 rounded hover:bg-neutral-50 dark:hover:bg-slate-700 cursor-pointer text-sm min-w-36"
+					class="flex items-center justify-between gap-2 bg-bg-card text-text-secondary py-1 px-3 border border-border-strong rounded hover:bg-bg-hover-row cursor-pointer text-sm min-w-36"
 				>
 					<span>Assign...</span>
-					<svg class="w-3.5 h-3.5 text-neutral-400 transition-transform {auditUiStore.assignDropdown ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg class="w-3.5 h-3.5 text-text-muted transition-transform {auditUiStore.assignDropdown ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 					</svg>
 				</button>
 				{#if auditUiStore.assignDropdown}
 					<div
-						class="absolute top-full left-0 mt-1 bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm z-50 min-w-44 max-h-64 overflow-y-auto"
+						class="absolute top-full left-0 mt-1 bg-bg-card border border-border-strong rounded shadow-xl py-1 text-sm z-50 min-w-44 max-h-64 overflow-y-auto"
 					>
 						{#each auditStore.users as user (user.id)}
 							<button
-								class="w-full px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left truncate cursor-pointer text-neutral-900 dark:text-neutral-100"
+								class="w-full px-3 py-1.5 hover:bg-bg-hover-menu text-left truncate cursor-pointer text-text-primary"
 								onclick={() => assignAssets(user.id)}
 							>
 								{user.lastname}, {user.firstname}
@@ -166,7 +184,7 @@
 			</div>
 			<button
 				onclick={clearSelection}
-				class="text-sm text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer"
+				class="text-sm text-text-muted hover:text-text-secondary cursor-pointer"
 				title="Clear selection"
 			>✕</button>
 		</div>
@@ -181,7 +199,7 @@
 	{#if !hasCycle && auditStore.baseAssignments.length === 0}
 		<button
 			onclick={() => confirmAndEnqueue('start')}
-			class="px-3 py-1 rounded text-base font-semibold bg-green-600 hover:bg-green-700 text-white cursor-pointer border border-green-600 hover:border-green-700"
+			class="px-3 py-1 rounded text-base font-semibold bg-btn-success hover:bg-btn-success-hover text-white text-shadow-warm cursor-pointer border border-btn-success hover:border-btn-success-hover"
 		>
 			Start Audit
 		</button>
@@ -191,8 +209,8 @@
 			disabled={pending > 0}
 			class="px-3 py-1 rounded text-base font-semibold
 				{pending > 0
-					? 'bg-neutral-200 dark:bg-slate-700 text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
-					: 'bg-amber-500 hover:bg-amber-600 text-white cursor-pointer'}"
+					? 'bg-bg-header text-text-muted cursor-not-allowed'
+					: 'bg-btn-warning hover:bg-btn-warning-hover text-white text-shadow-warm cursor-pointer'}"
 			title={pending > 0 ? `${pending} items still pending` : 'Close audit cycle'}
 		>
 			Close Audit
@@ -206,17 +224,17 @@
 		class="fixed inset-0 z-[200] flex items-center justify-center bg-black/40"
 		onkeydown={(e) => { if (e.key === 'Escape') confirmModal = null; }}
 	>
-		<div class="bg-white dark:bg-slate-800 rounded-lg shadow-2xl p-6 max-w-sm w-full mx-4 border border-neutral-200 dark:border-slate-700">
-			<p class="text-sm text-neutral-700 dark:text-neutral-200 mb-5">{confirmModal.message}</p>
+		<div class="bg-bg-card rounded-lg shadow-2xl p-6 max-w-sm w-full mx-4 border border-border">
+			<p class="text-sm text-text-secondary mb-5">{confirmModal.message}</p>
 			<div class="flex justify-end gap-2">
 				<button
 					onclick={() => { confirmModal = null; }}
-					class="px-3 py-1.5 rounded text-sm bg-neutral-100 dark:bg-slate-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-slate-600 cursor-pointer"
+					class="px-3 py-1.5 rounded text-sm bg-bg-header text-text-secondary hover:bg-bg-hover-item cursor-pointer"
 				>Cancel</button>
 				<button
 					onclick={handleConfirm}
 					class="px-3 py-1.5 rounded text-sm font-semibold text-white cursor-pointer
-						{confirmModal.action === 'start' ? 'bg-green-600 hover:bg-green-700' : 'bg-amber-500 hover:bg-amber-600'}"
+						{confirmModal.action === 'start' ? 'bg-btn-success hover:bg-btn-success-hover' : 'bg-btn-warning hover:bg-btn-warning-hover text-shadow-warm'}"
 				>Confirm</button>
 			</div>
 		</div>

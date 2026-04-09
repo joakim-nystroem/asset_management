@@ -66,7 +66,7 @@
 	}}
 />
 
-<div class="bg-neutral-50 dark:bg-slate-600 h-[calc(100dvh-3rem)] px-4 py-4 flex flex-col overflow-hidden">
+<div class="bg-bg-page h-[calc(100dvh-3rem)] px-4 py-4 flex flex-col overflow-hidden">
 	<!-- Row 1: Tabs + Progress -->
 	<div class="flex justify-between items-center flex-shrink-0 mb-2">
 		<div class="w-1/2">
@@ -76,8 +76,8 @@
 						href={tab.href}
 						class="px-4 py-2 rounded-sm text-sm font-medium
 							{activePath.startsWith(tab.href)
-								? 'bg-white dark:bg-slate-800 text-neutral-900 dark:text-neutral-100 shadow-sm border border-neutral-200 dark:border-slate-700'
-								: 'text-neutral-600 dark:text-neutral-400 hover:bg-white/50 dark:hover:bg-slate-700/50'}"
+								? 'bg-bg-card text-text-primary shadow-sm border border-border'
+								: 'text-text-secondary hover:bg-white/50 dark:hover:bg-slate-700/50'}"
 					>
 						{tab.label}
 					</a>

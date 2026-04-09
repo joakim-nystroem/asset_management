@@ -97,16 +97,16 @@
   });
 </script>
 
-<div class="sticky top-0 z-20 flex border-b border-neutral-200 dark:border-slate-600">
+<div class="sticky top-0 z-20 flex border-b border-border">
   {#each keys as key, i}
     <div
       data-header-col={i}
       data-panel="header-menu"
-      class="header-interactive relative group border-r border-neutral-200 dark:border-slate-600 last:border-r-0 bg-neutral-50 dark:bg-slate-700"
+      class="header-interactive relative group border-r border-border last:border-r-0 bg-bg-header"
       style="width: {columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH}px; min-width: {columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH}px;"
     >
       <button
-        class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
+        class="w-full h-full px-2 py-2 text-xs font-medium text-text-primary uppercase hover:bg-bg-hover-item text-left flex items-center justify-between focus:outline-none focus:bg-neutral-200 dark:focus:bg-slate-500 cursor-pointer"
         onclick={(e) => { e.stopPropagation(); handleHeaderClick(key); }}
       >
         <span class="truncate">{key.replaceAll("_", " ")}</span>
@@ -114,7 +114,7 @@
           {#if sortStore.key === key}
             <span>{sortStore.direction === "asc" ? "▲" : "▼"}</span>
           {:else}
-            <span class="invisible group-hover:visible text-neutral-400">▾</span>
+            <span class="invisible group-hover:visible text-text-muted">▾</span>
           {/if}
         </span>
       </button>

@@ -19,7 +19,7 @@
 		{sizes[size]}
 		{checked
 			? 'bg-blue-500 border-blue-500'
-			: 'bg-white'}"
+			: 'bg-bg-input'}"
 	onclick={onchange}
 	onkeydown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onchange?.(); } }}
 	role="checkbox"

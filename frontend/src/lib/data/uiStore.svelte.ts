@@ -18,7 +18,4 @@ export const columnWidthStore = $state({
   widths: new SvelteMap<string, number>(),
 });
 
-export const rowStore = $state({
-  rowHeights: new SvelteMap<number, number>(),
-});
 

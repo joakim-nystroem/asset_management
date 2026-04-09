@@ -12,18 +12,18 @@
 	<div class="flex text-sm justify-between">
 		<div class="flex gap-2">
 			<span>
-				<span class="font-semibold text-green-600 dark:text-green-400">{progress.completed}</span><span class="text-neutral-500 dark:text-neutral-400">/{progress.total} Completed</span>
+				<span class="font-semibold text-text-muted">{progress.completed} / {progress.total} Completed</span>
 			</span>
-			<span class="text-neutral-500 dark:text-neutral-400">|</span>
+			<span class="text-text-muted">|</span>
 			<span>
-				<span class="font-semibold text-amber-600 dark:text-amber-400">{progress.pending}</span> <span class="text-neutral-500 dark:text-neutral-400">Pending</span>
+				<span class="font-semibold text-text-warning">{progress.pending}</span> <span class="text-text-muted">Pending</span>
 			</span>
 		</div>
 		<div>
-			<span class="font-semibold justify-self-end {pct === 100 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}">{pct}%</span>
+			<span class="font-semibold justify-self-end {pct === 100 ? 'text-text-completed' : 'text-text-warning'}">{pct}%</span>
 		</div>
 	</div>
-	<div class="w-full h-1 bg-neutral-200 dark:bg-slate-700 rounded-sm overflow-hidden">
+	<div class="w-full h-1 bg-border rounded-sm overflow-hidden">
 		<div
 			class="h-full transition-all duration-500
 				{pct === 100 ? 'bg-green-500' : 'bg-amber-500'}"

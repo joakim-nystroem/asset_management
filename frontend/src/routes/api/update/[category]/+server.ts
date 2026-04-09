@@ -36,8 +36,9 @@ export async function PUT({ request, params, locals }) {
         return json({ error: 'Invalid category' }, { status: 400 });
     }
     return json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error(`Error updating ${category}:`, error);
-    return json({ error: `Failed to update ${category}` }, { status: 500 });
+    const message = error?.sqlMessage || error?.message || `Failed to update ${category}`;
+    return json({ error: message }, { status: 500 });
   }
 }

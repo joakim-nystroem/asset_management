@@ -1,15 +1,18 @@
 <script lang="ts">
-    import type { PageData } from './$types';
+    import type { PageProps } from './$types';
     import { presenceStore } from '$lib/data/presenceStore.svelte';
+    import { auditStore } from '$lib/data/auditStore.svelte';
     import { enqueue } from '$lib/eventQueue/eventQueue';
     import { toastState } from '$lib/toast/toastState.svelte';
     import { goto } from '$app/navigation';
     import { base } from '$app/paths';
     import { untrack } from 'svelte';
 
-    let { data }: { data: PageData } = $props();
+    let { data }: PageProps = $props();
 
-    let asset: Record<string, any> = $derived(data.assignment);
+    let asset: Record<string, any> = $derived(
+        auditStore.displayedAssignments.find(a => a.asset_id === data.assetId) as Record<string, any>
+    );
     let locations: string[] = $derived(data.locations);
     let statuses: string[] = $derived(data.statuses);
     let conditions: string[] = $derived(data.conditions);
@@ -67,7 +70,7 @@
     // Acquire row lock on mount, release on unmount
     $effect(() => {
         const assetId = untrack(() => asset.asset_id);
-        const userId = untrack(() => user?.id);
+        const userId = untrack(() => user.id);
 
         const existingLock = untrack(() => presenceStore.rowLocks[String(assetId)]);
         if (existingLock && existingLock.userId !== userId) {
@@ -122,11 +125,10 @@
                     value: editValue.trim(),
                     original: (asset as any)[editField] ?? '',
                 }],
-                user: { id: user!.id },
+                user: { id: user.id },
             },
         });
 
-        (asset as any)[editField] = editValue.trim();
         editField = null;
         view = 'detail';
     }
@@ -134,7 +136,7 @@
     function completeAudit() {
         enqueue({
             type: 'AUDIT_COMPLETE',
-            payload: { assetId: asset.asset_id, resultId: 1, userId: user!.id },
+            payload: { assetId: asset.asset_id, resultId: 1, userId: user.id },
         });
         goto(`${base}/mobile/audit`);
     }
@@ -142,9 +144,10 @@
     function submitReport() {
         if (!selectedIssue) return;
 
+        const issue = selectedIssue === 'Other' ? issueComment.trim().slice(0, 200) : selectedIssue;
         enqueue({
             type: 'AUDIT_COMPLETE',
-            payload: { assetId: asset.asset_id, resultId: 2, userId: user!.id },
+            payload: { assetId: asset.asset_id, resultId: 2, userId: user.id, issue },
         });
         goto(`${base}/mobile/audit`);
     }
@@ -163,17 +166,17 @@
     <!-- CONFIRM AUDIT VIEW -->
     <div class="flex flex-col items-center justify-center min-h-[60vh] px-4 gap-6">
         <div class="w-20 h-20 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
-            <svg class="w-10 h-10 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-10 h-10 text-text-completed" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
         </div>
 
         <div class="text-center">
-            <h2 class="text-xl font-bold text-neutral-800 dark:text-neutral-100 mb-2">Complete Audit?</h2>
-            <p class="text-neutral-600 dark:text-neutral-400">
+            <h2 class="text-xl font-bold text-text-primary mb-2">Complete Audit?</h2>
+            <p class="text-text-secondary">
                 Mark asset <span class="font-semibold">{asset.wbd_tag || asset.id}</span> as audited?
             </p>
-            <p class="text-sm text-neutral-500 dark:text-neutral-400 mt-1">
+            <p class="text-sm text-text-muted mt-1">
                 All details are correct and up-to-date.
             </p>
         </div>
@@ -181,13 +184,13 @@
         <div class="flex gap-3 w-full max-w-sm">
             <button
                 onclick={backToDetail}
-                class="flex-1 py-3 px-4 border border-neutral-300 dark:border-neutral-600 rounded-lg font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
+                class="flex-1 py-3 px-4 border border-border-strong rounded-lg font-medium text-text-secondary hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
             >
                 Cancel
             </button>
             <button
                 onclick={completeAudit}
-                class="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 active:bg-green-800"
+                class="flex-1 py-3 px-4 bg-btn-success text-white text-shadow-warm rounded-lg font-medium hover:bg-btn-success-hover active:bg-green-800"
             >
                 Confirm
             </button>
@@ -207,21 +210,21 @@
             <h1 class="text-xl font-bold flex-1 text-center pr-10">Report Issue</h1>
         </div>
 
-        <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
-            <p class="text-sm font-medium text-amber-800 dark:text-amber-300">
+        <div class="bg-btn-warning rounded-lg px-4 py-3">
+            <p class="text-sm font-medium text-white text-shadow-warm">
                 Reporting issue for: <span class="font-bold">{asset.wbd_tag || asset.id}</span>
             </p>
         </div>
 
-        <div class="bg-white dark:bg-neutral-800 rounded-xl border dark:border-neutral-700 p-4">
-            <label class="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-3">
+        <div class="bg-bg-card rounded-xl border border-border p-4">
+            <label class="block text-sm font-medium text-text-secondary mb-3">
                 Select Issue Type
             </label>
             <div class="flex flex-col gap-2">
                 {#each auditIssues as issue}
                     <button
                         onclick={() => { selectedIssue = issue; }}
-                        class="w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-colors {selectedIssue === issue ? 'bg-amber-100 dark:bg-amber-900/40 border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-300' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-600'}"
+                        class="w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-colors {selectedIssue === issue ? 'bg-amber-100 dark:bg-amber-900/40 border-amber-400 dark:border-amber-600 text-text-warning' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 text-text-secondary hover:bg-neutral-50 dark:hover:bg-neutral-600'}"
                     >
                         {issue}
                     </button>
@@ -230,13 +233,14 @@
 
             {#if selectedIssue === 'Other'}
                 <div class="mt-3">
-                    <label class="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-1">
+                    <label class="block text-sm font-medium text-text-secondary mb-1">
                         Describe the issue
                     </label>
                     <textarea
                         bind:value={issueComment}
+                        maxlength={200}
                         placeholder="Enter details..."
-                        class="w-full p-3 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-amber-500 text-base resize-none"
+                        class="w-full p-3 border rounded-lg bg-bg-input border-border-strong focus:outline-none focus:ring-2 focus:ring-amber-500 text-base resize-none"
                         rows="3"
                     ></textarea>
                 </div>
@@ -246,14 +250,14 @@
         <div class="flex gap-3 mt-2">
             <button
                 onclick={backToDetail}
-                class="flex-1 py-3 px-4 border border-neutral-300 dark:border-neutral-600 rounded-lg font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
+                class="flex-1 py-3 px-4 border border-border-strong rounded-lg font-medium text-text-secondary hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
             >
                 Cancel
             </button>
             <button
                 onclick={submitReport}
                 disabled={!selectedIssue}
-                class="flex-1 py-3 px-4 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                class="flex-1 py-3 px-4 bg-btn-warning text-white text-shadow-warm rounded-lg font-medium hover:bg-btn-warning-hover active:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 Submit Report
             </button>
@@ -273,15 +277,15 @@
             <h1 class="text-xl font-bold flex-1 text-center pr-10">Edit {fieldLabels[editField] || editField}</h1>
         </div>
 
-        <div class="bg-white dark:bg-neutral-800 rounded-xl border dark:border-neutral-700 p-4">
-            <label class="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">
+        <div class="bg-bg-card rounded-xl border border-border p-4">
+            <label class="block text-sm font-medium text-text-secondary mb-2">
                 {fieldLabels[editField] || editField}
             </label>
 
             {#if constrainedFields[editField]}
                 <select
                     bind:value={editValue}
-                    class="w-full p-3 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                    class="w-full p-3 border rounded-lg bg-bg-input border-border-strong focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                 >
                     <option value="">-- Select --</option>
                     {#each constrainedFields[editField] as option}
@@ -292,11 +296,11 @@
                 <input
                     type="text"
                     bind:value={editValue}
-                    class="w-full p-3 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                    class="w-full p-3 border rounded-lg bg-bg-input border-border-strong focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                 />
             {/if}
 
-            <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+            <p class="text-xs text-text-muted mt-2">
                 Current value: <span class="font-medium">{asset[editField] ?? 'empty'}</span>
             </p>
         </div>
@@ -304,13 +308,13 @@
         <div class="flex gap-3 mt-2">
             <button
                 onclick={backToDetail}
-                class="flex-1 py-3 px-4 border border-neutral-300 dark:border-neutral-600 rounded-lg font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
+                class="flex-1 py-3 px-4 border border-border-strong rounded-lg font-medium text-text-secondary hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
             >
                 Cancel
             </button>
             <button
                 onclick={saveEdit}
-                class="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 active:bg-blue-800"
+                class="flex-1 py-3 px-4 bg-btn-primary text-white text-shadow-warm rounded-lg font-medium hover:bg-btn-primary-hover active:bg-blue-800"
             >
                 Save
             </button>
@@ -334,24 +338,24 @@
         <div class="flex gap-3">
             <button
                 onclick={openConfirm}
-                class="flex-1 py-3 px-4 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 active:bg-green-800 text-sm"
+                class="flex-1 py-3 px-4 bg-btn-success text-white rounded-lg font-medium hover:bg-btn-success-hover active:bg-green-800 text-sm"
             >
                 Complete Audit
             </button>
             <button
                 onclick={openReport}
-                class="flex-1 py-3 px-4 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 active:bg-amber-700 text-sm"
+                class="flex-1 py-3 px-4 bg-btn-warning text-white text-shadow-warm rounded-lg font-medium hover:bg-btn-warning-hover active:bg-amber-700 text-sm"
             >
                 Report Issue
             </button>
         </div>
 
         <div class="flex-grow overflow-y-auto">
-            <div class="bg-white dark:bg-neutral-800 rounded-xl border dark:border-neutral-700 divide-y dark:divide-neutral-700">
+            <div class="bg-bg-card rounded-xl border border-border divide-y divide-border">
                 {#each Object.entries(fieldLabels) as [key, label]}
                     <div class="flex items-center justify-between px-4 py-3 gap-2">
                         <div class="min-w-0 flex-1">
-                            <p class="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">{label}</p>
+                            <p class="text-xs font-medium text-text-muted uppercase tracking-wide">{label}</p>
                             <p class="text-sm mt-0.5 break-words">{key === 'audit_start_date' ? formatDate(asset[key]) : (asset[key] ?? '-')}</p>
                         </div>
                         {#if editableFields.includes(key)}

@@ -118,7 +118,7 @@
 {#if filteredOptions.length > 0}
   <div
     bind:this={menuRef}
-    class="absolute bg-white dark:bg-slate-700 border border-blue-500 dark:border-blue-400 rounded shadow-lg overflow-hidden"
+    class="absolute bg-bg-elevated border border-blue-500 dark:border-blue-400 rounded shadow-lg overflow-hidden"
     style="
       {showAbove ? 'bottom: 100%; margin-bottom: 2px;' : 'top: 100%; margin-top: 2px;'}
       left: 0;
@@ -139,7 +139,7 @@
         <div
           class="px-2 py-1.5 text-xs cursor-pointer {idx === selectedIndex
             ? 'bg-blue-500 text-white'
-            : 'text-neutral-900 dark:text-neutral-100 hover:bg-blue-100 dark:hover:bg-slate-600'}"
+            : 'text-text-primary hover:bg-bg-hover-cell'}"
           style="position: absolute; top: {idx * itemHeight - scroll.scrollTop}px; left: 0; right: 0; height: {itemHeight}px; display: flex; align-items: center;"
           onmousedown={() => {
             editingStore.editValue = option;

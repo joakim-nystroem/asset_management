@@ -30,23 +30,23 @@
 
 <div
 	data-panel="context-menu"
-	class="fixed z-[60] bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm text-neutral-900 dark:text-neutral-100 min-w-30 cursor-default text-left flex flex-col"
+	class="fixed z-[60] bg-bg-header border border-border-strong rounded shadow-xl py-1 text-sm text-text-primary min-w-30 cursor-default text-left flex flex-col"
 	style="top: {auditUiStore.contextMenu.y}px; left: {auditUiStore.contextMenu.x}px;"
 >
 	<!-- Assign -->
 	<div class="relative">
 		<button
-			class="w-full px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center justify-between cursor-pointer"
+			class="w-full px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center justify-between cursor-pointer"
 			onclick={() => { auditUiStore.assignSubmenu = !auditUiStore.assignSubmenu; }}
 		>
 			<span>Assign</span>
-			<span class="text-neutral-400">›</span>
+			<span class="text-text-muted">›</span>
 		</button>
 		{#if auditUiStore.assignSubmenu}
-			<div class="absolute left-full top-0 ml-0.5 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm w-48 max-h-64 overflow-y-auto">
+			<div class="absolute left-full top-0 ml-0.5 bg-bg-header border border-border-strong rounded shadow-xl py-1 text-sm w-48 max-h-64 overflow-y-auto">
 				{#each auditStore.users as user (user.id)}
 					<button
-						class="w-full px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left truncate cursor-pointer"
+						class="w-full px-3 py-1.5 hover:bg-bg-hover-menu text-left truncate cursor-pointer"
 						onclick={() => assignFromContext(user.id)}
 					>
 						{user.lastname}, {user.firstname}
@@ -59,7 +59,7 @@
 	<!-- Filter -->
 	{#if auditUiStore.contextMenu.value}
 		<button
-			class="w-full px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left cursor-pointer truncate"
+			class="w-full px-3 py-1.5 hover:bg-bg-hover-menu text-left cursor-pointer truncate"
 			onclick={filterByValue}
 		>
 			Filter

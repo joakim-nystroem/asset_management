@@ -89,22 +89,22 @@
 </script>
 
 <div class="flex flex-col flex-1 min-h-0">
-	<div class="bg-white dark:bg-slate-800 border border-neutral-200 dark:border-slate-700 rounded-sm overflow-hidden flex flex-col flex-1 min-h-0 focus:outline-none" tabindex="-1">
+	<div class="bg-bg-card border border-border rounded-sm overflow-hidden flex flex-col flex-1 min-h-0 focus:outline-none" tabindex="-1">
 		<!-- Header -->
-		<div class="sticky top-0 z-20 flex border-b border-neutral-200 dark:border-slate-600 flex-shrink-0">
+		<div class="sticky top-0 z-20 flex border-b border-border flex-shrink-0">
 			{#each VISIBLE_KEYS as key}
-				<div class="flex-1 min-w-0 border-r border-neutral-200 dark:border-slate-600 last:border-r-0 bg-neutral-50 dark:bg-slate-700 px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase">
+				<div class="flex-1 min-w-0 border-r border-border last:border-r-0 bg-bg-header px-2 py-2 text-xs font-medium text-text-primary uppercase">
 					{key.replaceAll('_', ' ')}
 				</div>
 			{/each}
 		</div>
 
 		{#if !hasCycle}
-			<div class="flex-1 flex items-center justify-center text-sm text-neutral-600 dark:text-neutral-300">
+			<div class="flex-1 flex items-center justify-center text-sm text-text-secondary">
 				No active audit cycle.
 			</div>
 		{:else if displayed.length === 0}
-			<div class="flex-1 flex items-center justify-center text-sm text-neutral-600 dark:text-neutral-300">
+			<div class="flex-1 flex items-center justify-center text-sm text-text-secondary">
 				No items assigned to you, or all items completed.
 			</div>
 		{:else}
@@ -122,7 +122,7 @@
 					{#each visibleItems as assignment, i (assignment.asset_id)}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
-							class="group flex items-center border-b border-neutral-200 dark:border-slate-700 text-xs absolute left-0 right-0 cursor-pointer
+							class="group flex items-center border-b border-border text-xs absolute left-0 right-0 cursor-pointer
 								{selectedAssetId === assignment.asset_id
 									? 'bg-blue-50 dark:bg-slate-900'
 									: ''}"
@@ -132,19 +132,19 @@
 							role="button"
 							tabindex="0"
 						>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-neutral-700 dark:text-neutral-200">{assignment.asset_id}</div>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-neutral-700 dark:text-neutral-200">{assignment.location || ''}</div>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-neutral-600 dark:text-neutral-300">{assignment.node || ''}</div>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-neutral-700 dark:text-neutral-200">{assignment.asset_type || ''}</div>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-neutral-200 dark:border-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-neutral-600 dark:text-neutral-300">{assignment.wbd_tag || ''}</div>
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-text-secondary">{assignment.asset_id}</div>
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-text-secondary">{assignment.location || ''}</div>
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-text-secondary">{assignment.node || ''}</div>
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-text-secondary">{assignment.asset_type || ''}</div>
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-text-secondary">{assignment.wbd_tag || ''}</div>
 							<div class="flex-1 min-w-0 h-full flex items-center px-2 group-hover:bg-blue-50 dark:group-hover:bg-slate-700">
 								{#if assignment.completed_at}
-									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400">
+									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-text-completed">
 										<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
 										Completed
 									</span>
 								{:else}
-									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-text-warning">
 										<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
 										Pending
 									</span>
@@ -172,8 +172,8 @@
 {#if scroll.isAutoScrolling}
 	<div
 		class="fixed z-[100] pointer-events-none -translate-x-1/2 -translate-y-1/2
-			w-7 h-7 rounded-full border border-neutral-300 dark:border-slate-600
-			bg-white/90 dark:bg-slate-800/90 shadow-md flex items-center justify-center"
+			w-7 h-7 rounded-full border border-border-strong
+			bg-bg-card/90 shadow-md flex items-center justify-center"
 		style="left: {scroll.autoScrollOriginX}px; top: {scroll.autoScrollOriginY}px;"
 	>
 		<svg width="22" height="22" viewBox="0 0 22 22" fill="none" class="text-neutral-500 dark:text-slate-400">

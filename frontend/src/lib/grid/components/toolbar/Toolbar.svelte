@@ -19,7 +19,6 @@
 
   const VIEW_CONFIGS = [
     { name: 'default', label: 'Default' },
-    { name: 'audit', label: 'Audit' },
     { name: 'ped', label: 'PED' },
     { name: 'galaxy', label: 'Galaxy' },
     { name: 'network', label: 'Network' },
@@ -106,13 +105,12 @@
 </script>
 
 <div class="flex flex-col">
-  <div class="flex flex-row gap-4 items-center">
+  <div class="flex flex-row gap-4 items-center pt-3 pb-1">
 
     <div class="flex gap-4 items-center">
-      <div class="relative">
         <input
           bind:value={searchInput}
-          class="bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pr-7 border border-neutral-300 dark:border-none focus:outline-none"
+          class="rounded-sm bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pl-2 pr-7 border border-border-strong dark:border-none focus:outline-none"
           placeholder="Search..."
           onkeydown={(e) => {
             if (e.key === "Enter") handleSearch();
@@ -121,16 +119,15 @@
         {#if searchInput}
           <button
             onclick={handleClearSearch}
-            class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
+            class="text-text-muted hover:text-text-secondary cursor-pointer font-bold text-xs"
             title="Clear search"
           >
             ✕
           </button>
         {/if}
-      </div>
       <button
         onclick={handleSearch}
-        class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-2 py-1 rounded text-neutral-100"
+        class="cursor-pointer bg-btn-primary hover:bg-btn-primary-hover px-2 py-1 rounded text-white text-shadow-warm"
         >Search</button
       >
     </div>
@@ -148,7 +145,7 @@
                 uiStore.filterPanel.visible = true;
               }
             }}
-            class="flex items-center gap-2 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
+            class="flex items-center gap-2 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-row text-sm cursor-pointer"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
@@ -167,7 +164,7 @@
         {#if user}
           <button
             onclick={addNewRow}
-            class="flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
+            class="flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-row text-sm cursor-pointer"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path></svg>
             <span>New Row</span>
@@ -204,13 +201,13 @@
                 );
                 resetAfterCommit();
               }}
-              class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
+              class="cursor-pointer bg-btn-success hover:bg-btn-success-hover px-2 py-1 rounded text-white text-shadow-warm whitespace-nowrap"
             >
               Commit
             </button>
             <button
               onclick={handleDiscard}
-              class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
+              class="cursor-pointer bg-btn-danger hover:bg-btn-danger-hover px-2 py-1 rounded text-white text-shadow-warm"
             >
               Discard
             </button>
@@ -239,13 +236,13 @@
                 );
                 resetAfterCommit();
               }}
-              class="cursor-pointer bg-green-600 hover:bg-green-500 px-2 py-1 rounded text-neutral-100 whitespace-nowrap"
+              class="cursor-pointer bg-btn-success hover:bg-btn-success-hover px-2 py-1 rounded text-white text-shadow-warm whitespace-nowrap"
             >
               Commit
             </button>
             <button
               onclick={handleDiscard}
-              class="cursor-pointer bg-red-700 hover:bg-red-600 px-2 py-1 rounded text-neutral-100"
+              class="cursor-pointer bg-btn-danger hover:bg-btn-danger-hover px-2 py-1 rounded text-white text-shadow-warm"
             >
               Discard
             </button>
@@ -262,7 +259,7 @@
       <div class="relative">
         <button
           onclick={() => viewDropdownOpen = !viewDropdownOpen}
-          class="flex items-center gap-1 px-3 py-1.5 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-sm cursor-pointer"
+          class="flex items-center gap-1 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-row text-sm cursor-pointer"
         >
           <span>{currentViewLabel}</span>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -274,11 +271,11 @@
             class="fixed inset-0 z-40"
             onclick={() => viewDropdownOpen = false}
           ></div>
-          <div class="absolute right-0 mt-1 w-40 bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 rounded shadow-lg z-50">
+          <div class="absolute right-0 mt-1 w-40 bg-bg-card border border-border-strong rounded shadow-lg z-50">
             {#each VIEW_CONFIGS as view}
               <button
                 onclick={() => handleViewChange(view.name)}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-slate-700 cursor-pointer {queryStore.view === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-bg-hover-row cursor-pointer {queryStore.view === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
               >
                 {view.label}
               </button>

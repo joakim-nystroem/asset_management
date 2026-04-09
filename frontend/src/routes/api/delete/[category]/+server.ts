@@ -27,8 +27,9 @@ export async function DELETE({ request, params, locals }) {
                 return json({ error: 'Invalid category' }, { status: 400 });
         }
         return json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
         console.error(`Error deleting ${category}:`, error);
-        return json({ error: `Failed to delete ${category}` }, { status: 500 });
+        const message = error?.sqlMessage || error?.message || `Failed to delete ${category}`;
+        return json({ error: message }, { status: 500 });
     }
 }

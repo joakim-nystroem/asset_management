@@ -27,29 +27,12 @@ func (up *UserPresence) Set(client *Client, row, col int) {
 	up.positions[client] = &UserPosition{Row: row, Col: col}
 }
 
-func (up *UserPresence) Get(client *Client) (*UserPosition, bool) {
-	up.mutex.RLock()
-	defer up.mutex.RUnlock()
-	pos, exists := up.positions[client]
-	return pos, exists
-}
-
 func (up *UserPresence) Remove(client *Client) bool {
 	up.mutex.Lock()
 	defer up.mutex.Unlock()
 	_, existed := up.positions[client]
 	delete(up.positions, client)
 	return existed
-}
-
-func (up *UserPresence) GetAll() map[*Client]*UserPosition {
-	up.mutex.RLock()
-	defer up.mutex.RUnlock()
-	snapshot := make(map[*Client]*UserPosition, len(up.positions))
-	for c, pos := range up.positions {
-		snapshot[c] = &UserPosition{Row: pos.Row, Col: pos.Col}
-	}
-	return snapshot
 }
 
 func (up *UserPresence) GetAllExcept(exclude *Client) map[*Client]*UserPosition {
@@ -62,12 +45,6 @@ func (up *UserPresence) GetAllExcept(exclude *Client) map[*Client]*UserPosition 
 		}
 	}
 	return snapshot
-}
-
-func (up *UserPresence) Count() int {
-	up.mutex.RLock()
-	defer up.mutex.RUnlock()
-	return len(up.positions)
 }
 
 func (c *Client) handlePositionUpdate(payload interface{}) {

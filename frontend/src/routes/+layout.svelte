@@ -2,6 +2,7 @@
   import '../app.css';
   import favicon from '$lib/assets/favicon.svg';
   import { beforeNavigate } from '$app/navigation';
+  import { page } from '$app/state';
 
   import { realtime } from '$lib/utils/realtimeManager.svelte.js';
   import { connectionStore } from '$lib/data/connectionStore.svelte';
@@ -24,6 +25,7 @@
   let sessionColor: string = $derived(data.session_color || '#6b7280');
 
   let isWsConnected = $derived(connectionStore.status === 'connected');
+  let isMobile = $derived(page.url.pathname.startsWith('/mobile'));
 
   // Manage WebSocket connection in layout (persists across navigation)
   $effect(() => {
@@ -92,8 +94,8 @@
 
 <ToastContainer />
 
-<div class="bg-neutral-100 dark:bg-slate-600 text-neutral-700 dark:text-neutral-100 flex flex-col min-h-screen">
-  <header class="h-12 w-full bg-blue-500 dark:bg-blue-600 text-neutral-100 dark:text-neutral-50 flex justify-between items-center pl-4 px-4">
+<div class="bg-bg-page text-text-primary flex flex-col min-h-screen">
+  <header class="h-12 w-full bg-blue-500 dark:bg-blue-500 text-neutral-100 dark:text-neutral-50 flex justify-between items-center pl-4 px-4">
     <a href="/" class="font-bold text-lg hover:cursor-pointer">Asset Master</a>
     <div class="flex gap-4 items-center align-middle">
       <button onclick={toggleTheme} class="w-10 h-10 flex items-center justify-center text-neutral-100 cursor-pointer hover:bg-blue-400 dark:hover:bg-blue-700 rounded-lg transition-colors" title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
@@ -127,11 +129,11 @@
 
         {#if showUserMenu}
           <div
-            class="absolute right-0 py-2 mt-0.5 w-56 bg-white dark:bg-slate-700 rounded-sm shadow-md shadow-gray-900 z-50 border border-gray-200 dark:border-slate-600"
+            class="absolute right-0 py-2 mt-0.5 w-56 bg-bg-elevated rounded-sm shadow-lg shadow-gray-300 dark:shadow-gray-900 z-50 border border-border"
           >
             {#if data.user}
-              <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-600 flex justify-between items-center">
-                <p class="text-sm font-semibold text-gray-900 dark:text-white">
+              <div class="px-4 py-3 border-b border-border flex justify-between items-center">
+                <p class="text-sm font-semibold text-text-primary">
                   {data.user.firstname} {data.user.lastname}
                 </p>
                 {#if isWsConnected}
@@ -149,36 +151,45 @@
 
               <a
                 href="/"
-                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
+                class="block px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover-item"
               >
                 Home
               </a>
 
-              <a
-                href="/audit"
-                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
-              >
-                Audit
-              </a>
+              {#if !isMobile}
+                <a
+                  href="/audit"
+                  class="block px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover-item"
+                >
+                  Audit
+                </a>
+
+                <a
+                  href="/admin"
+                  class="block px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover-item"
+                >
+                  Admin
+                </a>
+              {/if}
 
               <a
-                href="/admin"
-                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
+                href="/change-password"
+                class="block px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover-item"
               >
-                Admin
+                Change Password
               </a>
 
               <form action="/logout" method="POST" class="w-full" onsubmit={() => realtime.disconnect()}>
                 <button
                   type="submit"
-                  class="block w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-slate-600 cursor-pointer"
+                  class="block w-full text-left px-4 py-2 text-sm text-text-danger hover:bg-bg-hover-item cursor-pointer"
                 >
                   Logout
                 </button>
               </form>
             {:else}
-              <div class="px-4 py-3 border-b border-gray-200 dark:border-slate-600 flex justify-between items-center">
-                <p class="text-sm font-semibold text-gray-900 dark:text-white">Guest</p>
+              <div class="px-4 py-3 border-b border-border flex justify-between items-center">
+                <p class="text-sm font-semibold text-text-primary">Guest</p>
                 {#if isWsConnected}
                   <span
                     class="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"
@@ -193,13 +204,13 @@
               </div>
               <a
                 href="/"
-                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
+                class="block px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover-item"
               >
                 Home
               </a>
               <a
                 href="/login"
-                class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-slate-600"
+                class="block px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover-item"
               >
                 Login
               </a>

@@ -41,14 +41,14 @@
 		<div class="relative">
 			<input
 				bind:value={searchInput}
-				class="bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pr-7 border border-neutral-300 dark:border-none focus:outline-none"
+				class="rounded-sm bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pl-2 pr-7 border border-border-strong dark:border-none focus:outline-none"
 				placeholder="Search..."
 				onkeydown={onSearchKeydown}
 			/>
 			{#if searchInput}
 				<button
 					onclick={handleClearSearch}
-					class="absolute right-1.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-700 cursor-pointer font-bold text-xs"
+					class="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary cursor-pointer font-bold text-xs"
 					title="Clear search"
 				>
 					✕
@@ -57,7 +57,7 @@
 		</div>
 		<button
 			onclick={handleSearch}
-			class="cursor-pointer bg-blue-500 hover:bg-blue-600 px-3 py-1 rounded text-base text-neutral-100"
+			class="cursor-pointer bg-btn-primary hover:bg-btn-primary-hover px-3 py-1 rounded text-base text-white text-shadow-warm"
 		>Search</button>
 	</div>
 
@@ -72,7 +72,7 @@
 					auditUiStore.filterPanel = true;
 				}
 			}}
-			class="flex items-center gap-2 px-3 py-1 rounded bg-white dark:bg-slate-800 border border-neutral-300 dark:border-slate-600 hover:bg-neutral-50 dark:hover:bg-slate-700 text-base cursor-pointer"
+			class="flex items-center gap-2 px-3 py-1 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-row text-base cursor-pointer"
 		>
 			Filters
 			{#if auditUiStore.filters.length > 0}
@@ -93,8 +93,8 @@
 	<!-- Stats -->
 	{#if hasCycle && totalAssigned > 0}
 		<div class="flex items-center gap-3 text-sm">
-			<span class="text-neutral-500 dark:text-neutral-400">
-				<span class="text-green-600 dark:text-green-400">{completedCount}</span> / {totalAssigned} Completed
+			<span class="text-text-muted">
+				<span class="text-text-completed">{completedCount}</span> / {totalAssigned} Completed
 			</span>
 		</div>
 	{/if}

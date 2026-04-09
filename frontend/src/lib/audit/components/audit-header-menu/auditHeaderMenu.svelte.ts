@@ -11,7 +11,8 @@ export function getUniqueValues(
 ): string[] {
 	// Cascading: if other columns have filters, derive from displayed (filtered) data.
 	// Otherwise use base — so current column shows all its own values.
-	const hasOtherFilters = filters.some(f => f.key !== columnKey);
+	const filterKey = columnKey === 'status' ? 'audit_status' : columnKey;
+	const hasOtherFilters = filters.some(f => f.key !== filterKey);
 	const source = hasOtherFilters ? displayedAssignments : baseAssignments;
 
 	if (columnKey === 'status') {
@@ -38,12 +39,14 @@ export function getUniqueValues(
 }
 
 export function isFilterActive(filters: AuditFilter[], columnKey: string, value: string): boolean {
+	let filterKey = columnKey;
 	let filterValue = value;
 	if (columnKey === 'status') {
+		filterKey = 'audit_status';
 		filterValue = value === 'Completed' ? 'completed' : 'pending';
 	} else if (columnKey === 'assigned_to') {
 		const user = auditStore.users.find(u => `${u.lastname}, ${u.firstname}` === value);
 		if (user) filterValue = String(user.id);
 	}
-	return filters.some(f => f.key === columnKey && f.value === filterValue);
+	return filters.some(f => f.key === filterKey && f.value === filterValue);
 }

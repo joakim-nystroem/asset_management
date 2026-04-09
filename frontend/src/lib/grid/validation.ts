@@ -6,7 +6,7 @@ import { assetStore } from '$lib/data/assetStore.svelte';
 
 // --- Types ---
 
-export type PendingEdit = {
+export type PendingEditValidation = {
   row: number;
   col: string;
   original: string;
@@ -74,7 +74,7 @@ export function validateCell(
   assetId: number,
   colKey: string,
   value: string,
-  pendingEdits: PendingEdit[],
+  pendingEdits: PendingEditValidation[],
 ): { isValid: boolean; error: string | null } {
   const constraint = columnConstraints[colKey];
   if (!constraint) return { isValid: true, error: null };
@@ -130,7 +130,7 @@ export function validateCell(
 /** Validate all constrained columns on a new row at commit time. */
 export function validateNewRow(
   row: Record<string, any>,
-  pendingEdits: PendingEdit[],
+  pendingEdits: PendingEditValidation[],
 ): { isValid: boolean; errors: string[] } {
   const rowErrors: string[] = [];
   const assetId = row.id as number;

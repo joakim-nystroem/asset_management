@@ -14,6 +14,20 @@ export const POST: RequestHandler = async ({ request, locals }) => {
   }
 
   try {
+    // Block reassignment of completed items
+    const completedRows = await db.selectFrom('current_audit')
+      .select('asset_id')
+      .where('asset_id', 'in', assetIds)
+      .execute();
+
+    if (completedRows.length > 0) {
+      const completedIds = completedRows.map(r => r.asset_id);
+      return json({
+        error: 'Cannot reassign completed audit items',
+        completedIds,
+      }, { status: 409 });
+    }
+
     const result = await db.updateTable('asset_audit')
       .set({ assigned_to: userId })
       .where('asset_id', 'in', assetIds)

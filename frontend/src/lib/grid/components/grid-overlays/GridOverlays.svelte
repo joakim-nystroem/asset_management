@@ -140,7 +140,7 @@
   <!-- Copy overlay -->
   {#if copyOverlay}
     <div
-      class="absolute pointer-events-none z-[10] border-blue-600 dark:border-blue-500"
+      class="absolute pointer-events-none z-[10] border-cell-copy-border"
       style="
       top: {copyOverlay.top}px;
       left: {copyOverlay.left}px;
@@ -157,7 +157,7 @@
   <!-- Paste range overlay -->
   {#if pasteOverlay}
     <div
-      class="absolute pointer-events-none z-[30] border-green-500 dark:border-green-400"
+      class="absolute pointer-events-none z-[30] border-cell-paste-border"
       style="
       top: {pasteOverlay.top}px;
       left: {pasteOverlay.left}px;
@@ -174,16 +174,16 @@
   <!-- Local pending cell overlays -->
   {#each localPendingOverlays as cell}
     <div
-      class="absolute pointer-events-none z-[20] bg-white dark:bg-slate-800"
+      class="absolute pointer-events-none z-[20] bg-bg-card"
       style="top: {cell.top}px; left: {cell.left}px; width: {cell.width}px; height: {cell.height}px;"
     ></div>
     <div
-      class="absolute pointer-events-none flex items-center px-1.5 text-xs truncate text-neutral-700 dark:text-neutral-200 z-[21]
-        {cell.isValid ? 'bg-green-400/20 dark:bg-green-400/10' : 'bg-yellow-400/20 dark:bg-yellow-400/10'}
-        {cell.borderTop ? (cell.isValid ? 'border-t-2 border-t-green-400 dark:border-t-green-600' : 'border-t-2 border-t-yellow-500 dark:border-t-yellow-600') : 'border-t border-t-neutral-200 dark:border-t-slate-700'}
-        {cell.borderBottom ? (cell.isValid ? 'border-b-2 border-b-green-400 dark:border-b-green-600' : 'border-b-2 border-b-yellow-500 dark:border-b-yellow-600') : 'border-b border-b-neutral-200 dark:border-b-slate-700'}
-        {cell.borderLeft ? (cell.isValid ? 'border-l-2 border-l-green-400 dark:border-l-green-600' : 'border-l-2 border-l-yellow-500 dark:border-l-yellow-600') : 'border-l border-l-neutral-200 dark:border-l-slate-700'}
-        {cell.borderRight ? (cell.isValid ? 'border-r-2 border-r-green-400 dark:border-r-green-600' : 'border-r-2 border-r-yellow-500 dark:border-r-yellow-600') : 'border-r border-r-neutral-200 dark:border-r-slate-700'}"
+      class="absolute pointer-events-none flex items-center px-1.5 text-xs truncate text-text-secondary z-[21]
+        {cell.isValid ? 'bg-cell-valid/20' : 'bg-cell-invalid/20'}
+        {cell.borderTop ? (cell.isValid ? 'border-t-2 border-t-cell-valid-border' : 'border-t-2 border-t-cell-invalid-border') : 'border-t border-t-neutral-200 dark:border-t-slate-700'}
+        {cell.borderBottom ? (cell.isValid ? 'border-b-2 border-b-cell-valid-border' : 'border-b-2 border-b-cell-invalid-border') : 'border-b border-b-neutral-200 dark:border-b-slate-700'}
+        {cell.borderLeft ? (cell.isValid ? 'border-l-2 border-l-cell-valid-border' : 'border-l-2 border-l-cell-invalid-border') : 'border-l border-l-neutral-200 dark:border-l-slate-700'}
+        {cell.borderRight ? (cell.isValid ? 'border-r-2 border-r-cell-valid-border' : 'border-r-2 border-r-cell-invalid-border') : 'border-r border-r-neutral-200 dark:border-r-slate-700'}"
       style="top: {cell.top}px; left: {cell.left}px; width: {cell.width}px; height: {cell.height}px;"
     >
       <span class="truncate w-full">{cell.value}</span>

@@ -53,11 +53,11 @@
   <div
     bind:this={menuElement}
     data-panel="header-menu"
-    class="absolute top-full {alignRight ? 'right-0' : 'left-0'} z-50 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm text-neutral-900 dark:text-neutral-100 min-w-48 font-normal normal-case cursor-default text-left flex flex-col"
+    class="absolute top-full {alignRight ? 'right-0' : 'left-0'} z-50 bg-bg-header border border-border-strong rounded shadow-xl py-1 text-sm text-text-primary min-w-48 font-normal normal-case cursor-default text-left flex flex-col"
     onclick={(e) => e.stopPropagation()}
   >
     <button
-      class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full"
+      class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group w-full"
       onclick={() => handleSort(activeKey, 'asc')}
     >
       <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
@@ -67,7 +67,7 @@
     </button>
 
     <button
-      class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full"
+      class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group w-full"
       onclick={() => handleSort(activeKey, 'desc')}
     >
       <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
@@ -76,18 +76,18 @@
       <span>Sort Z to A</span>
     </button>
 
-    <div class="border-b border-neutral-200 dark:border-slate-700 my-1"></div>
+    <div class="border-b border-border my-1"></div>
 
     <div class="relative w-full">
       <button
-        class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center justify-between group w-full"
+        class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center justify-between group w-full"
         onclick={() => { filterOpen = !filterOpen; if (filterOpen) filterSearchTerm = ''; }}
       >
         <div class="flex items-center gap-2">
           <div class="w-4"></div>
           <span>Filter By</span>
         </div>
-        <span class="text-neutral-400 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+        <span class="text-text-muted group-hover:text-blue-600 dark:group-hover:text-blue-400">
           {submenuDirection === 'left' ? '‹' : '›'}
         </span>
       </button>
@@ -95,13 +95,13 @@
       {#if filterOpen}
         {@const focusOnInit = (node: HTMLElement) => { node.focus(); }}
         <div
-          class="absolute z-50 top-0 bg-neutral-50 dark:bg-slate-900 border border-neutral-300 dark:border-slate-700 rounded shadow-xl py-1 text-sm w-48 {submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}"
+          class="absolute z-50 top-0 bg-bg-header border border-border-strong rounded shadow-xl py-1 text-sm w-48 {submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}"
         >
-          <div class="px-2 py-1 border-b border-neutral-200 dark:border-slate-700 mb-1">
+          <div class="px-2 py-1 border-b border-border mb-1">
             <input
               use:focusOnInit
               bind:value={filterSearchTerm}
-              class="w-full pl-2 text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400! dark:placeholder:text-neutral-300! focus:outline-none text-xs"
+              class="w-full pl-2 text-text-primary placeholder:text-neutral-400! dark:placeholder:text-neutral-300! focus:outline-none text-xs"
               placeholder="Search values..."
               onclick={(e) => e.stopPropagation()}
             />
@@ -118,7 +118,7 @@
               as item
             }
               <button
-                class="px-3 py-1.5 hover:bg-blue-50 dark:hover:bg-slate-700 text-left flex items-center gap-2 group w-full"
+                class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group w-full"
                 onclick={() => toggleFilter(activeKey, item)}
               >
                 <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
@@ -127,7 +127,7 @@
                 <div class="truncate">{item}</div>
               </button>
             {:else}
-              <div class="px-3 py-1.5 text-neutral-500">No items found.</div>
+              <div class="px-3 py-1.5 text-text-muted">No items found.</div>
             {/each}
           </div>
         </div>

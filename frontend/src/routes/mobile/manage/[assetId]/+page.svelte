@@ -1,15 +1,18 @@
 <script lang="ts">
-    import type { PageData } from './$types';
+    import type { PageProps } from './$types';
     import { presenceStore } from '$lib/data/presenceStore.svelte';
+    import { assetStore } from '$lib/data/assetStore.svelte';
     import { enqueue } from '$lib/eventQueue/eventQueue';
     import { toastState } from '$lib/toast/toastState.svelte';
 
-    let { data }: { data: PageData } = $props();
+    let { data }: PageProps = $props();
 
-    let asset: Record<string, any> = $derived(data.asset);
-    let locations: string[] = $derived(data.locations);
-    let statuses: string[] = $derived(data.statuses);
-    let conditions: string[] = $derived(data.conditions);
+    let asset: Record<string, any> = $derived(
+        assetStore.displayedAssets.find((a: any) => a.id === data.assetId) as Record<string, any>
+    );
+    let locations: string[] = $derived(data.locations.map(l => l.location_name));
+    let statuses: string[] = $derived(data.statuses.map(s => s.status_name));
+    let conditions: string[] = $derived(data.conditions.map(c => c.condition_name));
 
     let editField = $state<string | null>(null);
     let editValue = $state<string>('');
@@ -109,7 +112,7 @@
                     value: editValue.trim(),
                     original: asset[editField] ?? '',
                 }],
-                user: { id: data.user?.id },
+                user: { id: data.user!.id },
             },
         });
 
@@ -132,15 +135,15 @@
             <h1 class="text-xl font-bold flex-1 text-center pr-10">Edit {fieldLabels[editField] || editField}</h1>
         </div>
 
-        <div class="bg-white dark:bg-neutral-800 rounded-xl border dark:border-neutral-700 p-4">
-            <label class="block text-sm font-medium text-neutral-600 dark:text-neutral-400 mb-2">
+        <div class="bg-bg-card rounded-xl border border-border p-4">
+            <label class="block text-sm font-medium text-text-secondary mb-2">
                 {fieldLabels[editField] || editField}
             </label>
 
             {#if constrainedFields[editField]}
                 <select
                     bind:value={editValue}
-                    class="w-full p-3 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                    class="w-full p-3 border rounded-lg bg-bg-input border-border-strong focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                 >
                     <option value="">-- Select --</option>
                     {#each constrainedFields[editField] as option}
@@ -151,11 +154,11 @@
                 <input
                     type="text"
                     bind:value={editValue}
-                    class="w-full p-3 border rounded-lg dark:bg-neutral-700 dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
+                    class="w-full p-3 border rounded-lg bg-bg-input border-border-strong focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                 />
             {/if}
 
-            <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+            <p class="text-xs text-text-muted mt-2">
                 Current value: <span class="font-medium">{asset[editField] ?? 'empty'}</span>
             </p>
         </div>
@@ -163,13 +166,13 @@
         <div class="flex gap-3 mt-2">
             <button
                 onclick={backToDetail}
-                class="flex-1 py-3 px-4 border border-neutral-300 dark:border-neutral-600 rounded-lg font-medium text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
+                class="flex-1 py-3 px-4 border border-border-strong rounded-lg font-medium text-text-secondary hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
             >
                 Cancel
             </button>
             <button
                 onclick={saveEdit}
-                class="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 active:bg-blue-800"
+                class="flex-1 py-3 px-4 bg-btn-primary text-white text-shadow-warm rounded-lg font-medium hover:bg-btn-primary-hover active:bg-blue-800"
             >
                 Save
             </button>
@@ -201,7 +204,7 @@
         {/if}
 
         <div class="flex-grow overflow-y-auto">
-            <div class="bg-white dark:bg-neutral-800 rounded-xl border dark:border-neutral-700 divide-y dark:divide-neutral-700">
+            <div class="bg-bg-card rounded-xl border border-border divide-y divide-border">
                 {#each Object.entries(fieldLabels) as [key, label]}
                     {@const cellLock = presenceStore.users.find(u => u.row === asset.id && u.col === key && u.isLocked)}
                     {@const pendingCell = presenceStore.pendingCells.find(p => p.assetId === asset.id && p.key === key)}
@@ -211,7 +214,7 @@
                         style="{lockInfo ? `background-color: ${lockInfo.color}15;` : ''}"
                     >
                         <div class="min-w-0 flex-1">
-                            <p class="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">{label}</p>
+                            <p class="text-xs font-medium text-text-muted uppercase tracking-wide">{label}</p>
                             <p class="text-sm mt-0.5 break-words">{asset[key] ?? '-'}</p>
                         </div>
                         {#if lockInfo}

@@ -244,7 +244,7 @@
 	}
 
 	function getValue(key: string): string {
-		return (assignment as any)[key] ?? '—';
+		return (assignment as any)[key] ?? '-';
 	}
 
 	function openEdit(key: string) {
@@ -346,36 +346,36 @@
 	onclick={(e) => { if (e.target === e.currentTarget) onclose(); }}
 >
 	<!-- Panel -->
-	<div class="bg-white dark:bg-slate-800 rounded-lg shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto mx-4 border border-neutral-200 dark:border-slate-700">
+	<div class="bg-bg-card rounded-lg shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto mx-4 border border-border">
 		<!-- Header -->
-		<div class="sticky top-0 bg-white dark:bg-slate-800 border-b border-neutral-200 dark:border-slate-700 px-6 py-4 flex items-center justify-between z-10">
+		<div class="sticky top-0 bg-bg-card border-b border-border px-6 py-4 flex items-center justify-between z-10">
 			<div>
 				{#if view === 'detail'}
-					<h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Audit Item</h2>
-					<p class="text-xs text-neutral-500 dark:text-neutral-400 mt-0.5">Asset #{assignment.asset_id}</p>
+					<h2 class="text-lg font-semibold text-text-primary">Audit Item</h2>
+					<p class="text-xs text-text-muted mt-0.5">Asset #{assignment.asset_id}</p>
 				{:else if view === 'edit' && editField}
 					<button onclick={backToDetail} class="flex items-center text-blue-500 hover:text-blue-600 text-sm font-medium cursor-pointer gap-1">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
 						Back
 					</button>
-					<h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mt-1">Edit Field</h2>
+					<h2 class="text-lg font-semibold text-text-primary mt-1">Edit Field</h2>
 				{:else if view === 'confirm'}
 					<button onclick={backToDetail} class="flex items-center text-blue-500 hover:text-blue-600 text-sm font-medium cursor-pointer gap-1">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
 						Back
 					</button>
-					<h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mt-1">Complete Audit</h2>
+					<h2 class="text-lg font-semibold text-text-primary mt-1">Complete Audit</h2>
 				{:else if view === 'report'}
 					<button onclick={backToDetail} class="flex items-center text-blue-500 hover:text-blue-600 text-sm font-medium cursor-pointer gap-1">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
 						Back
 					</button>
-					<h2 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mt-1">Report Issue</h2>
+					<h2 class="text-lg font-semibold text-text-primary mt-1">Report Issue</h2>
 				{/if}
 			</div>
 			<button
 				onclick={onclose}
-				class="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 cursor-pointer text-lg font-bold w-8 h-8 flex items-center justify-center rounded hover:bg-neutral-100 dark:hover:bg-slate-700"
+				class="text-text-muted hover:text-text-secondary cursor-pointer text-lg font-bold w-8 h-8 flex items-center justify-center rounded hover:bg-bg-hover-row"
 			>✕</button>
 		</div>
 
@@ -386,24 +386,24 @@
 				<div class="flex gap-3">
 					<button
 						onclick={openConfirm}
-						class="flex-1 py-2.5 px-4 bg-green-600 hover:bg-green-700 text-white rounded font-semibold text-sm cursor-pointer"
+						class="flex-1 py-2.5 px-4 bg-btn-success hover:bg-btn-success-hover text-white text-shadow-warm rounded font-semibold text-sm cursor-pointer"
 					>Complete Audit</button>
 					<button
 						onclick={openReport}
-						class="flex-1 py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-white rounded font-semibold text-sm cursor-pointer"
+						class="flex-1 py-2.5 px-4 bg-btn-warning hover:bg-btn-warning-hover text-white text-shadow-warm rounded font-semibold text-sm cursor-pointer"
 					>Report Issue</button>
 				</div>
 
 				<!-- Field groups -->
 				{#each fieldGroups as group}
 					<section>
-						<h3 class="text-xs font-semibold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider mb-3">{group.label}</h3>
-						<div class="divide-y divide-neutral-100 dark:divide-slate-700 border border-neutral-200 dark:border-slate-700 rounded">
+						<h3 class="text-xs font-semibold text-text-muted uppercase tracking-wider mb-3">{group.label}</h3>
+						<div class="divide-y divide-neutral-100 dark:divide-slate-700 border border-border rounded">
 							{#each group.fields as field}
 								<div class="flex items-center justify-between px-4 py-2.5 gap-2">
 									<div class="min-w-0 flex-1">
-										<dt class="text-xs text-neutral-500 dark:text-neutral-400">{field.label}</dt>
-										<dd class="text-sm font-medium text-neutral-900 dark:text-neutral-100 mt-0.5">{getValue(field.key)}</dd>
+										<dt class="text-xs text-text-muted">{field.label}</dt>
+										<dd class="text-sm font-medium text-text-primary mt-0.5">{getValue(field.key)}</dd>
 									</div>
 									{#if field.editable}
 										<button
@@ -423,7 +423,7 @@
 			<div class="px-6 py-5 space-y-4">
 				<div class="relative">
 					<!-- svelte-ignore a11y_label_has_associated_control -->
-					<label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
+					<label class="block text-sm font-medium text-text-secondary mb-2">
 						{fieldGroups.flatMap(g => g.fields).find(f => f.key === editField)?.label ?? editField}
 					</label>
 
@@ -435,11 +435,11 @@
 							onkeydown={handleEditKeydown}
 							onfocus={handleEditFocus}
 							onblur={handleEditBlur}
-							class="w-full p-2 {isConstrained ? 'pr-8' : ''} border-2 border-blue-500 rounded bg-white dark:bg-slate-700 text-sm text-neutral-900 dark:text-neutral-100 focus:outline-none"
+							class="w-full p-2 {isConstrained ? 'pr-8' : ''} border-2 border-blue-500 rounded bg-bg-elevated text-sm text-text-primary focus:outline-none"
 							placeholder={isConstrained ? 'Type to filter...' : 'Enter value...'}
 						/>
 						{#if isConstrained}
-							<svg class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<svg class="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 							</svg>
 						{/if}
@@ -449,7 +449,7 @@
 					{#if suggestVisible && filteredOptions.length > 0}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
-							class="fixed z-[200] bg-white dark:bg-slate-700 border border-blue-500 dark:border-blue-400 rounded shadow-lg overflow-hidden"
+							class="fixed z-[200] bg-bg-elevated border border-blue-500 dark:border-blue-400 rounded shadow-lg overflow-hidden"
 							style="top: {suggestPos.top}px; left: {suggestPos.left}px; width: {suggestPos.width}px; height: {suggestViewportHeight}px;"
 							onwheel={(e) => {
 								e.preventDefault();
@@ -464,7 +464,7 @@
 										class="px-2 py-1.5 text-xs cursor-pointer absolute left-0 right-0 flex items-center
 											{idx === selectedIndex
 												? 'bg-blue-500 text-white'
-												: 'text-neutral-900 dark:text-neutral-100 hover:bg-blue-100 dark:hover:bg-slate-600'}"
+												: 'text-text-primary hover:bg-blue-100 dark:hover:bg-slate-600'}"
 										style="top: {idx * ITEM_HEIGHT - scroll.scrollTop}px; height: {ITEM_HEIGHT}px;"
 										onmousedown={() => { editValue = option; suggestVisible = false; }}
 										onmouseenter={() => { selectedIndex = idx; }}
@@ -487,7 +487,7 @@
 						</div>
 					{/if}
 
-					<p class="text-xs text-neutral-500 dark:text-neutral-400 mt-2">
+					<p class="text-xs text-text-muted mt-2">
 						Current: <span class="font-medium">{getValue(editField)}</span>
 					</p>
 				</div>
@@ -495,11 +495,11 @@
 				<div class="flex gap-3 pt-2">
 					<button
 						onclick={backToDetail}
-						class="flex-1 py-2 px-4 rounded text-sm bg-neutral-100 dark:bg-slate-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-slate-600 cursor-pointer"
+						class="flex-1 py-2 px-4 rounded text-sm bg-bg-header text-text-secondary hover:bg-bg-hover-item cursor-pointer"
 					>Cancel</button>
 					<button
 						onclick={saveEdit}
-						class="flex-1 py-2 px-4 rounded text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 cursor-pointer"
+						class="flex-1 py-2 px-4 rounded text-sm font-semibold text-white bg-btn-primary hover:bg-btn-primary-hover text-shadow-warm cursor-pointer"
 					>Save</button>
 				</div>
 			</div>
@@ -508,17 +508,17 @@
 			<!-- CONFIRM VIEW -->
 			<div class="px-6 py-8 flex flex-col items-center gap-5">
 				<div class="w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
-					<svg class="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<svg class="w-8 h-8 text-text-completed" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
 					</svg>
 				</div>
 
 				<div class="text-center">
-					<h3 class="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-1">Complete Audit?</h3>
-					<p class="text-sm text-neutral-500 dark:text-neutral-400">
-						Mark asset <span class="font-semibold">#{assignment.asset_id}</span> as audited.
+					<h3 class="text-lg font-semibold text-text-primary mb-2">Complete Audit?</h3>
+					<p class="text-base text-text-muted font-semibold">
+						WBD Tag #{assignment.wbd_tag}
 					</p>
-					<p class="text-xs text-neutral-400 dark:text-neutral-500 mt-1">
+					<p class="text-sm text-text-secondary font-medium mt-2">
 						All details are correct and up-to-date.
 					</p>
 				</div>
@@ -527,7 +527,7 @@
 					<button
 						onclick={backToDetail}
 						disabled={completing}
-						class="flex-1 py-2 px-4 rounded text-sm bg-neutral-100 dark:bg-slate-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-slate-600 cursor-pointer"
+						class="flex-1 py-2 px-4 rounded text-sm bg-bg-header text-text-secondary hover:bg-bg-hover-item cursor-pointer"
 					>Cancel</button>
 					<button
 						onclick={completeAudit}
@@ -540,23 +540,23 @@
 		{:else if view === 'report'}
 			<!-- REPORT VIEW -->
 			<div class="px-6 py-5 space-y-4">
-				<div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded px-4 py-3">
-					<p class="text-sm font-medium text-amber-800 dark:text-amber-300">
-						Reporting issue for asset <span class="font-bold">#{assignment.asset_id}</span>
+				<div class="bg-btn-warning rounded px-4 py-3">
+					<p class="text-sm font-medium text-white text-shadow-warm">
+						Reporting issue for <span class="font-bold">{assignment.wbd_tag || `Asset #${assignment.asset_id}`}</span>
 					</p>
 				</div>
 
 				<div>
 					<!-- svelte-ignore a11y_label_has_associated_control -->
-					<label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">Select Issue Type</label>
+					<label class="block text-sm font-medium text-text-secondary mb-2">Select Issue Type</label>
 					<div class="flex flex-col gap-1.5">
 						{#each auditIssues as issue}
 							<button
 								onclick={() => { selectedIssue = issue; }}
 								class="w-full text-left px-4 py-2.5 rounded border text-sm cursor-pointer transition-colors
 									{selectedIssue === issue
-										? 'bg-amber-50 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600 text-amber-800 dark:text-amber-300 font-medium'
-										: 'bg-white dark:bg-slate-700 border-neutral-200 dark:border-slate-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-slate-600'}"
+										? 'bg-amber-50 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600 text-text-warning font-medium'
+										: 'bg-bg-elevated border-border text-text-secondary hover:bg-bg-hover-row'}"
 							>{issue}</button>
 						{/each}
 					</div>
@@ -565,11 +565,11 @@
 				{#if selectedIssue === 'Other'}
 					<div>
 						<!-- svelte-ignore a11y_label_has_associated_control -->
-						<label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">Describe the issue</label>
+						<label class="block text-sm font-medium text-text-secondary mb-1">Describe the issue</label>
 						<textarea
 							bind:value={issueComment}
 							placeholder="Enter details..."
-							class="w-full p-2 border border-neutral-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+							class="w-full p-2 border border-border-strong rounded bg-bg-elevated text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
 							rows="3"
 						></textarea>
 					</div>
@@ -578,7 +578,7 @@
 				<div class="flex gap-3 pt-2">
 					<button
 						onclick={backToDetail}
-						class="flex-1 py-2 px-4 rounded text-sm bg-neutral-100 dark:bg-slate-700 text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-slate-600 cursor-pointer"
+						class="flex-1 py-2 px-4 rounded text-sm bg-bg-header text-text-secondary hover:bg-bg-hover-item cursor-pointer"
 					>Cancel</button>
 					<button
 						onclick={submitReport}

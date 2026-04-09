@@ -33,7 +33,7 @@
 
 </script>
 
-<div class="group flex h-full border-b border-neutral-200 dark:border-slate-700" style="height: {DEFAULT_ROW_HEIGHT}px;">
+<div class="group flex h-full border-b border-border" style="height: {DEFAULT_ROW_HEIGHT}px;">
 {#each keys as key, j}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
@@ -41,9 +41,9 @@
     data-col={j}
     class="
       group/cell relative h-full flex items-center text-xs
-      text-neutral-700 dark:text-neutral-200
-      border-r border-b border-neutral-200 dark:border-slate-700 last:border-r-0
-      px-2 cursor-cell group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-blue-100 dark:hover:bg-slate-600
+      text-text-secondary
+      border-r border-b border-border last:border-r-0
+      px-2 cursor-cell group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell
     "
     style="width: {columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH}px; min-width: {columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH}px;"
     onmousedown={(e) => {

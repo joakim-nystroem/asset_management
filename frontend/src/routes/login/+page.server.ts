@@ -24,81 +24,69 @@ export const actions = {
       });
     }
 
+    const user = await findUserByUsername(username);
+
+    if (!user) {
+      return fail(401, {
+        username,
+        message: 'Invalid credentials',
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+    if (!passwordMatch) {
+      return fail(401, {
+        username,
+        message: 'Invalid credentials',
+      });
+    }
+
+    let error = false;
+
+    const sessionId = uuidv4();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
+
     try {
-      const user = await findUserByUsername(username);
-
-      if (!user) {
-        return fail(401, {
-          username,
-          message: 'Invalid credentials',
-        });
-      }
-
-      const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
-      if (!passwordMatch) {
-        return fail(401, {
-          username,
-          message: 'Invalid credentials',
-        });
-      }
-
-      // ============================================
-      // FIX: Delete all existing sessions for this user
-      // ============================================
-      await db
-        .deleteFrom('sessions')
-        .where('user_id', '=', user.id)
-        .execute();
-
-      // Generate new session ID
-      const sessionId = uuidv4();
-      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
-
-      // Create new session in database
       await createSession({
         session_id: sessionId,
         user_id: user.id,
         expires_at: expiresAt,
       });
+    } catch (e) {
+      console.error('Error creating session:', e);
+      error = true;
+    }
+    if (error) return fail(500, { message: 'Failed to create session' });
 
-      // Update user's last login
+    try {
       await db
         .updateTable('users')
-        .set({ 
-          last_login_at: sql`NOW()` 
-        })
+        .set({ last_login_at: sql`NOW()` })
         .where('id', '=', user.id)
         .execute();
-
-      // Set session cookie
-      cookies.set('sessionId', sessionId, {
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        expires: expiresAt,
-      });
-
-      // Select a random color
-      const sessionColor = vibrantColors[Math.floor(Math.random() * vibrantColors.length)];
-      cookies.set('session_color', sessionColor, {
-        path: '/',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        expires: expiresAt,
-      });
-
-    } catch (error) {
-      console.error('Login error:', error);
-      if (error instanceof Error && 'status' in error && typeof error.status === 'number' && error.status === 303) {
-        throw error; 
-      }
-      return fail(500, {
-        message: 'Failed to log in',
-      });
+    } catch (e) {
+      console.error('Error updating last login:', e);
+      error = true;
     }
+    if (error) return fail(500, { message: 'Failed to update login timestamp' });
+
+    cookies.set('sessionId', sessionId, {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      expires: expiresAt,
+    });
+
+    const sessionColor = vibrantColors[Math.floor(Math.random() * vibrantColors.length)];
+    cookies.set('session_color', sessionColor, {
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      expires: expiresAt,
+    });
 
     redirect(303, '/');
   },

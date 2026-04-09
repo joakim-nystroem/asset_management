@@ -1,35 +1,12 @@
 <script lang="ts">
-    import type { PageData } from './$types';
     import { base } from '$app/paths';
     import { onDestroy } from 'svelte';
-    import { realtime } from '$lib/utils/realtimeManager.svelte';
-    import { connectionStore } from '$lib/data/connectionStore.svelte';
     import { auditStore } from '$lib/data/auditStore.svelte';
     import { presenceStore } from '$lib/data/presenceStore.svelte';
     import { toastState } from '$lib/toast/toastState.svelte';
+    import type { PageProps } from './$types';
 
-    let { data }: { data: PageData } = $props();
-
-    // Subscribe to audit WS room
-    $effect(() => {
-        if (connectionStore.status === 'connected') {
-            realtime.sendSubscribe('audit');
-        }
-    });
-
-    // Seed auditStore from server data
-    // svelte-ignore state_referenced_locally
-    auditStore.baseAssignments = data.assets;
-    // svelte-ignore state_referenced_locally
-    auditStore.displayedAssignments = data.assets;
-    // svelte-ignore state_referenced_locally
-    auditStore.users = data.users;
-    // svelte-ignore state_referenced_locally
-    auditStore.cycle = data.cycle;
-    // svelte-ignore state_referenced_locally
-    auditStore.progress = data.status ?? { total: 0, pending: 0, completed: 0 };
-    // svelte-ignore state_referenced_locally
-    auditStore.userProgress = data.userProgress;
+    let { data }: PageProps = $props();
 
     let user = $derived(data.user);
 
@@ -45,7 +22,7 @@
 
     // Derive from auditStore
     let myAssignments = $derived(
-        auditStore.displayedAssignments.filter(a => a.assigned_to === user?.id && !a.completed_at)
+        auditStore.displayedAssignments.filter(a => a.assigned_to === user.id && !a.completed_at)
     );
 
     let results = $derived.by(() => {
@@ -181,14 +158,14 @@
 {#if !user}
     <!-- NOT LOGGED IN -->
     <div class="flex flex-col items-center justify-center min-h-[60vh] px-4 gap-4">
-        <div class="w-16 h-16 bg-neutral-200 dark:bg-neutral-700 rounded-full flex items-center justify-center">
-            <svg class="w-8 h-8 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="w-16 h-16 bg-bg-header rounded-full flex items-center justify-center">
+            <svg class="w-8 h-8 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
         </div>
-        <h2 class="text-xl font-bold text-neutral-800 dark:text-neutral-100">Login Required</h2>
-        <p class="text-neutral-500 dark:text-neutral-400 text-center">Please log in to view your audit assignments.</p>
-        <a href="{base}/login" class="mt-2 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+        <h2 class="text-xl font-bold text-text-primary">Login Required</h2>
+        <p class="text-text-muted text-center">Please log in to view your audit assignments.</p>
+        <a href="{base}/login" class="mt-2 px-6 py-3 bg-btn-primary text-white text-shadow-warm rounded-lg font-medium hover:bg-btn-primary-hover">
             Log In
         </a>
     </div>
@@ -216,20 +193,20 @@
             <input
                 type="text"
                 placeholder="Search audit items..."
-                class="w-full p-3 border rounded-lg dark:bg-neutral-800 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full p-3 border rounded-lg bg-bg-card border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                 bind:value={searchInput}
                 onkeydown={(e) => { if (e.key === 'Enter') executeSearch(); }}
             />
             <div class="flex gap-2">
                 <button
                     onclick={executeSearch}
-                    class="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 font-medium"
+                    class="flex-1 py-3 bg-btn-primary text-white text-shadow-warm rounded-lg hover:bg-btn-primary-hover active:bg-blue-800 font-medium"
                 >
                     Search
                 </button>
                 <button
                     onclick={toggleScanner}
-                    class="flex-1 py-3 bg-neutral-600 text-white rounded-lg hover:bg-neutral-700 active:bg-neutral-800 font-medium"
+                    class="flex-1 py-3 bg-btn-neutral text-white text-shadow-warm rounded-lg hover:bg-btn-neutral-hover active:bg-neutral-800 font-medium"
                 >
                     {isScanning ? 'Close' : 'Scan'}
                 </button>
@@ -237,8 +214,8 @@
         </div>
 
         {#if results.length === 0}
-            <div class="flex flex-col items-center justify-center py-12 text-neutral-500 dark:text-neutral-400">
-                <svg class="w-12 h-12 mb-3 text-neutral-300 dark:text-neutral-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex flex-col items-center justify-center py-12 text-text-muted">
+                <svg class="w-12 h-12 mb-3 text-text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <p class="font-medium">No audit assignments found</p>
@@ -260,17 +237,17 @@
                                     }
                                 }}
                                 class="block w-full text-left p-4 border rounded-lg shadow-sm mb-2 transition-colors
-                                    {lock ? 'border-l-4' : 'bg-white dark:bg-neutral-800 dark:border-neutral-700 active:bg-neutral-50 dark:active:bg-neutral-700'}"
+                                    {lock ? 'border-l-4' : 'bg-bg-card dark:border-neutral-700 active:bg-neutral-50 dark:active:bg-neutral-700'}"
                                 style="{lock ? `background-color: ${lock.color}15; border-left-color: ${lock.color};` : ''}"
                                 style:height="{rowHeight - 8}px"
                             >
                                 <div class="flex justify-between items-start">
                                     <div class="min-w-0 flex-1">
                                         <p class="font-bold text-base truncate">{asset.wbd_tag || 'No Tag'}</p>
-                                        <p class="text-sm text-neutral-600 dark:text-neutral-300 truncate">{asset.asset_type} - {asset.manufacturer} {asset.model}</p>
-                                        <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1 truncate">{asset.location} | {asset.node}</p>
+                                        <p class="text-sm text-text-secondary truncate">{asset.asset_type} - {asset.manufacturer} {asset.model}</p>
+                                        <p class="text-xs text-text-muted mt-1 truncate">{asset.location} | {asset.node}</p>
                                         {#if asset.audit_start_date}
-                                            <p class="text-xs mt-1 font-medium text-amber-600 dark:text-amber-400">
+                                            <p class="text-xs mt-1 font-medium text-text-warning">
                                                 Audit started: {formatDate(asset.audit_start_date)}
                                             </p>
                                         {/if}
@@ -283,7 +260,7 @@
                                             </div>
                                         {/if}
                                     </div>
-                                    <svg class="w-5 h-5 text-neutral-400 flex-shrink-0 ml-2 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-5 h-5 text-text-muted flex-shrink-0 ml-2 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                     </svg>
                                 </div>
@@ -303,7 +280,7 @@
             <h2 class="text-white font-semibold text-lg">Scan Barcode</h2>
             <button
                 onclick={toggleScanner}
-                class="px-4 py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 active:bg-red-800"
+                class="px-4 py-2 bg-btn-danger text-white text-shadow-warm rounded-lg font-medium text-sm hover:bg-btn-danger-hover active:bg-red-800"
             >
                 Close
             </button>

@@ -68,7 +68,7 @@
   {#if visible}
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
-      class="absolute z-[60] bg-neutral-200 dark:bg-slate-700"
+      class="absolute z-[60] bg-border"
       style="top: 0; right: 0; width: {trackSize}px; height: 100%;"
       onmousedown={onTrackClick}
     >
@@ -84,7 +84,7 @@
 {:else}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="relative z-[60] bg-neutral-200 dark:bg-slate-700"
+    class="relative z-[60] bg-border"
     style="height: {trackSize}px;"
     onmousedown={visible ? onTrackClick : undefined}
   >

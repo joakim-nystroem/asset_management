@@ -1,5 +1,5 @@
 import type { PageServerLoad, Actions } from './$types';
-import { fail } from '@sveltejs/kit';
+import { fail, redirect } from '@sveltejs/kit';
 import { createUser } from '$lib/db/auth/createUser';
 import { findUserByUsername } from '$lib/db/auth/findUserByUsername';
 import bcrypt from 'bcrypt';
@@ -9,7 +9,8 @@ export const load = (async () => {
 }) satisfies PageServerLoad;
 
 export const actions = {
-    register: async ({ request }) => {
+    register: async ({ request, locals }) => {
+        if (!locals.user) redirect(302, '/login');
         const formData = await request.formData();
         const username = formData.get('username')?.toString();
         const firstname = formData.get('firstname')?.toString();

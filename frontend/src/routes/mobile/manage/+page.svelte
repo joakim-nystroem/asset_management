@@ -1,25 +1,10 @@
 <script lang="ts">
-    import type { PageData } from './$types';
     import { base } from '$app/paths';
     import { onDestroy } from 'svelte';
-    import { realtime } from '$lib/utils/realtimeManager.svelte';
-    import { connectionStore } from '$lib/data/connectionStore.svelte';
     import { assetStore } from '$lib/data/assetStore.svelte';
+    import type { PageProps } from './$types';
 
-    let { data }: { data: PageData } = $props();
-
-    // Subscribe to grid WS room
-    $effect(() => {
-        if (connectionStore.status === 'connected') {
-            realtime.sendSubscribe('grid');
-        }
-    });
-
-    // Seed assetStore from server data
-    // svelte-ignore state_referenced_locally
-    assetStore.baseAssets = data.assets;
-    // svelte-ignore state_referenced_locally
-    assetStore.displayedAssets = data.assets;
+    let { data }: PageProps = $props();
 
     let user = $derived(data.user);
 
@@ -171,27 +156,27 @@
         <input
             type="text"
             placeholder="Search assets..."
-            class="w-full p-3 border rounded-lg dark:bg-neutral-800 dark:border-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            class="w-full p-3 border rounded-lg bg-bg-card border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
             bind:value={searchInput}
             onkeydown={(e) => { if (e.key === 'Enter') executeSearch(); }}
         />
         <div class="flex gap-2">
             <button
                 onclick={executeSearch}
-                class="flex-1 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:bg-blue-800 font-medium"
+                class="flex-1 py-3 bg-btn-primary text-white text-shadow-warm rounded-lg hover:bg-btn-primary-hover active:bg-blue-800 font-medium"
             >
                 Search
             </button>
             <button
                 onclick={toggleScanner}
-                class="flex-1 py-3 bg-neutral-600 text-white rounded-lg hover:bg-neutral-700 active:bg-neutral-800 font-medium"
+                class="flex-1 py-3 bg-btn-neutral text-white text-shadow-warm rounded-lg hover:bg-btn-neutral-hover active:bg-neutral-800 font-medium"
             >
                 {isScanning ? 'Close' : 'Scan'}
             </button>
         </div>
     </div>
 
-    <p class="text-sm text-neutral-500 dark:text-neutral-400">{results.length} assets</p>
+    <p class="text-sm text-text-muted">{results.length} assets</p>
 
     <div bind:this={container} class="flex-grow overflow-y-auto" onscroll={(e) => scrollTop = e.currentTarget.scrollTop}>
         <div style="height: {totalHeight}px; position: relative;">
@@ -199,16 +184,16 @@
                 {#each visibleItems as asset (asset.id)}
                     <a
                         href="/mobile/manage/{asset.id}"
-                        class="block w-full text-left p-4 border rounded-lg shadow-sm bg-white dark:bg-neutral-800 dark:border-neutral-700 mb-2 active:bg-neutral-50 dark:active:bg-neutral-700 transition-colors"
+                        class="block w-full text-left p-4 border rounded-lg shadow-sm bg-bg-card dark:border-neutral-700 mb-2 active:bg-neutral-50 dark:active:bg-neutral-700 transition-colors"
                         style="height: {rowHeight - 8}px;"
                     >
                         <div class="flex justify-between items-start">
                             <div class="min-w-0 flex-1">
                                 <p class="font-bold text-base truncate">{asset.wbd_tag || 'No Tag'}</p>
-                                <p class="text-sm text-neutral-600 dark:text-neutral-300 truncate">{asset.asset_type} - {asset.manufacturer} {asset.model}</p>
-                                <p class="text-xs text-neutral-500 dark:text-neutral-400 mt-1 truncate">{asset.location} | {asset.node}</p>
+                                <p class="text-sm text-text-secondary truncate">{asset.asset_type} - {asset.manufacturer} {asset.model}</p>
+                                <p class="text-xs text-text-muted mt-1 truncate">{asset.location} | {asset.node}</p>
                             </div>
-                            <svg class="w-5 h-5 text-neutral-400 flex-shrink-0 ml-2 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="w-5 h-5 text-text-muted flex-shrink-0 ml-2 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                             </svg>
                         </div>
@@ -226,7 +211,7 @@
             <h2 class="text-white font-semibold text-lg">Scan Barcode</h2>
             <button
                 onclick={toggleScanner}
-                class="px-4 py-2 bg-red-600 text-white rounded-lg font-medium text-sm hover:bg-red-700 active:bg-red-800"
+                class="px-4 py-2 bg-btn-danger text-white text-shadow-warm rounded-lg font-medium text-sm hover:bg-btn-danger-hover active:bg-red-800"
             >
                 Close
             </button>

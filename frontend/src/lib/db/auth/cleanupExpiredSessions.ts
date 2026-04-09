@@ -17,33 +17,3 @@ export async function cleanupExpiredSessions(): Promise<number> {
     return deletedCount;
 }
 
-/**
- * Removes old sessions for a specific user, keeping only the most recent one
- * Useful when you want to limit users to one active session
- */
-export async function cleanupOldUserSessions(userId: number, keepMostRecent: boolean = true): Promise<number> {
-    if (keepMostRecent) {
-        // Delete all but the most recent session for this user
-        const result = await db
-            .deleteFrom('sessions')
-            .where('user_id', '=', userId)
-            .where('session_id', 'not in', eb =>
-                eb.selectFrom('sessions as s2')
-                    .select('s2.session_id')
-                    .where('s2.user_id', '=', userId)
-                    .orderBy('s2.created_at', 'desc')
-                    .limit(1)
-            )
-            .executeTakeFirst();
-        
-        return Number(result.numDeletedRows || 0);
-    } else {
-        // Delete all sessions for this user
-        const result = await db
-            .deleteFrom('sessions')
-            .where('user_id', '=', userId)
-            .executeTakeFirst();
-        
-        return Number(result.numDeletedRows || 0);
-    }
-}

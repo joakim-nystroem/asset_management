@@ -111,6 +111,7 @@ export interface CurrentAuditTable {
     completed_at: ColumnType<Date, string, never>;
     result_id: number | null;
     result: string | null;
+    issue: string | null;
     location: string | null;
     node: string | null;
     asset_type: string | null;

@@ -15,7 +15,7 @@ import { auditUiStore } from '$lib/data/auditUiStore.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
 
-type ApiResult = { success: true; data: any } | { success: false; data: null };
+type ApiResult = { success: true; data: any } | { success: false; data: any; status?: number };
 
 async function apiFetch(endpoint: string, params?: URLSearchParams): Promise<ApiResult> {
   try {
@@ -37,8 +37,8 @@ async function apiPost(endpoint: string, body: any): Promise<ApiResult> {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!response.ok) return { success: false, data: null };
     const data = await response.json();
+    if (!response.ok) return { success: false, data, status: response.status };
     return { success: true, data };
   } catch (err) {
     console.error(`Post failed for ${endpoint}:`, err);
@@ -172,7 +172,7 @@ export async function processEvent(
       break;
 
     case 'WS_AUDIT_COMPLETE_BROADCAST':
-      handleWsAuditComplete(event.payload);
+      await handleWsAuditComplete(event.payload);
       break;
 
     case 'WS_AUDIT_START_BROADCAST':
@@ -232,7 +232,11 @@ async function handleCommitUpdate(
 
   const res = await apiPost('/api/update', apiChanges);
   if (!res.success) {
-    toastState.addToast('Failed to commit changes.', 'error');
+    if (res.status === 409) {
+      toastState.addToast(res.data?.error || 'Duplicate value — this value already exists.', 'warning');
+    } else {
+      toastState.addToast(res.data?.error || 'Failed to commit changes.', 'error');
+    }
     return;
   }
 
@@ -242,6 +246,11 @@ async function handleCommitUpdate(
     if (filtered) filtered[change.col] = change.value;
     const base = assetStore.baseAssets.find((a: any) => a.id === change.row);
     if (base) base[change.col] = change.value;
+    // Also update audit store assignments if present
+    const auditDisplayed = auditStore.displayedAssignments.find((a: any) => a.asset_id === change.row);
+    if (auditDisplayed) (auditDisplayed as any)[change.col] = change.value;
+    const auditBase = auditStore.baseAssignments.find((a: any) => a.asset_id === change.row);
+    if (auditBase) (auditBase as any)[change.col] = change.value;
   }
 
   pendingStore.edits = [];
@@ -597,7 +606,11 @@ async function handleAuditAssign(payload: Record<string, any>): Promise<void> {
   const { assetIds, userId } = payload;
   const res = await apiPost('/api/audit/assign', { assetIds, userId });
   if (!res.success) {
-    toastState.addToast('Failed to assign auditor.', 'error');
+    if (res.status === 409) {
+      toastState.addToast(res.data?.error || 'Changing auditor for completed items not allowed.', 'info');
+    } else {
+      toastState.addToast('Failed to assign auditor.', 'error');
+    }
     return;
   }
 
@@ -619,8 +632,8 @@ async function handleAuditAssign(payload: Record<string, any>): Promise<void> {
 }
 
 async function handleAuditComplete(payload: Record<string, any>): Promise<void> {
-  const { assetId, resultId, userId } = payload;
-  const res = await apiPost('/api/audit/complete', { assetId, resultId });
+  const { assetId, resultId, userId, issue } = payload;
+  const res = await apiPost('/api/audit/complete', { assetId, resultId, issue: issue ?? null });
   if (!res.success) {
     toastState.addToast('Failed to complete audit.', 'error');
     return;
@@ -729,16 +742,15 @@ async function handleWsAuditAssign(payload: Record<string, any>): Promise<void> 
   if (progressRes.success) auditStore.userProgress = progressRes.data;
 }
 
-function handleWsAuditComplete(payload: Record<string, any>): void {
+async function handleWsAuditComplete(payload: Record<string, any>): Promise<void> {
   const { assetId, resultId, completedAt, userId, completedCount } = payload;
   for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
     const a = arr.find(a => a.asset_id === assetId);
     if (a) { a.completed_at = completedAt; a.result_id = resultId; }
   }
   auditStore.progress = { total: auditStore.progress.total, completed: completedCount, pending: auditStore.progress.total - completedCount };
-  apiFetch('/api/audit/user-progress').then(res => {
-    if (res.success) auditStore.userProgress = res.data;
-  });
+  const res = await apiFetch('/api/audit/user-progress');
+  if (res.success) auditStore.userProgress = res.data;
 }
 
 async function handleWsAuditStart(): Promise<void> {

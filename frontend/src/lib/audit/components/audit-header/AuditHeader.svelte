@@ -10,10 +10,11 @@
 
 	let { keys, useCheckbox = true }: Props = $props();
 
+	let assignable = $derived(auditStore.displayedAssignments.filter(a => !a.completed_at));
 	let allSelected = $derived(
 		useCheckbox &&
-		auditStore.displayedAssignments.length > 0 &&
-		auditStore.displayedAssignments.every(a => auditUiStore.checkedIds.includes(a.asset_id))
+		assignable.length > 0 &&
+		assignable.every(a => auditUiStore.checkedIds.includes(a.asset_id))
 	);
 
 	function handleHeaderClick(key: string) {
@@ -25,35 +26,32 @@
 	}
 
 	function toggleAll() {
-		const displayed = auditStore.displayedAssignments;
-		const allChecked = displayed.length > 0 && displayed.every(a => auditUiStore.checkedIds.includes(a.asset_id));
-		if (allChecked) {
-			const displayedIds = new Set(displayed.map(a => a.asset_id));
-			const remaining = auditUiStore.checkedIds.filter(id => !displayedIds.has(id));
-			auditUiStore.checkedIds = remaining;
+		if (allSelected) {
+			const assignableIds = new Set(assignable.map(a => a.asset_id));
+			auditUiStore.checkedIds = auditUiStore.checkedIds.filter(id => !assignableIds.has(id));
 		} else {
 			const existing = new Set(auditUiStore.checkedIds);
-			for (const a of displayed) existing.add(a.asset_id);
+			for (const a of assignable) existing.add(a.asset_id);
 			auditUiStore.checkedIds = [...existing];
 		}
 	}
 
 </script>
 
-<div class="sticky top-0 z-20 flex border-b border-neutral-200 dark:border-slate-600 flex-shrink-0">
+<div class="sticky top-0 z-20 flex border-b border-border flex-shrink-0">
 	{#if useCheckbox}
 		<!-- Checkbox column -->
-		<div class="w-8 flex-shrink-0 flex items-center justify-center bg-neutral-50 dark:bg-slate-700 border-r border-neutral-200 dark:border-slate-600">
+		<div class="w-8 flex-shrink-0 flex items-center justify-center bg-bg-header border-r border-border">
 			<Checkbox checked={allSelected} onchange={toggleAll} />
 		</div>
 	{/if}
 
 	{#each keys as key}
 		<div
-			class="flex-1 min-w-0 relative group border-r border-neutral-200 dark:border-slate-600 last:border-r-0 bg-neutral-50 dark:bg-slate-700"
+			class="flex-1 min-w-0 relative group border-r border-border last:border-r-0 bg-bg-header"
 		>
 			<button
-				class="w-full h-full px-2 py-2 text-xs font-medium text-neutral-900 dark:text-neutral-100 uppercase hover:bg-neutral-100 dark:hover:bg-slate-600 text-left flex items-center justify-between focus:outline-none cursor-pointer"
+				class="w-full h-full px-2 py-2 text-xs font-medium text-text-primary uppercase hover:bg-bg-hover-item text-left flex items-center justify-between focus:outline-none cursor-pointer"
 				onclick={(e) => { e.stopPropagation(); handleHeaderClick(key); }}
 			>
 				<span class="truncate">{key.replaceAll("_", " ")}</span>
@@ -61,7 +59,7 @@
 					{#if auditUiStore.sort.key === key}
 						<span>{auditUiStore.sort.direction === 'asc' ? '▲' : '▼'}</span>
 					{:else}
-						<span class="invisible group-hover:visible text-neutral-400">▾</span>
+						<span class="invisible group-hover:visible text-text-muted">▾</span>
 					{/if}
 				</span>
 			</button>

@@ -1,1 +1,1 @@
-// AuditProgress companion — empty, logic in auditLayout.svelte.ts
+// AuditProgress companion — empty

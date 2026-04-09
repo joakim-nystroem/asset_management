@@ -83,7 +83,7 @@
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="h-[calc(100dvh-8.9rem)] rounded-lg border border-neutral-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md overflow-hidden flex flex-col select-none focus:outline-none"
+  class="mt-2 h-[calc(100dvh-8.9rem)] rounded-sm border border-border bg-bg-card shadow-md overflow-hidden flex flex-col select-none focus:outline-none"
   tabindex="-1"
 >
   {#if assetStore.displayedAssets.length > 0}
@@ -147,12 +147,12 @@
     {/if}
   {:else}
     <div class="flex items-center justify-center h-full">
-      <p class="text-lg text-neutral-400">Query successful, but no data was returned.</p>
+      <p class="text-lg text-text-muted">Query successful, but no data was returned.</p>
     </div>
   {/if}
 </div>
 {#if assetStore.displayedAssets.length > 0}
-  <p class="ml-1 text-sm text-neutral-600 dark:text-neutral-300">
+  <p class="ml-1 mt-2 text-sm text-text-secondary">
     Showing {assetStore.displayedAssets.length} items.
   </p>
 {/if}
@@ -160,8 +160,8 @@
 {#if scrollStore.isAutoScrolling}
   <div
     class="fixed z-[100] pointer-events-none -translate-x-1/2 -translate-y-1/2
-      w-7 h-7 rounded-full border border-neutral-300 dark:border-slate-600
-      bg-white/90 dark:bg-slate-800/90 shadow-md flex items-center justify-center"
+      w-7 h-7 rounded-full border border-border-strong
+      bg-bg-card/90 shadow-md flex items-center justify-center"
     style="left: {virtualGrid.autoScrollOriginX}px; top: {virtualGrid.autoScrollOriginY}px;"
   >
     <svg width="22" height="22" viewBox="0 0 22 22" fill="none" class="text-neutral-500 dark:text-slate-400">

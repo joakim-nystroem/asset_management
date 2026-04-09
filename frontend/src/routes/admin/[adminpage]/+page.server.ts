@@ -10,38 +10,28 @@ export const load = (async ({ params }) => {
     const { adminpage } = params;
 
     if (!(ALLOWED_EDIT_PAGES as readonly string[]).includes(adminpage)) {
-        throw error(404, 'Not Found');
+        error(404, 'Not Found');
     }
 
-    try {
-        let data: any[] = [];
-        let title: string = '';
+    let data: any[] | undefined;
+    let title: string = '';
 
-        switch (adminpage) {
-            case 'locations':
-                data = await getLocations();
-                title = 'Locations';
-                break;
-            case 'status':
-                data = await getStatuses();
-                title = 'Status';
-                break;
-            case 'conditions':
-                data = await getConditions();
-                title = 'Conditions';
-                break;
-            default:
-                throw error(500, 'Invalid admin page');
-        }
-
-        return {
-            items: data,
-            title: title
-        };
-    } catch (err) {
-        if (err instanceof Error) {
-          error(500, err.message);
-        }
-        error(500, `Error loading admin data for ${adminpage}`);
+    switch (adminpage) {
+        case 'locations':
+            data = await getLocations();
+            title = 'Locations';
+            break;
+        case 'status':
+            data = await getStatuses();
+            title = 'Status';
+            break;
+        case 'conditions':
+            data = await getConditions();
+            title = 'Conditions';
+            break;
     }
+
+    if (!data) error(500, `Failed to load admin data for ${adminpage}`);
+
+    return { items: data, title };
 }) satisfies PageServerLoad;

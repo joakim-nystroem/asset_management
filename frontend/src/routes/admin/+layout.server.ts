@@ -5,7 +5,7 @@ export const load = (async ({ url, locals }) => {
 
     // // Check if user is logged in
     if (!locals.user) {
-        throw redirect(302, '/login'); // Redirect to login page
+        redirect(302, '/login');
     }
 
     //$derived(data.pathname.split('/').slice(1)[-1]);

@@ -57,9 +57,9 @@
 
 </script>
 
-<div class="px-4 py-2 h-full">
+<div class="px-4 h-full">
   <KeyboardHandler>
-    <div class="flex flex-col gap-2">
+    <div class="flex flex-col">
       <Toolbar />
       <GridContainer />
     </div>
