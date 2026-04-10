@@ -1,14 +1,31 @@
 <script lang="ts">
-  import type { ActionData } from './$types';
   import { enhance } from '$app/forms';
-
-  let { form }: { form: ActionData } = $props();
+  import { toastState } from '$lib/toast/toastState.svelte';
 </script>
 
 <div class="h-full flex flex-col items-center pt-12">
   <div class="bg-bg-card rounded-sm border border-border shadow-sm p-8 w-full max-w-lg">
     <h1 class="text-xl font-semibold text-text-primary mb-6">Register User</h1>
-    <form method="POST" action="?/register" use:enhance class="space-y-4">
+    <form method="POST" action="?/register" use:enhance={() => {
+      return async ({ result, update }) => {
+        switch (result.type) {
+          case 'success':
+            toastState.addToast(String(result.data?.message || 'User registered successfully'), 'success');
+            await update({ reset: true });
+            break;
+          case 'failure':
+            toastState.addToast(String(result.data?.message || 'Registration failed'), 'error');
+            break;
+          case 'error':
+            console.error('Registration error:', result.error);
+            toastState.addToast(result.error.message, 'error');
+            break;
+          default:
+            toastState.addToast('An unexpected error occurred', 'error');
+            break;
+        }
+      };
+    }} class="space-y-4">
       <div>
         <label for="username" class="block text-sm font-medium text-text-secondary mb-1">
           Username
@@ -74,18 +91,6 @@
           class="block w-full px-3 py-1.5 rounded-sm border border-border-strong bg-bg-input text-text-primary placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:shadow-[0_0_0_1px_#3b82f6]"
         />
       </div>
-
-      {#if form?.message && !form?.success}
-        <div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-sm p-3">
-          <p class="text-text-danger text-sm font-medium">{form.message}</p>
-        </div>
-      {/if}
-
-      {#if form?.success && form?.message}
-        <div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-sm p-3">
-          <p class="text-text-completed text-sm font-medium">{form.message}</p>
-        </div>
-      {/if}
 
       <button
         type="submit"

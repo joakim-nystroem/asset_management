@@ -1,27 +1,32 @@
 <script lang="ts">
-  import type { ActionData } from './$types';
   import { enhance } from '$app/forms';
-
-  let { form }: { form: ActionData } = $props();
+  import { toastState } from '$lib/toast/toastState.svelte';
 </script>
 
 <div class="flex items-center justify-center min-h-[calc(100dvh-5rem)]">
   <div class="w-full max-w-md bg-bg-card rounded-sm border border-border shadow-sm p-8">
     <h1 class="text-lg font-semibold text-text-primary mb-6">Change Password</h1>
 
-    {#if form?.success}
-      <div class="mb-4 px-3 py-2 rounded-sm bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-sm text-text-completed">
-        Password updated successfully.
-      </div>
-    {/if}
-
-    {#if form?.message}
-      <div class="mb-4 px-3 py-2 rounded-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-text-danger">
-        {form.message}
-      </div>
-    {/if}
-
-    <form method="POST" use:enhance class="flex flex-col gap-4">
+    <form method="POST" use:enhance={() => {
+      return async ({ result, update }) => {
+        switch (result.type) {
+          case 'success':
+            toastState.addToast('Password updated successfully', 'success');
+            await update({ reset: true });
+            break;
+          case 'failure':
+            toastState.addToast(String(result.data?.message || 'Failed to change password'), 'error');
+            break;
+          case 'error':
+            console.error('Change password error:', result.error);
+            toastState.addToast(result.error.message, 'error');
+            break;
+          default:
+            toastState.addToast('An unexpected error occurred', 'error');
+            break;
+        }
+      };
+    }} class="flex flex-col gap-4">
       <div>
         <label for="currentPassword" class="block text-sm font-medium text-text-secondary mb-1">Current Password</label>
         <input

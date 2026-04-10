@@ -1,13 +1,10 @@
 <script lang="ts">
 
-  import type { ActionData } from './$types';
   import { enhance } from '$app/forms';
-
-  let { form }: { form: ActionData } = $props();
+  import { toastState } from '$lib/toast/toastState.svelte';
 
   let username = $state('');
   let password = $state('');
-  let error: string | null | undefined = $derived(form?.message);
 
 </script>
 
@@ -15,13 +12,26 @@
   <div class="w-full max-w-md bg-bg-card rounded-sm border border-border shadow-sm p-8">
     <h1 class="text-lg font-semibold text-text-primary mb-6">Login</h1>
 
-    {#if error}
-      <div class="mb-4 px-3 py-2 rounded-sm bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-sm text-text-danger">
-        {error}
-      </div>
-    {/if}
-
-    <form method="POST" action="?/login" use:enhance class="flex flex-col gap-4">
+    <form method="POST" action="?/login" use:enhance={() => {
+      return async ({ result, update }) => {
+        switch (result.type) {
+          case 'redirect':
+            toastState.addToast('Logged in successfully', 'success');
+            await update();
+            break;
+          case 'failure':
+            toastState.addToast(String(result.data?.message || 'Login failed'), 'error');
+            break;
+          case 'error':
+            console.error('Login error:', result.error);
+            toastState.addToast(result.error.message, 'error');
+            break;
+          default:
+            toastState.addToast('An unexpected error occurred', 'error');
+            break;
+        }
+      };
+    }} class="flex flex-col gap-4">
       <div>
         <label for="username" class="block text-sm font-medium text-text-secondary mb-1">Username</label>
         <input
