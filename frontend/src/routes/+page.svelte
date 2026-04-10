@@ -15,7 +15,6 @@
   import KeyboardHandler from '$lib/grid/components/keyboard-handler/KeyboardHandler.svelte';
   import Toolbar from '$lib/grid/components/toolbar/Toolbar.svelte';
   import GridContainer from '$lib/grid/components/grid-container/GridContainer.svelte';
-
   let { data }: PageProps = $props();
 
   // Seed URL store from server data
@@ -47,6 +46,8 @@
     const i = f.indexOf(':');
     return i > 0 ? [{ key: f.slice(0, i), value: f.slice(i + 1) }] : [];
   });
+  // svelte-ignore state_referenced_locally
+  queryStore.hiddenStatuses = data.hiddenStatuses ?? ['Retired'];
 
   // Subscribe to grid room when WS connects (re-subscribes after logout/reconnect)
   $effect(() => {

@@ -105,11 +105,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     try {
         await db.transaction().execute(async (trx) => {
             for (const change of changes) {
+                const displayName = `${user.lastname}, ${user.firstname}`;
                 await updateAsset(
                     parseInt(change.rowId),
                     change.columnId,
                     change.newValue,
-                    user.username,
+                    displayName,
                     trx,
                 );
                 await logChange(
@@ -117,7 +118,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                     change.columnId,
                     change.oldValue ?? null,
                     change.newValue ?? null,
-                    user.username,
+                    displayName,
                     trx,
                 );
             }

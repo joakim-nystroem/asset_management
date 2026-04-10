@@ -241,11 +241,21 @@ async function handleCommitUpdate(
   }
 
   // Apply committed values to the live assets
+  const displayName = `${user.lastname}, ${user.firstname}`;
+  const now = new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-');
   for (const change of changes) {
     const filtered = assetStore.displayedAssets.find((a: any) => a.id === change.row);
-    if (filtered) filtered[change.col] = change.value;
+    if (filtered) {
+      filtered[change.col] = change.value;
+      filtered.modified_by = displayName;
+      filtered.modified = now;
+    }
     const base = assetStore.baseAssets.find((a: any) => a.id === change.row);
-    if (base) base[change.col] = change.value;
+    if (base) {
+      base[change.col] = change.value;
+      base.modified_by = displayName;
+      base.modified = now;
+    }
     // Also update audit store assignments if present
     const auditDisplayed = auditStore.displayedAssignments.find((a: any) => a.asset_id === change.row);
     if (auditDisplayed) (auditDisplayed as any)[change.col] = change.value;
@@ -303,12 +313,15 @@ async function handleCommitCreate(
   toastState.addToast(`${rows.length} new rows saved successfully.`, 'success');
 }
 
-function buildQueryParams(view: string, q?: string, filters?: { key: string; value: string }[]): URLSearchParams {
+function buildQueryParams(view: string, q?: string, filters?: { key: string; value: string }[], hiddenStatuses?: string[]): URLSearchParams {
   const params = new URLSearchParams();
   params.set('view', view || 'default');
   if (q) params.set('q', q);
   if (filters) {
     for (const f of filters) params.append('filter', `${f.key}:${f.value}`);
+  }
+  if (hiddenStatuses) {
+    for (const s of hiddenStatuses) params.append('hidden_status', s);
   }
   return params;
 }
@@ -327,7 +340,7 @@ async function handleQuery(
     return;
   }
 
-  const params = buildQueryParams(view, q, filters);
+  const params = buildQueryParams(view, q, filters, queryStore.hiddenStatuses);
   const res = await apiFetch('/api/assets', params);
 
   if (!res.success) {
@@ -345,7 +358,7 @@ async function handleViewChange(
   payload: Record<string, any>,
 ): Promise<void> {
   const { view } = payload;
-  const params = buildQueryParams(view);
+  const params = buildQueryParams(view, undefined, undefined, queryStore.hiddenStatuses);
   const res = await apiFetch('/api/assets', params);
 
   if (!res.success) {
@@ -639,7 +652,7 @@ async function handleAuditComplete(payload: Record<string, any>): Promise<void> 
     return;
   }
 
-  const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  const now = new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-');
   for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
     const a = arr.find(a => a.asset_id === assetId);
     if (a) { a.completed_at = now; a.result_id = resultId; }

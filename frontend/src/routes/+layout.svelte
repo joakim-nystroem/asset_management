@@ -2,7 +2,9 @@
   import '../app.css';
   import favicon from '$lib/assets/favicon.svg';
   import { beforeNavigate } from '$app/navigation';
+  import { enhance } from '$app/forms';
   import { page } from '$app/state';
+  import { toastState } from '$lib/toast/toastState.svelte';
 
   import { realtime } from '$lib/utils/realtimeManager.svelte.js';
   import { connectionStore } from '$lib/data/connectionStore.svelte';
@@ -129,10 +131,10 @@
 
         {#if showUserMenu}
           <div
-            class="absolute right-0 py-2 mt-0.5 w-56 bg-bg-elevated rounded-sm shadow-lg shadow-gray-300 dark:shadow-gray-900 z-50 border border-border"
+            class="absolute right-0 py-2 mt-0.5 w-56 bg-bg-elevated rounded-sm shadow-lg shadow-gray-300 dark:shadow-gray-900 z-50 border border-border-strong"
           >
             {#if data.user}
-              <div class="px-4 py-3 border-b border-border flex justify-between items-center">
+              <div class="px-4 py-3 border-b border-border-strong mx-2 flex justify-between items-center">
                 <p class="text-sm font-semibold text-text-primary">
                   {data.user.firstname} {data.user.lastname}
                 </p>
@@ -179,7 +181,14 @@
                 Change Password
               </a>
 
-              <form action="/logout" method="POST" class="w-full" onsubmit={() => realtime.disconnect()}>
+              <form action="/logout" method="POST" class="w-full" onsubmit={() => realtime.disconnect()} use:enhance={() => {
+                return async ({ result, update }) => {
+                  if (result.type === 'redirect') {
+                    await update();
+                    toastState.addToast('Logged out successfully', 'success');
+                  }
+                };
+              }}>
                 <button
                   type="submit"
                   class="block w-full text-left px-4 py-2 text-sm text-text-danger hover:bg-bg-hover-item cursor-pointer"
@@ -188,7 +197,7 @@
                 </button>
               </form>
             {:else}
-              <div class="px-4 py-3 border-b border-border flex justify-between items-center">
+              <div class="px-4 py-3 border-b border-border-strong mx-4 flex justify-between items-center">
                 <p class="text-sm font-semibold text-text-primary">Guest</p>
                 {#if isWsConnected}
                   <span

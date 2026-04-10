@@ -130,7 +130,7 @@
 
 	function formatCycleDate(d: string | Date) {
 		const date = d instanceof Date ? d : new Date(d);
-		return date.toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' });
+		return date.toLocaleDateString('ja-JP') + ' ' + date.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
 	}
 
 	// --- CSV export ---
@@ -181,7 +181,7 @@
 <div class="flex flex-col flex-1 min-h-0 gap-4">
 	<!-- User progress cards -->
 	{#if userStats.length > 0}
-	<div class="flex flex-wrap gap-5 flex-shrink-0 mt-4 mb-2">
+	<div class="flex flex-wrap gap-5 shrink-0 mt-4 mb-2">
 		{#each userStats as stat (stat.userId)}
 			{@const pct = stat.total > 0 ? Math.round((stat.completed / stat.total) * 100) : 0}
 			{@const flagged = flaggedByUser.get(stat.userId) || 0}
@@ -189,11 +189,12 @@
 			{@const greenPct = pct - flaggedPct}
 			{@const hasFlagged = flagged > 0}
 			<button
-				class="rounded-sm px-5 py-4 min-w-64 text-left cursor-pointer
-					border-l-3 {pct === 100 ? 'border-l-green-500 dark:border-l-green-600' : 'border-l-amber-500 dark:border-l-amber-600'}
-					{selectedUser === stat.userId
-						? 'bg-blue-50 dark:bg-slate-900 border border-blue-500 dark:border-blue-500 shadow-sm'
-						: 'bg-bg-card border border-border-strong hover:bg-neutral-50 dark:hover:bg-slate-900'}"
+				class="rounded-sm px-5 py-4 min-w-64 text-left cursor-pointer border-l-3 bg-bg-card border border-border-strong hover:bg-neutral-50 dark:hover:bg-slate-900 
+					${pct === 100 ? 'border-l-green-500 dark:border-l-green-600' : 'border-l-amber-500 dark:border-l-amber-600'}
+					${selectedUser === stat.userId
+						? `bg-blue-50 dark:bg-slate-900 border shadow-sm ${pct === 100 ? 'border-green-500 dark:border-green-600' : 'border-amber-500 dark:border-amber-600'}`
+						: ''
+					}"
 				onclick={() => selectUser(stat.userId)}
 			>
 				<div class="flex items-center justify-between mb-3">
@@ -251,7 +252,7 @@
 					{#if cycleDropdownOpen}
 						<div class="absolute right-0 top-full mt-1 bg-bg-card border border-border-strong rounded shadow-xl py-1 text-sm z-50 min-w-52 max-h-64 overflow-y-auto">
 							<button
-								class="w-full px-3 py-1.5 hover:bg-bg-hover-menu text-left cursor-pointer
+								class="w-full px-3 py-1.5 hover:bg-bg-hover-button text-left cursor-pointer
 									{!viewingHistory ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-text-muted'}"
 								onclick={() => { selectCycle(null); cycleDropdownOpen = false; }}
 							>None</button>
@@ -259,7 +260,7 @@
 								{@const d = new Date(cycle.started_at)}
 								{@const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`}
 								<button
-									class="w-full px-3 py-1.5 hover:bg-bg-hover-menu text-left cursor-pointer truncate
+									class="w-full px-3 py-1.5 hover:bg-bg-hover-button text-left cursor-pointer truncate
 										{selectedCycleDate === dateStr ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-text-primary'}"
 									onclick={() => { selectCycle(dateStr); cycleDropdownOpen = false; }}
 								>

@@ -10,11 +10,12 @@ export function resetEditing() {
 }
 
 /** Close all panels except the one specified (mutually exclusive panel system). */
-export function setOpenPanel(panel?: 'contextMenu' | 'headerMenu' | 'filterPanel' | 'suggestionMenu') {
+export function setOpenPanel(panel?: 'contextMenu' | 'headerMenu' | 'filterPanel' | 'suggestionMenu' | 'settingsMenu') {
   if (panel !== 'contextMenu' && uiStore.contextMenu.visible) uiStore.contextMenu.visible = false;
   if (panel !== 'headerMenu' && uiStore.headerMenu.visible) { uiStore.headerMenu.activeKey = ''; uiStore.headerMenu.visible = false; }
   if (panel !== 'filterPanel' && uiStore.filterPanel.visible) uiStore.filterPanel.visible = false;
   if (panel !== 'suggestionMenu' && uiStore.suggestionMenu.visible) uiStore.suggestionMenu.visible = false;
+  if (panel !== 'settingsMenu' && uiStore.settingsMenu.visible) uiStore.settingsMenu.visible = false;
 }
 
 /** Reset selection and clipboard after commit — keeps undo/redo history intact. */

@@ -1,5 +1,6 @@
 // frontend/src/hooks.server.ts
 import type { Handle } from '@sveltejs/kit';
+import { logger } from '$lib/logger';
 import { findSessionById } from '$lib/db/auth/findSessionById';
 import { db } from '$lib/db/conn';
 import { cleanupExpiredSessions } from '$lib/db/auth/cleanupExpiredSessions';
@@ -13,7 +14,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     const now = Date.now();
     if (now - lastCleanup > CLEANUP_INTERVAL) {
         cleanupExpiredSessions().catch(err => {
-            console.error('Failed to cleanup expired sessions:', err);
+            logger.error({ err, hook: 'handle' }, 'Session cleanup failed during request hook');
         });
         lastCleanup = now;
     }

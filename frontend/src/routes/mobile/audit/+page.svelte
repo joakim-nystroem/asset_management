@@ -148,7 +148,8 @@
     function formatDate(val: Date | string | null): string {
         if (!val) return '-';
         try {
-            return (val instanceof Date ? val : new Date(val)).toLocaleDateString();
+            const d = val instanceof Date ? val : new Date(val);
+            return d.toLocaleDateString('ja-JP') + ' ' + d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
         } catch {
             return String(val);
         }

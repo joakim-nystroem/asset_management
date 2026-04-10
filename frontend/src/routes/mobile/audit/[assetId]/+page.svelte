@@ -155,7 +155,8 @@
     function formatDate(val: Date | string | null): string {
         if (!val) return '-';
         try {
-            return (val instanceof Date ? val : new Date(val)).toLocaleDateString();
+            const d = val instanceof Date ? val : new Date(val);
+            return d.toLocaleDateString('ja-JP') + ' ' + d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
         } catch {
             return String(val);
         }
@@ -210,9 +211,9 @@
             <h1 class="text-xl font-bold flex-1 text-center pr-10">Report Issue</h1>
         </div>
 
-        <div class="bg-btn-warning rounded-lg px-4 py-3">
-            <p class="text-sm font-medium text-white text-shadow-warm">
-                Reporting issue for: <span class="font-bold">{asset.wbd_tag || asset.id}</span>
+        <div class="border-l-4 border-btn-warning px-4 py-3">
+            <p class="text-base font-medium text-text-secondary">
+                Reporting issue for: <span class="font-bold text-text-primary">{asset.wbd_tag || asset.id}</span>
             </p>
         </div>
 
@@ -224,7 +225,7 @@
                 {#each auditIssues as issue}
                     <button
                         onclick={() => { selectedIssue = issue; }}
-                        class="w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-colors {selectedIssue === issue ? 'bg-amber-100 dark:bg-amber-900/40 border-amber-400 dark:border-amber-600 text-text-warning' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 text-text-secondary hover:bg-neutral-50 dark:hover:bg-neutral-600'}"
+                        class="w-full text-left px-4 py-3 rounded-lg border text-sm font-medium transition-colors {selectedIssue === issue ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500 text-blue-700 dark:text-blue-300' : 'bg-white dark:bg-neutral-700 border-neutral-200 dark:border-neutral-600 text-text-secondary hover:bg-neutral-50 dark:hover:bg-neutral-600'}"
                     >
                         {issue}
                     </button>
@@ -240,7 +241,7 @@
                         bind:value={issueComment}
                         maxlength={200}
                         placeholder="Enter details..."
-                        class="w-full p-3 border rounded-lg bg-bg-input border-border-strong focus:outline-none focus:ring-2 focus:ring-amber-500 text-base resize-none"
+                        class="w-full p-3 border rounded-lg bg-bg-input border-border-strong focus:outline-none focus:ring-2 focus:ring-yellow-500 text-base resize-none"
                         rows="3"
                     ></textarea>
                 </div>
@@ -257,7 +258,7 @@
             <button
                 onclick={submitReport}
                 disabled={!selectedIssue}
-                class="flex-1 py-3 px-4 bg-btn-warning text-white text-shadow-warm rounded-lg font-medium hover:bg-btn-warning-hover active:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                class="flex-1 py-3 px-4 bg-btn-warning text-white text-shadow-warm rounded-lg font-medium hover:bg-btn-warning-hover active:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
                 Submit Report
             </button>
@@ -344,7 +345,7 @@
             </button>
             <button
                 onclick={openReport}
-                class="flex-1 py-3 px-4 bg-btn-warning text-white text-shadow-warm rounded-lg font-medium hover:bg-btn-warning-hover active:bg-amber-700 text-sm"
+                class="flex-1 py-3 px-4 bg-btn-warning text-white text-shadow-warm rounded-lg font-medium hover:bg-btn-warning-hover active:bg-yellow-700 text-sm"
             >
                 Report Issue
             </button>

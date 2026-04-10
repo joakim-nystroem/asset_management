@@ -42,8 +42,8 @@
 <div {@attach checkFlip} class="absolute left-0 {flipUp ? 'bottom-full mb-1' : 'top-full mt-1'} bg-bg-header border border-blue-500 dark:border-blue-400 rounded shadow-lg py-1 text-sm z-50 min-w-44 max-h-64 overflow-y-auto">
 	{#each auditStore.users as user (user.id)}
 		<button
-			class="w-full px-3 py-1.5 hover:bg-bg-hover-menu text-left truncate cursor-pointer text-text-primary
-				{currentUserId === user.id ? 'font-semibold' : ''}"
+			class="w-full px-3 py-1.5 text-left truncate cursor-pointer
+				{currentUserId === user.id ? 'bg-blue-500 text-white font-semibold' : 'text-text-primary hover:bg-bg-hover-cell'}"
 			onclick={(e) => { e.stopPropagation(); select(user.id); }}
 		>
 			{user.lastname}, {user.firstname}

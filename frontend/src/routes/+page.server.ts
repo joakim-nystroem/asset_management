@@ -2,6 +2,7 @@
 import { queryAssets } from '$lib/db/select/queryAssets';
 import type { PageServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
+import { logger } from '$lib/logger';
 
 
 const MOBILE_UA_REGEX = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
@@ -30,7 +31,7 @@ function resolveView(param: string): string {
   return VALID_VIEWS.includes(param as any) ? param : 'default';
 }
 
-export const load: PageServerLoad = async ({ request, url }) => {
+export const load: PageServerLoad = async ({ request, url, cookies }) => {
   // Redirect mobile users to the mobile page
   const userAgent = request.headers.get('user-agent') || '';
   if (MOBILE_UA_REGEX.test(userAgent)) {
@@ -48,7 +49,10 @@ export const load: PageServerLoad = async ({ request, url }) => {
   const qParam = url.searchParams.get('q') || '';
   const filterParams = url.searchParams.getAll('filter');
   const resolvedView = resolveView(viewParam);
-  
+
+  const hiddenStatusesCookie = cookies.get('hidden_statuses');
+  const hiddenStatuses = hiddenStatusesCookie ? hiddenStatusesCookie.split(',') : ['Retired'];
+
   try {
     const hasSearch = qParam || filterParams.length > 0;
 
@@ -57,15 +61,15 @@ export const load: PageServerLoad = async ({ request, url }) => {
 
     // Load assets in parallel — metadata comes from root layout
     const [assets, searchResults] = await Promise.all([
-      queryAssets(null, {}, resolvedView),
-      hasSearch ? queryAssets(qParam || null, filterMap, resolvedView) : null,
+      queryAssets(null, {}, resolvedView, hiddenStatuses),
+      hasSearch ? queryAssets(qParam || null, filterMap, resolvedView, hiddenStatuses) : null,
     ]);
 
-    return { assets, initialView: resolvedView, initialQ: qParam, initialFilters: filterParams, searchResults, initialUrl: url.search };
+    return { assets, initialView: resolvedView, initialQ: qParam, initialFilters: filterParams, searchResults, initialUrl: url.search, hiddenStatuses };
 
   } catch (err: unknown) {
     const dbError = err instanceof Error ? err.message : 'An unknown error occurred.';
-    console.error('API request failed:', err);
+    logger.error({ err, endpoint: '/', query: url.search }, 'Asset query failed during page load');
 
     return {
       assets: [], dbError,

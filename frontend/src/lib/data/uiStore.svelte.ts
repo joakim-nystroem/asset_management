@@ -7,6 +7,7 @@ export const uiStore = $state({
   headerMenu: { visible: false, activeKey: '' },
   contextMenu: { visible: false, x: 0, y: 0, row: -1, col: '', value: '' },
   suggestionMenu: { visible: false },
+  settingsMenu: { visible: false },
 });
 
 export const sortStore = $state({

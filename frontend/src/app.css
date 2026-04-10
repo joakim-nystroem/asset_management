@@ -45,7 +45,7 @@
   --color-bg-header: var(--bg-header);
 
   /* Background hovers */
-  --color-bg-hover-menu: var(--bg-hover-menu);
+  --color-bg-hover-button: var(--bg-hover-button);
   --color-bg-hover-item: var(--bg-hover-item);
   --color-bg-hover-row: var(--bg-hover-row);
   --color-bg-hover-cell: var(--bg-hover-cell);
@@ -62,8 +62,8 @@
   --btn-danger-hover: var(--color-red-600);
   --btn-success: var(--color-green-500);
   --btn-success-hover: var(--color-green-600);
-  --btn-warning: var(--color-amber-500);
-  --btn-warning-hover: var(--color-amber-600);
+  --btn-warning: var(--color-yellow-500);
+  --btn-warning-hover: var(--color-yellow-600);
   --btn-neutral: var(--color-neutral-500);
   --btn-neutral-hover: var(--color-neutral-600);
 
@@ -89,7 +89,7 @@
   --bg-input: var(--color-white);
   --bg-header: var(--color-neutral-50);
 
-  --bg-hover-menu: var(--color-blue-50);
+  --bg-hover-button: var(--color-blue-50);
   --bg-hover-item: var(--color-neutral-100);
   --bg-hover-row: var(--color-neutral-50);
   --bg-hover-cell: var(--color-blue-100);
@@ -105,8 +105,8 @@
   --btn-danger-hover: var(--color-red-600);
   --btn-success: var(--color-green-500);
   --btn-success-hover: var(--color-green-600);
-  --btn-warning: var(--color-amber-500);
-  --btn-warning-hover: var(--color-amber-600);
+  --btn-warning: var(--color-yellow-500);
+  --btn-warning-hover: var(--color-yellow-600);
   --btn-neutral: var(--color-neutral-500);
   --btn-neutral-hover: var(--color-neutral-600);
 
@@ -132,7 +132,7 @@
   --bg-input: var(--color-slate-700);
   --bg-header: var(--color-slate-700);
 
-  --bg-hover-menu: var(--color-slate-700);
+  --bg-hover-button: var(--color-slate-700);
   --bg-hover-item: var(--color-slate-600);
   --bg-hover-row: color-mix(in srgb, var(--color-slate-700) 30%, transparent);
   --bg-hover-cell: var(--color-slate-600);

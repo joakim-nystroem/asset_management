@@ -5,6 +5,7 @@ import { db } from '$lib/db/conn';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { sql } from 'kysely';
+import { logger } from '$lib/logger';
 
 const vibrantColors = [
   '#ef4444', '#eab308', '#22c55e', '#3b82f6', '#6366f1', 
@@ -42,34 +43,26 @@ export const actions = {
       });
     }
 
-    let error = false;
-
     const sessionId = uuidv4();
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
 
     try {
-      await createSession({
-        session_id: sessionId,
-        user_id: user.id,
-        expires_at: expiresAt,
-      });
+      await Promise.all([
+        createSession({
+          session_id: sessionId,
+          user_id: user.id,
+          expires_at: expiresAt,
+        }),
+        db
+          .updateTable('users')
+          .set({ last_login_at: sql`NOW()` })
+          .where('id', '=', user.id)
+          .execute(),
+      ]);
     } catch (e) {
-      console.error('Error creating session:', e);
-      error = true;
+      logger.error({ err: e, userId: user.id, endpoint: '/login' }, 'Login DB operations failed');
+      return fail(500, { message: 'Failed to create session' });
     }
-    if (error) return fail(500, { message: 'Failed to create session' });
-
-    try {
-      await db
-        .updateTable('users')
-        .set({ last_login_at: sql`NOW()` })
-        .where('id', '=', user.id)
-        .execute();
-    } catch (e) {
-      console.error('Error updating last login:', e);
-      error = true;
-    }
-    if (error) return fail(500, { message: 'Failed to update login timestamp' });
 
     cookies.set('sessionId', sessionId, {
       path: '/',
@@ -88,6 +81,6 @@ export const actions = {
       expires: expiresAt,
     });
 
-    redirect(303, '/');
+    redirect(303, '/?view=default');
   },
 };

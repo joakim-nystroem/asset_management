@@ -5,7 +5,7 @@ import {
     PED_COLUMNS, NETWORK_COLUMNS
 } from './columnDefinitions';
 
-export async function queryAssets(searchTerm: string | null, filters: Record<string, string[]>, view: string = 'default') {
+export async function queryAssets(searchTerm: string | null, filters: Record<string, string[]>, view: string = 'default', hiddenStatuses: string[] = []) {
   // Start with base query — all views share these joins
   let query = db.selectFrom('asset_inventory as ai')
     .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
@@ -49,6 +49,10 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
     default:
       query = query.select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...HISTORY_COLUMNS]);
       break;
+  }
+
+  if (hiddenStatuses.length > 0) {
+    query = query.where('ast.status_name', 'not in', hiddenStatuses);
   }
 
   if (searchTerm) {

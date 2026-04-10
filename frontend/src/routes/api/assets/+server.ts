@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { queryAssets } from '$lib/db/select/queryAssets';
+import { logger } from '$lib/logger';
 
 const VALID_VIEWS = ['default', 'audit', 'ped', 'galaxy', 'network'];
 
@@ -25,12 +26,14 @@ export async function GET({ url, locals }) {
         }
     }
 
+    const hiddenStatuses = url.searchParams.getAll('hidden_status');
+
     try {
-        const assets = await queryAssets(q, filters, resolvedView);
+        const assets = await queryAssets(q, filters, resolvedView, hiddenStatuses);
         return json({ assets, dbError: null });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to fetch assets';
-        console.error('API request failed:', err);
+        logger.error({ err, view: resolvedView, query: url.search, endpoint: '/api/assets' }, 'Asset query failed');
         return json({ assets: [], dbError: message }, { status: 500 });
     }
 }

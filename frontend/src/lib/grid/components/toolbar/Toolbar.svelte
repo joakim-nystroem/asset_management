@@ -35,6 +35,22 @@
   const user = $derived(page.data.user);
 
   let viewDropdownOpen = $state(false);
+  let settingsOpen = $state(false);
+
+  const allStatuses = $derived(assetStore.statuses.map((s: any) => s.status_name));
+
+  function toggleStatus(status: string) {
+    const hidden = queryStore.hiddenStatuses;
+    if (hidden.includes(status)) {
+      queryStore.hiddenStatuses = hidden.filter(s => s !== status);
+    } else {
+      queryStore.hiddenStatuses = [...hidden, status];
+    }
+    // Write cookie
+    document.cookie = `hidden_statuses=${queryStore.hiddenStatuses.join(',')};path=/;max-age=${60 * 60 * 24 * 365}`;
+    // Re-fetch base assets with new filter
+    enqueue({ type: 'VIEW_CHANGE', payload: { view: queryStore.view } });
+  }
 
   function handleSearch() {
     if (pendingStore.edits.length > 0 || newRowStore.newRows.length > 0) {
@@ -145,7 +161,7 @@
                 uiStore.filterPanel.visible = true;
               }
             }}
-            class="flex items-center gap-2 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-row text-sm cursor-pointer"
+            class="flex items-center gap-2 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-button text-sm cursor-pointer"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
@@ -164,7 +180,7 @@
         {#if user}
           <button
             onclick={addNewRow}
-            class="flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-row text-sm cursor-pointer"
+            class="flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-button text-sm cursor-pointer"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path></svg>
             <span>New Row</span>
@@ -255,11 +271,12 @@
         {/if}
       </div>
 
+      <div class="flex gap-2">
       <!-- View Selector Dropdown -->
       <div class="relative">
         <button
-          onclick={() => viewDropdownOpen = !viewDropdownOpen}
-          class="flex items-center gap-1 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-row text-sm cursor-pointer"
+          onclick={() => { viewDropdownOpen = !viewDropdownOpen; uiStore.settingsMenu.visible = false; }}
+          class="flex items-center gap-1 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-button text-sm cursor-pointer"
         >
           <span>{currentViewLabel}</span>
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
@@ -271,18 +288,65 @@
             class="fixed inset-0 z-40"
             onclick={() => viewDropdownOpen = false}
           ></div>
-          <div class="absolute right-0 mt-1 w-40 bg-bg-card border border-border-strong rounded shadow-lg z-50">
+          <div class="absolute right-2 mt-1 w-40 bg-bg-header border border-border-strong rounded shadow-lg z-50">
             {#each VIEW_CONFIGS as view}
               <button
                 onclick={() => handleViewChange(view.name)}
-                class="w-full text-left px-3 py-2 text-sm hover:bg-bg-hover-row cursor-pointer {queryStore.view === view.name ? 'bg-blue-50 dark:bg-blue-900/30 font-medium' : ''}"
-              >
-                {view.label}
+                class="px-3 py-1.5 text-left flex items-center gap-2 group w-full hover:bg-bg-hover-item cursor-pointer" 
+              > 
+                <div class="w-4 flex text-text-muted justify-center">
+                  {#if queryStore.view === view.name}✓{/if}
+                </div>
+                <span>{view.label}</span>
               </button>
             {/each}
           </div>
         {/if}
       </div>
+
+      <!-- Settings Dropdown -->
+      <div class="relative">
+        <button
+          onclick={() => { settingsOpen = !settingsOpen; viewDropdownOpen = false; }}
+          class="flex items-center px-2 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-button text-sm cursor-pointer h-full"
+          title="Grid Settings"
+        >
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><circle cx="12" cy="12" r="3" /></svg>
+        </button>
+        {#if settingsOpen}
+          <div class="absolute right-0 mt-1 w-48 bg-bg-header border border-border-strong rounded shadow-lg z-50">
+            <div class="px-3 py-2 border-b border-border">
+              <span class="text-xs font-semibold text-text-muted uppercase tracking-wider">Visible Statuses</span>
+            </div>
+            {#each allStatuses as status}
+              <button
+                onclick={() => toggleStatus(status)}
+                class="px-3 py-1.5 text-left flex items-center gap-2 w-full hover:bg-bg-hover-item cursor-pointer"
+              >
+                <div class="w-4 h-4 rounded border flex items-center justify-center text-xs
+                  {queryStore.hiddenStatuses.includes(status)
+                    ? 'border-border-strong text-transparent'
+                    : 'border-blue-500 bg-blue-500 text-white'}">
+                  {#if !queryStore.hiddenStatuses.includes(status)}✓{/if}
+                </div>
+                <span class="text-sm text-text-primary">{status}</span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+      </div>
     </div>
   </div>
 </div>
+
+<!--
+<button
+      class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group w-full"
+      onclick={() => handleSort(activeKey, 'desc')}
+    >
+      <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
+        {#if sortStore.key === activeKey && sortStore.direction === 'desc'}✓{/if}
+      </div>
+      <span>Sort Z to A</span>
+    </button> -->

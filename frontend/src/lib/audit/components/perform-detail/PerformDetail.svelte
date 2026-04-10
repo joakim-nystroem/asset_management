@@ -540,9 +540,9 @@
 		{:else if view === 'report'}
 			<!-- REPORT VIEW -->
 			<div class="px-6 py-5 space-y-4">
-				<div class="bg-btn-warning rounded px-4 py-3">
-					<p class="text-sm font-medium text-white text-shadow-warm">
-						Reporting issue for <span class="font-bold">{assignment.wbd_tag || `Asset #${assignment.asset_id}`}</span>
+				<div class="border-l-4 border-btn-warning px-4 py-3">
+					<p class="text-base font-medium text-text-secondary">
+						Reporting issue for <span class="font-bold text-text-primary">{assignment.wbd_tag || `Asset #${assignment.asset_id}`}</span>
 					</p>
 				</div>
 
@@ -555,7 +555,7 @@
 								onclick={() => { selectedIssue = issue; }}
 								class="w-full text-left px-4 py-2.5 rounded border text-sm cursor-pointer transition-colors
 									{selectedIssue === issue
-										? 'bg-amber-50 dark:bg-amber-900/30 border-amber-400 dark:border-amber-600 text-text-warning font-medium'
+										? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500 text-blue-700 dark:text-blue-300 font-medium'
 										: 'bg-bg-elevated border-border text-text-secondary hover:bg-bg-hover-row'}"
 							>{issue}</button>
 						{/each}
@@ -569,7 +569,7 @@
 						<textarea
 							bind:value={issueComment}
 							placeholder="Enter details..."
-							class="w-full p-2 border border-border-strong rounded bg-bg-elevated text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
+							class="w-full p-2 border border-border-strong rounded bg-bg-elevated text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none"
 							rows="3"
 						></textarea>
 					</div>
@@ -583,7 +583,7 @@
 					<button
 						onclick={submitReport}
 						disabled={!selectedIssue || completing}
-						class="flex-1 py-2 px-4 rounded text-sm font-semibold text-white bg-amber-500 hover:bg-amber-600 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+						class="flex-1 py-2 px-4 rounded text-sm font-semibold text-white bg-btn-warning hover:bg-btn-warning-hover cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 					>{completing ? 'Submitting...' : 'Submit Report'}</button>
 				</div>
 			</div>

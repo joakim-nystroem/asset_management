@@ -28,7 +28,7 @@ const extensionTableMap: Record<string, { table: string; idColumn: string }> = {
 
 export async function updateAsset(id: number, key: string, value: any, username: string, trx?: Transaction<Database>) {
     const qb = trx ?? db;
-    const modified = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    const modified = new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-');
 
     switch (key) {
         case 'status':

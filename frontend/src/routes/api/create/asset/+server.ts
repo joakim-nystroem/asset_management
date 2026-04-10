@@ -30,12 +30,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                 'under_warranty_until', 'warranty_details'
             ];
 
+            const displayName = `${locals.user!.lastname}, ${locals.user!.firstname}`;
             for (const row of rows) {
-                const insertedId = await createAsset(row, locals.user!.username, trx);
+                const insertedId = await createAsset(row, displayName, trx);
 
                 for (const field of fieldsToLog) {
                     if (row[field] !== undefined && row[field] !== null && row[field] !== '') {
-                        await logChange(insertedId, field, null, String(row[field]), locals.user!.username, trx);
+                        await logChange(insertedId, field, null, String(row[field]), displayName, trx);
                     }
                 }
 
