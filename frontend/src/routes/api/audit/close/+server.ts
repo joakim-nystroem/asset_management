@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/db/conn';
 import { sql } from 'kysely';
+import { logger } from '$lib/logger';
 
 export const POST: RequestHandler = async ({ locals }) => {
     if (!locals.user) {
@@ -67,6 +68,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 
         return json({ success: true, archived: totalCount });
     } catch (error) {
+        logger.error({ err: error, userId: locals.user.id, endpoint: '/api/audit/close' }, 'Audit cycle close failed');
         return json(
             {
                 error: 'Failed to close audit cycle',

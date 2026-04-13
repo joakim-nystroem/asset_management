@@ -12,6 +12,7 @@ import { pendingStore } from '$lib/data/cellStore.svelte';
 import { newRowStore } from '$lib/data/newRowStore.svelte';
 import { auditStore } from '$lib/data/auditStore.svelte';
 import { auditUiStore } from '$lib/data/auditUiStore.svelte';
+import { userStore } from '$lib/data/userStore.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
 
@@ -66,6 +67,10 @@ export async function processEvent(
 
     case 'VIEW_CHANGE':
       await handleViewChange(event.payload);
+      break;
+
+    case 'SETTINGS_UPDATE':
+      await handleSettingsUpdate(event.payload);
       break;
 
     case 'DISCARD':
@@ -215,9 +220,9 @@ export async function processEvent(
 async function handleCommitUpdate(
   payload: Record<string, any>,
 ): Promise<void> {
-  const { changes, user } = payload;
+  const { changes } = payload;
 
-  if (!user) {
+  if (!userStore.id) {
     toastState.addToast('Log in to edit.', 'warning');
     return;
   }
@@ -241,7 +246,7 @@ async function handleCommitUpdate(
   }
 
   // Apply committed values to the live assets
-  const displayName = `${user.lastname}, ${user.firstname}`;
+  const displayName = `${userStore.lastname}, ${userStore.firstname}`;
   const now = new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-');
   for (const change of changes) {
     const filtered = assetStore.displayedAssets.find((a: any) => a.id === change.row);
@@ -271,9 +276,9 @@ async function handleCommitUpdate(
 async function handleCommitCreate(
   payload: Record<string, any>,
 ): Promise<void> {
-  const { rows, user } = payload;
+  const { rows } = payload;
 
-  if (!user) {
+  if (!userStore.id) {
     toastState.addToast('Log in to edit.', 'warning');
     return;
   }
@@ -313,15 +318,12 @@ async function handleCommitCreate(
   toastState.addToast(`${rows.length} new rows saved successfully.`, 'success');
 }
 
-function buildQueryParams(view: string, q?: string, filters?: { key: string; value: string }[], hiddenStatuses?: string[]): URLSearchParams {
+function buildQueryParams(view: string, q?: string, filters?: { key: string; value: string }[]): URLSearchParams {
   const params = new URLSearchParams();
   params.set('view', view || 'default');
   if (q) params.set('q', q);
   if (filters) {
     for (const f of filters) params.append('filter', `${f.key}:${f.value}`);
-  }
-  if (hiddenStatuses) {
-    for (const s of hiddenStatuses) params.append('hidden_status', s);
   }
   return params;
 }
@@ -340,7 +342,7 @@ async function handleQuery(
     return;
   }
 
-  const params = buildQueryParams(view, q, filters, queryStore.hiddenStatuses);
+  const params = buildQueryParams(view, q, filters);
   const res = await apiFetch('/api/assets', params);
 
   if (!res.success) {
@@ -358,8 +360,11 @@ async function handleViewChange(
   payload: Record<string, any>,
 ): Promise<void> {
   const { view } = payload;
-  const params = buildQueryParams(view, undefined, undefined, queryStore.hiddenStatuses);
-  const res = await apiFetch('/api/assets', params);
+  const params = new URLSearchParams();
+  params.set('view', view || 'default');
+  for (const s of queryStore.hiddenStatuses) params.append('hidden_status', s);
+
+  const res = await apiFetch('/api/view_change', params);
 
   if (!res.success) {
     toastState.addToast('Failed to load view. Please try again.', 'error');
@@ -368,9 +373,35 @@ async function handleViewChange(
 
   assetStore.baseAssets = res.data.assets;
   assetStore.displayedAssets = res.data.assets;
+  queryStore.q = '';
+  queryStore.filters = [];
   scrollStore.scrollTop = 0;
   scrollStore.scrollLeft = 0;
-  urlStore.url = `?${params}`;
+  urlStore.url = `?${buildQueryParams(view)}`;
+}
+
+async function handleSettingsUpdate(
+  payload: Record<string, any>,
+): Promise<void> {
+  const { view, hiddenStatuses } = payload;
+  const params = new URLSearchParams();
+  params.set('view', view || 'default');
+  for (const s of hiddenStatuses) params.append('hidden_status', s);
+
+  const res = await apiFetch('/api/settings_update', params);
+
+  if (!res.success) {
+    toastState.addToast('Failed to apply settings.', 'error');
+    return;
+  }
+
+  assetStore.baseAssets = res.data.assets;
+  assetStore.displayedAssets = res.data.assets;
+  queryStore.q = '';
+  queryStore.filters = [];
+  scrollStore.scrollTop = 0;
+  scrollStore.scrollLeft = 0;
+  urlStore.url = `?${buildQueryParams(view)}`;
 }
 
 function handleDiscard(
@@ -565,6 +596,10 @@ function handleWsCommitBroadcast(
   const userId = Number(payload.userId);
   const changes = payload.changes || [];
 
+  const user = presenceStore.users.find(u => u.id === userId);
+  const displayName = user ? `${user.lastname}, ${user.firstname}` : '';
+  const now = new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-');
+
   // Apply each committed change to local assetStore + auditStore
   for (const change of changes) {
     const assetId = Number(change.assetId);
@@ -572,9 +607,17 @@ function handleWsCommitBroadcast(
     const value = change.value;
 
     const filtered = assetStore.displayedAssets.find((a: any) => a.id === assetId);
-    if (filtered) filtered[key] = value;
+    if (filtered) {
+      filtered[key] = value;
+      filtered.modified_by = displayName;
+      filtered.modified = now;
+    }
     const base = assetStore.baseAssets.find((a: any) => a.id === assetId);
-    if (base) base[key] = value;
+    if (base) {
+      base[key] = value;
+      base.modified_by = displayName;
+      base.modified = now;
+    }
 
     // Update audit views if the changed asset is in scope
     for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
@@ -698,6 +741,8 @@ async function handleAuditClose(payload: Record<string, any>): Promise<void> {
   auditStore.baseAssignments = [];
   auditStore.displayedAssignments = [];
   auditStore.cycle = null;
+  auditStore.progress = { total: 0, pending: 0, completed: 0 };
+  auditStore.userProgress = [];
   realtime.sendAuditClose();
 }
 

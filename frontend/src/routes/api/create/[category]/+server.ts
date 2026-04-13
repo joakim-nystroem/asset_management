@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createLocation } from '$lib/db/create/createLocation';
 import { createStatus } from '$lib/db/create/createStatus';
 import { createCondition } from '$lib/db/create/createCondition';
+import { logger } from '$lib/logger';
 
 function getDynamicPropertyName(pathname: string) {
     if (pathname === 'status') return 'status_name';
@@ -39,7 +40,7 @@ export async function POST({ request, params, locals }) {
         }
         return json({ success: true, item: newItem });
     } catch (error: any) {
-        console.error(`Error creating ${category}:`, error);
+        logger.error({ err: error, category, name, userId: locals.user.id, endpoint: `/api/create/${category}` }, 'Admin item creation failed');
         const message = error?.sqlMessage || error?.message || `Failed to create ${category}`;
         return json({ error: message }, { status: 500 });
     }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/time/rate"
 )
 
 // Lock ordering: each manager (presence, cellLocks, pendingCells, rowLocks)
@@ -338,12 +339,6 @@ func (h *Hub) registerClient(client *Client) {
 	h.userClients[client.userID][client] = true
 
 	log.Printf("User %s connected (Sessions: %d)", client.userInfo.Username, len(h.userClients[client.userID]))
-
-	h.wg.Add(1)
-	go func() {
-		defer h.wg.Done()
-		h.sendExistingUsers(client)
-	}()
 }
 
 func (h *Hub) sendExistingUsers(client *Client) {
@@ -415,9 +410,9 @@ func (h *Hub) sendExistingUsers(client *Client) {
 
 	select {
 	case client.send <- jsonMsg:
-		// Success
-	case <-time.After(100 * time.Millisecond):
-		log.Printf("Timeout sending existing users to %s", client.userInfo.Username)
+		// sent
+	default:
+		log.Printf("Skipped sending existing state to %s (client unavailable)", client.userInfo.Username)
 	}
 }
 
@@ -447,7 +442,7 @@ func (h *Hub) unregisterClient(client *Client) {
 			}
 		}
 
-		close(client.send)
+		close(client.done)
 		room := client.room // capture while mutex still held
 		h.mutex.Unlock()
 
@@ -660,9 +655,11 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 		hub:      h,
 		conn:     conn,
 		send:     make(chan []byte, clientSendBuffer),
+		done:     make(chan struct{}),
 		userID:   clientID,
 		userInfo: userInfo,
 		lastPong: time.Now(),
+		limiter:  rate.NewLimiter(50, 10),
 	}
 
 	h.register <- client

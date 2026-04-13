@@ -112,7 +112,6 @@
                     value: editValue.trim(),
                     original: asset[editField] ?? '',
                 }],
-                user: { id: data.user!.id },
             },
         });
 

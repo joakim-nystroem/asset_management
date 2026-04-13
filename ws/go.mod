@@ -1,6 +1,6 @@
-module asset-api
+module asset-ws
 
-go 1.23
+go 1.25.0
 
 require (
 	github.com/go-sql-driver/mysql v1.8.1
@@ -9,4 +9,7 @@ require (
 	github.com/rs/cors v1.11.1
 )
 
-require filippo.io/edwards25519 v1.1.0 // indirect
+require (
+	filippo.io/edwards25519 v1.1.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
+)

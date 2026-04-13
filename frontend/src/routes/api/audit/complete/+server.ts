@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/db/conn';
 import { sql } from 'kysely';
+import { logger } from '$lib/logger';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.user) {
@@ -59,6 +60,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
         return json({ success: true, completedCount: Number(countRow?.count ?? 0) });
     } catch (error) {
+        logger.error({ err: error, assetId, resultId, userId: locals.user.id, endpoint: '/api/audit/complete' }, 'Audit completion failed');
         return json(
             {
                 error: 'Audit completion failed',

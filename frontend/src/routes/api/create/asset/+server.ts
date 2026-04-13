@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { createAsset } from '$lib/db/create/createAsset';
 import { logChange } from '$lib/db/create/logChange';
 import { db } from '$lib/db/conn';
+import { logger } from '$lib/logger';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.user) {
@@ -65,6 +66,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
         return json({ createdRows });
     } catch (error) {
+        logger.error({ err: error, userId: locals.user!.id, endpoint: '/api/create/asset' }, 'Asset creation failed');
         return json(
             {
                 error: 'Failed to create assets',

@@ -33,6 +33,9 @@
 		}
 	});
 
+	$inspect(auditStore.baseAssignments, 'auditStore.baseAssignments');
+	$inspect(auditStore.displayedAssignments, 'auditStore.displayedAssignments');
+
 	const tabs = [
 		{ label: 'Overview', href: '/audit/overview' },
 		{ label: 'Manage', href: '/audit/manage' },
@@ -43,10 +46,11 @@
 	let hasCycle = $derived(auditStore.cycle !== null);
 	let showProgress = $derived(hasCycle && !auditUiStore.viewingHistory);
 
-	// Reset displayedAssignments on tab navigation.
-	// All UI state (filters, search, sort, selection, panels) resets naturally via contexts + local component state.
+	// Reset displayedAssignments on tab navigation (skip initial mount — already seeded above).
+	let mounted = false;
 	$effect(() => {
 		activePath; // track path changes
+		if (!mounted) { mounted = true; return; }
 		auditStore.displayedAssignments = auditStore.baseAssignments;
 		auditStore.historyAssignments = [];
 		auditStore.historyUserProgress = [];

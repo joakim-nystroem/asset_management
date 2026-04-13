@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { updateLocation, updateStatus, updateCondition } from '$lib/db/update/updateAdmin';
+import { logger } from '$lib/logger';
 
 function getDynamicPropertyName(pathname: string) {
   if (pathname === 'status') return 'status_name';
@@ -37,7 +38,7 @@ export async function PUT({ request, params, locals }) {
     }
     return json({ success: true });
   } catch (error: any) {
-    console.error(`Error updating ${category}:`, error);
+    logger.error({ err: error, category, id, userId: locals.user.id, endpoint: `/api/update/${category}` }, 'Admin item update failed');
     const message = error?.sqlMessage || error?.message || `Failed to update ${category}`;
     return json({ error: message }, { status: 500 });
   }

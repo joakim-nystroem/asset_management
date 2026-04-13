@@ -1,4 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
+import type { PageServerLoad } from './$types';
 import { findUserByUsername } from '$lib/db/auth/findUserByUsername';
 import { createSession } from '$lib/db/auth/createSession';
 import { db } from '$lib/db/conn';
@@ -11,6 +12,10 @@ const vibrantColors = [
   '#ef4444', '#eab308', '#22c55e', '#3b82f6', '#6366f1', 
   '#8b5cf6', '#ec4899', '#f97316', '#84cc16', '#14b8a6', '#06b6d4',
 ];
+
+export const load: PageServerLoad = async ({ locals }) => {
+  if (locals.user) redirect(302, '/?view=default');
+};
 
 export const actions = {
   login: async ({ request, cookies }) => {

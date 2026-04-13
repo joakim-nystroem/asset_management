@@ -125,7 +125,7 @@
 							style="top: {(scroll.visibleRange.start + i) * ROW_HEIGHT - scroll.scrollTop}px; height: {ROW_HEIGHT}px;"
 						>
 							<div
-									class="w-8 flex-shrink-0 h-full flex items-center justify-center border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell cursor-pointer"
+									class="w-8 shrink-0 h-full flex items-center justify-center border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell cursor-pointer"
 									onmousedown={() => { checkboxDragging = true; toggleOne(assignment.asset_id); }}
 									onmouseenter={() => handleCheckboxEnter(assignment.asset_id)}
 								>
@@ -151,7 +151,7 @@
 									}
 								}}
 								class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell cursor-pointer relative
-									{auditUiStore.cellDropdown.visible && auditUiStore.cellDropdown.assetId === assignment.asset_id ? 'outline outline-2 outline-blue-500 -outline-offset-1 z-10' : ''}"
+									{auditUiStore.cellDropdown.visible && auditUiStore.cellDropdown.assetId === assignment.asset_id ? 'outline-2 outline-blue-500 -outline-offset-1 z-10' : ''}"
 							>
 								<span class="text-xs truncate {assignment.auditor_name ? 'text-text-secondary' : 'text-text-muted'}">{assignment.auditor_name || 'Unassigned'}</span>
 								{#if auditUiStore.cellDropdown.visible && auditUiStore.cellDropdown.assetId === assignment.asset_id}
@@ -197,7 +197,7 @@
 
 {#if scroll.isAutoScrolling}
 	<div
-		class="fixed z-[100] pointer-events-none -translate-x-1/2 -translate-y-1/2
+		class="fixed z-100 pointer-events-none -translate-x-1/2 -translate-y-1/2
 			w-7 h-7 rounded-full border border-border-strong
 			bg-bg-card/90 shadow-md flex items-center justify-center"
 		style="left: {scroll.autoScrollOriginX}px; top: {scroll.autoScrollOriginY}px;"

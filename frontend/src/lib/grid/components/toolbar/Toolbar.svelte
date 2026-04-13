@@ -5,7 +5,7 @@
   import { queryStore } from '$lib/data/queryStore.svelte';
   import { uiStore } from '$lib/data/uiStore.svelte';
   import { setOpenPanel } from '$lib/utils/gridHelpers';
-  import { pendingStore, selectionStore, clipboardStore, historyStore } from '$lib/data/cellStore.svelte';
+  import { pendingStore } from '$lib/data/cellStore.svelte';
   import { newRowStore } from '$lib/data/newRowStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
 
@@ -35,7 +35,6 @@
   const user = $derived(page.data.user);
 
   let viewDropdownOpen = $state(false);
-  let settingsOpen = $state(false);
 
   const allStatuses = $derived(assetStore.statuses.map((s: any) => s.status_name));
 
@@ -46,10 +45,9 @@
     } else {
       queryStore.hiddenStatuses = [...hidden, status];
     }
-    // Write cookie
     document.cookie = `hidden_statuses=${queryStore.hiddenStatuses.join(',')};path=/;max-age=${60 * 60 * 24 * 365}`;
-    // Re-fetch base assets with new filter
-    enqueue({ type: 'VIEW_CHANGE', payload: { view: queryStore.view } });
+    searchInput = '';
+    enqueue({ type: 'SETTINGS_UPDATE', payload: { view: queryStore.view, hiddenStatuses: $state.snapshot(queryStore.hiddenStatuses) } });
   }
 
   function handleSearch() {
@@ -124,23 +122,25 @@
   <div class="flex flex-row gap-4 items-center pt-3 pb-1">
 
     <div class="flex gap-4 items-center">
-        <input
-          bind:value={searchInput}
-          class="rounded-sm bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pl-2 pr-7 border border-border-strong dark:border-none focus:outline-none"
-          placeholder="Search..."
-          onkeydown={(e) => {
-            if (e.key === "Enter") handleSearch();
-          }}
-        />
-        {#if searchInput}
-          <button
-            onclick={handleClearSearch}
-            class="text-text-muted hover:text-text-secondary cursor-pointer font-bold text-xs"
-            title="Clear search"
-          >
-            ✕
-          </button>
-        {/if}
+        <div class="relative">
+          <input
+            bind:value={searchInput}
+            class="rounded-sm bg-white dark:bg-neutral-100 dark:text-neutral-700 placeholder-neutral-500! p-1 pl-2 pr-6 border border-border-strong dark:border-none focus:outline-none"
+            placeholder="Search..."
+            onkeydown={(e) => {
+              if (e.key === "Enter") handleSearch();
+            }}
+          />
+          {#if searchInput}
+            <button
+              onclick={handleClearSearch}
+              class="absolute right-1.5 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-secondary cursor-pointer font-bold text-xs"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          {/if}
+        </div>
       <button
         onclick={handleSearch}
         class="cursor-pointer bg-btn-primary hover:bg-btn-primary-hover px-2 py-1 rounded text-white text-shadow-warm"
@@ -211,7 +211,6 @@
                     type: 'COMMIT_CREATE',
                     payload: {
                       rows: $state.snapshot(newRows),
-                      user,
                     },
                   },
                 );
@@ -246,7 +245,6 @@
                     type: 'COMMIT_UPDATE',
                     payload: {
                       changes: $state.snapshot(pendingStore.edits),
-                      user,
                     },
                   },
                 );
@@ -288,7 +286,7 @@
             class="fixed inset-0 z-40"
             onclick={() => viewDropdownOpen = false}
           ></div>
-          <div class="absolute right-2 mt-1 w-40 bg-bg-header border border-border-strong rounded shadow-lg z-50">
+          <div class="absolute right-1 mt-1 w-40 bg-bg-header border border-border-strong rounded shadow-lg z-50">
             {#each VIEW_CONFIGS as view}
               <button
                 onclick={() => handleViewChange(view.name)}
@@ -307,14 +305,24 @@
       <!-- Settings Dropdown -->
       <div class="relative">
         <button
-          onclick={() => { settingsOpen = !settingsOpen; viewDropdownOpen = false; }}
+          onclick={(e) => {
+              e.stopPropagation();
+              if (uiStore.settingsMenu.visible) {
+                setOpenPanel();
+              } else {
+                setOpenPanel('settingsMenu');
+                uiStore.settingsMenu.visible = true;
+              }
+            }}
           class="flex items-center px-2 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-button text-sm cursor-pointer h-full"
           title="Grid Settings"
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><circle cx="12" cy="12" r="3" /></svg>
         </button>
-        {#if settingsOpen}
-          <div class="absolute right-0 mt-1 w-48 bg-bg-header border border-border-strong rounded shadow-lg z-50">
+        {#if uiStore.settingsMenu.visible}
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <div class="absolute right-1 mt-1 w-48 bg-bg-header border border-border-strong rounded shadow-lg z-900" onclick={(e) => e.stopPropagation()}>
             <div class="px-3 py-2 border-b border-border">
               <span class="text-xs font-semibold text-text-muted uppercase tracking-wider">Visible Statuses</span>
             </div>

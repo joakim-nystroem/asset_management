@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { queryAuditAssignments } from '$lib/db/select/queryAuditAssignments';
+import { logger } from '$lib/logger';
 
 function parseFilters(filterParams: string[]): Record<string, string[]> {
 	const filterMap: Record<string, string[]> = {};
@@ -29,7 +30,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		const assignments = await queryAuditAssignments(q, filterMap);
 		return json({ assignments });
 	} catch (error) {
-		console.error('Failed to query audit assignments:', error);
+		logger.error({ err: error, query: url.search, endpoint: '/api/audit/assignments' }, 'Audit assignment query failed');
 		return json({ error: 'Failed to query audit assignments' }, { status: 500 });
 	}
 };

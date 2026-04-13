@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { getLocations } from '$lib/db/select/getLocations';
 import { getStatuses } from '$lib/db/select/getStatuses';
 import { getConditions } from '$lib/db/select/getConditions';
+import { logger } from '$lib/logger';
 
 export async function GET({ params, locals }) {
   if (!locals.user) {
@@ -27,7 +28,7 @@ export async function GET({ params, locals }) {
     }
     return json({ [category]: items });
   } catch (error) {
-    console.error(`Error fetching ${category}:`, error);
+    logger.error({ err: error, category, endpoint: `/api/meta/${category}` }, 'Metadata fetch failed');
     return json({ error: `Failed to fetch ${category}` }, { status: 500 });
   }
 }

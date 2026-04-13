@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -22,11 +23,13 @@ type Client struct {
 	hub       *Hub
 	conn      *websocket.Conn
 	send      chan []byte
+	done      chan struct{} // Lifecycle signal — closed on unregister
 	userID    string    // Shared ID (e.g., "101")
 	userInfo  *UserInfo
 	room      string    // Current room subscription ("grid", "audit", or "")
 	lastPong  time.Time
 	mu        sync.Mutex
+	limiter   *rate.Limiter
 }
 
 func (c *Client) readPump() {
@@ -60,6 +63,11 @@ func (c *Client) readPump() {
 		var msg Message
 		if err := json.Unmarshal(message, &msg); err != nil {
 			log.Printf("Could not decode message from user %s: %v", c.userInfo.Username, err)
+			continue
+		}
+
+		if !c.limiter.Allow() {
+			log.Printf("Rate limit exceeded for user %s, dropping message type %s", c.userInfo.Username, msg.Type)
 			continue
 		}
 
@@ -112,6 +120,12 @@ func (c *Client) handleSubscribe(payload interface{}) {
 
 	room, ok := payloadMap["room"].(string)
 	if !ok || room == "" {
+		return
+	}
+
+	validRooms := map[string]bool{"grid": true, "audit": true}
+	if !validRooms[room] {
+		log.Printf("[Room] %s attempted to join invalid room '%s'", c.userInfo.Username, room)
 		return
 	}
 
@@ -176,6 +190,9 @@ func (c *Client) handleSubscribe(payload interface{}) {
 	c.hub.mutex.Unlock()
 
 	log.Printf("[Room] %s (%s %s) joined room '%s'", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, room)
+
+	// Send existing state now that the client is in a room
+	c.hub.sendExistingUsers(c)
 }
 
 func (c *Client) handleUnsubscribe() {
@@ -238,10 +255,11 @@ func (c *Client) writePump() {
 
 	for {
 		select {
+		case <-c.done:
+			return
 		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if !ok {
-				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 				return
 			}
 

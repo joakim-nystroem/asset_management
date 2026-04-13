@@ -280,7 +280,6 @@
 					value: trimmed,
 					original: (assignment as any)[editField] ?? '',
 				}],
-				user: { id: userId },
 			},
 		});
 
@@ -315,9 +314,10 @@
 		if (!selectedIssue || completing) return;
 		completing = true;
 		// Result ID 2 = Flagged
+		const issue = selectedIssue === 'Other' ? issueComment.trim().slice(0, 200) : selectedIssue;
 		enqueue({
 			type: 'AUDIT_COMPLETE',
-			payload: { assetId: assignment.asset_id, resultId: 2, userId },
+			payload: { assetId: assignment.asset_id, resultId: 2, userId, issue },
 		});
 		setTimeout(() => {
 			completing = false;

@@ -22,15 +22,6 @@
 
   // Derive edit properties — editRow is asset ID, editCol is column key string
   const editKey = $derived(editingStore.editCol !== '' ? editingStore.editCol : null);
-  const editAsset = $derived(
-    editingStore.editRow !== -1 ? assets.find((a: Record<string, any>) => a.id === editingStore.editRow) : null
-  );
-  const editOriginalValue = $derived(
-    editAsset && editKey ? String(editAsset[editKey] ?? '') : ''
-  );
-
-  // --- Local state (owned by EditHandler, not in context) ---
-  let textareaRef: HTMLTextAreaElement | null = $state(null);
 
   // Compute absolute position within GridOverlays
   const editorStyle = $derived.by(() => {
@@ -254,14 +245,6 @@
     }
   });
 
-  // Focus and select text when textarea mounts
-  $effect(() => {
-    if (textareaRef && editingStore.isEditing) {
-      textareaRef.focus();
-      textareaRef.select();
-    }
-  });
-
   // Reactive lock rejection — if another user locks our editing cell, cancel
   $effect(() => {
     if (!editingStore.isEditing) return;
@@ -327,17 +310,16 @@
 </script>
 
 {#if editingStore.isEditing}
-  <div class="absolute z-[70]" style={editorStyle}>
+  <div class="absolute z-70" style={editorStyle}>
     <div class="relative w-full h-full">
       <textarea
-        bind:this={textareaRef}
+        {@attach (node: HTMLTextAreaElement) => { node.focus(); node.select(); }}
         bind:value={editingStore.editValue}
         oninput={handleInput}
         onkeydown={handleKeydown}
         onmousedown={(e) => e.stopPropagation()}
         onblur={handleBlur}
-        class="w-full h-full resize-none bg-bg-elevated text-text-primary text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none"
-        style="overflow: hidden;"
+        class="w-full h-full resize-none bg-bg-elevated text-text-primary text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none overflow-hidden"
       ></textarea>
       {#if uiStore.suggestionMenu.visible}
         <SuggestionMenu options={getOptionsForColumn(editingStore.editCol)} constrained={isConstrained(editingStore.editCol)} />

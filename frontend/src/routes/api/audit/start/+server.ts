@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/db/conn';
 import { sql } from 'kysely';
+import { logger } from '$lib/logger';
 
 export const POST: RequestHandler = async ({ locals }) => {
     if (!locals.user) {
@@ -21,24 +22,25 @@ export const POST: RequestHandler = async ({ locals }) => {
         // Get today's date in YYYY-MM-DD format
         const today = new Date().toISOString().slice(0, 10);
 
-        // Take snapshot: insert all inventory items into asset_audit
+        // Snapshot + cycle record in a single transaction
         // TODO: Add status exclusion filter once statuses are cleaned up
         // e.g. .where('status_id', 'not in', [retiredId, brokenId])
-        await sql`
-            INSERT INTO asset_audit (asset_id, audit_start_date)
-            SELECT id, ${today}
-            FROM asset_inventory
-        `.execute(db);
+        await db.transaction().execute(async (trx) => {
+            await sql`
+                INSERT INTO asset_audit (asset_id, audit_start_date)
+                SELECT id, ${today}
+                FROM asset_inventory
+            `.execute(trx);
 
-        // Record the cycle start
-        await db.insertInto('asset_audit_cycles')
-            .values({
-                started_at: today,
-                started_by: locals.user.id,
-                closed_at: null,
-                closed_by: null,
-            })
-            .execute();
+            await trx.insertInto('asset_audit_cycles')
+                .values({
+                    started_at: today,
+                    started_by: locals.user!.id,
+                    closed_at: null,
+                    closed_by: null,
+                })
+                .execute();
+        });
 
         // Return count of items in snapshot
         const countRow = await db.selectFrom('asset_audit')
@@ -47,6 +49,7 @@ export const POST: RequestHandler = async ({ locals }) => {
 
         return json({ success: true, count: Number(countRow?.count ?? 0) });
     } catch (error) {
+        logger.error({ err: error, userId: locals.user.id, endpoint: '/api/audit/start' }, 'Audit cycle start failed');
         return json(
             {
                 error: 'Failed to start audit cycle',

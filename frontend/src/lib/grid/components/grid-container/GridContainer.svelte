@@ -12,8 +12,6 @@
   import { setContext } from 'svelte';
   import { createVirtualGridContainer } from './virtualGridContainer.svelte.ts';
 
-  const TRACK_SIZE = 6;
-
   // Viewport dimensions — owned by GridContainer, measured via ResizeObserver
   let viewport = $state({ width: 0, height: 0 });
   setContext('viewport', viewport);
@@ -79,6 +77,7 @@
     }
     if (scrollStore.isAutoScrolling) virtualGrid.stopAutoScroll();
   }
+
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->

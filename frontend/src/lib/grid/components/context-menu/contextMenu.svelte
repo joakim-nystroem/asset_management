@@ -12,13 +12,13 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   data-panel="context-menu"
-  class="fixed z-[60] bg-bg-header border border-border-strong rounded shadow-xl py-1 text-sm text-text-primary min-w-32 cursor-default text-left flex flex-col"
+  class="fixed z-60 bg-bg-header border border-border-strong rounded shadow-xl py-1 text-sm text-text-primary min-w-32 cursor-default text-left flex flex-col"
   style="top: {uiStore.contextMenu.y}px; left: {uiStore.contextMenu.x}px;"
   onclick={(e) => e.stopPropagation()}
 >
     <!-- Edit -->
     <button
-      class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group"
+      class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group"
       onclick={() => {
         if (!page.data.user) {
           toastState.addToast('Log in to edit.', 'warning');
@@ -69,7 +69,7 @@
 
     <!-- Copy -->
     <button
-      class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group"
+      class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group"
       onclick={() => {
         clipboardStore.isCopying = true;
         uiStore.contextMenu.visible = false;
@@ -83,7 +83,7 @@
 
     <!-- Paste -->
     <button
-      class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group"
+      class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group"
       onclick={() => {
         if (!page.data.user) {
           toastState.addToast('Log in to edit.', 'warning');
@@ -104,7 +104,7 @@
 
     <!-- Filter by this value -->
     <button
-      class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group"
+      class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group"
       onclick={() => { handleFilterByValue(uiStore.contextMenu.col, uiStore.contextMenu.value); uiStore.contextMenu.visible = false; }}
     >
       <svg class="w-4 h-4 text-text-muted group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

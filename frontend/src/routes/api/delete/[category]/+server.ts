@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { deleteLocation, deleteStatus, deleteCondition } from '$lib/db/delete/deleteAdmin';
+import { logger } from '$lib/logger';
 
 export async function DELETE({ request, params, locals }) {
     if (!locals.user) {
@@ -28,7 +29,7 @@ export async function DELETE({ request, params, locals }) {
         }
         return json({ success: true });
     } catch (error: any) {
-        console.error(`Error deleting ${category}:`, error);
+        logger.error({ err: error, category, id, userId: locals.user.id, endpoint: `/api/delete/${category}` }, 'Admin item deletion failed');
         const message = error?.sqlMessage || error?.message || `Failed to delete ${category}`;
         return json({ error: message }, { status: 500 });
     }

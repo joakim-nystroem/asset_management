@@ -12,8 +12,8 @@ See `AUDIT_PLAN.md` for the current audit feature implementation plan.
 cd frontend && npx svelte-check --tsconfig ./tsconfig.json
 # Expect: 0 errors, 4 pre-existing a11y warnings
 
-# Go API
-cd api && go build ./...
+# Go WebSocket server
+cd ws && go build ./...
 ```
 
 No formal test suite. These two commands are the verification gate.

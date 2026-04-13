@@ -73,30 +73,30 @@
 	onclick={(e) => e.stopPropagation()}
 >
 	<button
-		class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group w-full"
+		class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group w-full"
 		onclick={() => handleSort(activeKey, 'asc')}
 	>
-		<div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
+		<div class="w-4 flex justify-center text-text-muted">
 			{#if auditUiStore.sort.key === activeKey && auditUiStore.sort.direction === 'asc'}✓{/if}
 		</div>
 		<span>Sort A to Z</span>
 	</button>
 
 	<button
-		class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group w-full"
+		class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group w-full"
 		onclick={() => handleSort(activeKey, 'desc')}
 	>
-		<div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
+		<div class="w-4 flex justify-center text-text-muted">
 			{#if auditUiStore.sort.key === activeKey && auditUiStore.sort.direction === 'desc'}✓{/if}
 		</div>
 		<span>Sort Z to A</span>
 	</button>
 
-	<div class="border-b border-border my-1"></div>
+	<div class="border-b border-border-strong my-1"></div>
 
 	<div class="relative w-full">
 		<button
-			class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center justify-between group w-full"
+			class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center justify-between group w-full"
 			onclick={() => { filterOpen = !filterOpen; if (filterOpen) filterSearchTerm = ''; }}
 		>
 			<div class="flex items-center gap-2">
@@ -113,7 +113,7 @@
 			<div
 				class="absolute z-50 top-0 bg-bg-header border border-border-strong rounded shadow-xl py-1 text-sm w-48 {submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}"
 			>
-				<div class="px-2 py-1 border-b border-border mb-1">
+				<div class="px-2 py-1 border-b border-border-strong mb-1">
 					<input
 						use:focusOnInit
 						bind:value={filterSearchTerm}
@@ -126,7 +126,7 @@
 				<div class="max-h-48 overflow-y-auto no-scrollbar">
 					{#each values as item}
 						<button
-							class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group w-full"
+							class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group w-full"
 							onclick={() => toggleFilter(activeKey, item)}
 						>
 							<div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">

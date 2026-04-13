@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/db/conn';
+import { logger } from '$lib/logger';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   if (!locals.user) {
@@ -46,6 +47,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     return json({ success: true, updated });
   } catch (error) {
+    logger.error({ err: error, assetIds, userId, assignedBy: locals.user.id, endpoint: '/api/audit/assign' }, 'Audit assignment failed');
     return json(
       { error: 'Failed to assign auditor', message: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 },

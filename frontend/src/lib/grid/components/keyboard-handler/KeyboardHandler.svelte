@@ -15,6 +15,7 @@
   } from './keyboardHandler.svelte.ts';
   import { enqueue } from '$lib/eventQueue/eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
+  import { uiStore } from '$lib/data/uiStore.svelte.ts';
 
   let { children } = $props();
 
@@ -82,6 +83,9 @@
     if (e.key === 'F2') {
       e.preventDefault();
       if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
+      // No UI panel open
+      if(uiStore.contextMenu.visible || uiStore.filterPanel.visible || uiStore.headerMenu.visible || uiStore.suggestionMenu.visible) return;
+      // No selection or invalid column
       if (selectionStore.selectionStart.row === -1) return;
       const row = selectionStore.selectionStart.row;
       const col = selectionStore.selectionStart.col;

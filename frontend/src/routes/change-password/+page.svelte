@@ -1,6 +1,8 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { goto } from '$app/navigation';
   import { toastState } from '$lib/toast/toastState.svelte';
+  import { userStore } from '$lib/data/userStore.svelte';
 </script>
 
 <div class="flex items-center justify-center min-h-[calc(100dvh-5rem)]">
@@ -12,7 +14,7 @@
         switch (result.type) {
           case 'success':
             toastState.addToast('Password updated successfully', 'success');
-            await update({ reset: true });
+            goto('/?view=default');
             break;
           case 'failure':
             toastState.addToast(String(result.data?.message || 'Failed to change password'), 'error');
@@ -27,12 +29,14 @@
         }
       };
     }} class="flex flex-col gap-4">
+      <input type="text" name="username" autocomplete="username" value={userStore.username} class="hidden invisible" aria-hidden="true" tabindex="-1" readonly />
       <div>
         <label for="currentPassword" class="block text-sm font-medium text-text-secondary mb-1">Current Password</label>
         <input
           type="password"
           id="currentPassword"
           name="currentPassword"
+          autocomplete="current-password"
           required
           class="w-full rounded-sm border border-border-strong bg-bg-input text-text-primary px-2.5 py-1.5 text-sm focus:outline-none focus:shadow-[0_0_0_1px_#3b82f6]"
         />
@@ -44,8 +48,9 @@
           type="password"
           id="newPassword"
           name="newPassword"
+          autocomplete="new-password"
           required
-          minlength="6"
+          minlength="10"
           class="w-full rounded-sm border border-border-strong bg-bg-input text-text-primary px-2.5 py-1.5 text-sm focus:outline-none focus:shadow-[0_0_0_1px_#3b82f6]"
         />
       </div>
@@ -56,8 +61,9 @@
           type="password"
           id="confirmPassword"
           name="confirmPassword"
+          autocomplete="new-password"
           required
-          minlength="6"
+          minlength="10"
           class="w-full rounded-sm border border-border-strong bg-bg-input text-text-primary px-2.5 py-1.5 text-sm focus:outline-none focus:shadow-[0_0_0_1px_#3b82f6]"
         />
       </div>

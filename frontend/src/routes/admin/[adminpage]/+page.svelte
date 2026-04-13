@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { PageProps } from './$types';
-  import { tick } from 'svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
 
   let { data }: PageProps = $props();
@@ -24,8 +23,8 @@
   let editingId = $state<number | null>(null);
   let editValue = $state('');
   let deletingItem = $state<any | null>(null);
-  let textareaRef = $state<HTMLTextAreaElement | null>(null);
 
+  const editArea = 60;
 
   async function refetchData() {
     try {
@@ -43,9 +42,6 @@
     editingId = item.id;
     deletingItem = null;
     editValue = getDynamicName(item, pathname);
-    await tick();
-    textareaRef?.focus();
-    textareaRef?.select();
   }
 
   function cancelEdit() {
@@ -80,8 +76,6 @@
     }
   }
 
-  
-
   function confirmDelete(item: any) {
     deletingItem = item;
     editingId = null;
@@ -103,6 +97,7 @@
 
       if (res.ok) {
         await refetchData();
+        toastState.addToast('Item removed successfully', 'success');
       } else {
         const data = await res.json();
         toastState.addToast(data.error || 'Failed to remove', 'error');
@@ -184,29 +179,32 @@
     <!-- Rows -->
     <div class="overflow-y-auto max-h-[calc(100dvh-11.5rem)]">
       {#each pageItems as item}
-        <div class="flex items-center px-4 py-2.5 border-b border-border hover:bg-bg-hover-row text-sm">
-          <div class="w-14 flex-shrink-0 text-text-muted font-mono text-xs">{item.id}</div>
-          <div class="flex-1 min-w-0 text-text-secondary">
-            {#if editingId === item.id}
-              <textarea
-                bind:this={textareaRef}
-                bind:value={editValue}
-                onkeydown={handleKeydown}
-                onblur={saveEdit}
-                class="w-full h-8 resize-none bg-bg-input text-text-primary border border-blue-500 rounded-sm px-2 py-1 text-sm focus:outline-none"
-              ></textarea>
-            {:else}
-              <span class="truncate block">{getDynamicName(item, pathname)}</span>
-            {/if}
-          </div>
-          <div class="flex gap-4">
-            {#if editingId === item.id}
-              <button onclick={saveEdit} class="px-2.5 py-1 rounded-sm text-xs font-medium bg-btn-success hover:bg-btn-success-hover text-white text-shadow-warm cursor-pointer">Save</button>
-              <button onclick={cancelEdit} class="px-2.5 py-1 rounded-sm text-xs font-medium bg-btn-neutral hover:bg-btn-neutral-hover text-white cursor-pointer">Cancel</button>
-            {:else}
-              <button onclick={() => startEdit(item)} class="px-2.5 py-1 rounded-sm text-xs font-medium bg-btn-primary hover:bg-btn-primary-hover text-white text-shadow-warm cursor-pointer">Edit</button>
-              <button onclick={() => confirmDelete(item)} class="px-2.5 py-1 rounded-sm text-xs font-medium bg-btn-danger hover:bg-btn-danger-hover text-white text-shadow-warm cursor-pointer">Remove</button>
-            {/if}
+        <div class="flex justify-start items-center px-4 py-3 border-b border-border hover:bg-bg-hover-row text-sm">
+          <div class="w-10 text-text-muted font-mono text-xs">{item.id}</div>
+          <div class="flex w-full justify-between items-center">
+            <div class="w-{editArea} text-text-secondary relative">
+              {#if editingId === item.id}
+                <textarea
+                  {@attach (node: HTMLTextAreaElement) => { node.focus(); node.select(); }}
+                  bind:value={editValue}
+                  onkeydown={handleKeydown}
+                  onblur={saveEdit}
+                  class="w-{editArea} absolute h-8 -top-4 -left-1 resize-none bg-bg-input text-text-primary rounded-sm py-1.5 px-1 text-sm overflow-hidden focus:outline-none"
+                  style="box-shadow: 0 0 0px 1px rgba(59, 130, 246, 1);"
+                ></textarea>
+              {:else}
+                <span>{getDynamicName(item, pathname)}</span>
+              {/if}
+            </div>
+            <div class="flex justify-between min-w-30">
+              {#if editingId === item.id}
+                <button onclick={saveEdit} class="px-2.5 py-1.5 rounded-sm text-xs font-medium bg-btn-success hover:bg-btn-success-hover text-white text-shadow-warm cursor-pointer">Save</button>
+                <button onclick={cancelEdit} class="px-2.5 py-1.5 rounded-sm text-xs font-medium bg-btn-neutral hover:bg-btn-neutral-hover text-white cursor-pointer">Cancel</button>
+              {:else}
+                <button onclick={() => startEdit(item)} class="px-2.5 py-1.5 rounded-sm text-xs font-medium bg-btn-primary hover:bg-btn-primary-hover text-white text-shadow-warm cursor-pointer">Edit</button>
+                <button onclick={() => confirmDelete(item)} class="px-2.5 py-1.5 rounded-sm text-xs font-medium bg-btn-danger hover:bg-btn-danger-hover text-white text-shadow-warm cursor-pointer">Remove</button>
+              {/if}
+            </div>
           </div>
         </div>
       {/each}

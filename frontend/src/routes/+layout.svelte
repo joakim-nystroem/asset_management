@@ -9,8 +9,21 @@
   import { realtime } from '$lib/utils/realtimeManager.svelte.js';
   import { connectionStore } from '$lib/data/connectionStore.svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
+  import { userStore } from '$lib/data/userStore.svelte';
   import ToastContainer from '$lib/toast/ToastContainer.svelte';
   let { children, data } = $props();
+
+  // Seed user store
+  if (data.user) {
+    // svelte-ignore state_referenced_locally
+    userStore.id = data.user.id;
+    // svelte-ignore state_referenced_locally
+    userStore.username = data.user.username;
+    // svelte-ignore state_referenced_locally
+    userStore.firstname = data.user.firstname;
+    // svelte-ignore state_referenced_locally
+    userStore.lastname = data.user.lastname;
+  }
 
   // Seed metadata once — available everywhere
   // svelte-ignore state_referenced_locally
@@ -39,7 +52,7 @@
   });
 
   // Get user initials
-  let userInitials = $derived(() => {
+  let userInitials = $derived.by(() => {
     if (!data.user) return 'G';
     const first = data.user.firstname?.[0] || '';
     const last = data.user.lastname?.[0] || '';
@@ -98,7 +111,7 @@
 
 <div class="bg-bg-page text-text-primary flex flex-col min-h-screen">
   <header class="h-12 w-full bg-blue-500 dark:bg-blue-500 text-neutral-100 dark:text-neutral-50 flex justify-between items-center pl-4 px-4">
-    <a href="/" class="font-bold text-lg hover:cursor-pointer">Asset Master</a>
+    <a href="/" data-sveltekit-reload class="font-bold text-lg hover:cursor-pointer">Asset Master</a>
     <div class="flex gap-4 items-center align-middle">
       <button onclick={toggleTheme} class="w-10 h-10 flex items-center justify-center text-neutral-100 cursor-pointer hover:bg-blue-400 dark:hover:bg-blue-700 rounded-lg transition-colors" title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
         {#if darkMode}
@@ -126,7 +139,7 @@
           class="w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm hover:cursor-pointer"
           style="background-color: {sessionColor}"
         >
-          {userInitials()}
+          {userInitials}
         </button>
 
         {#if showUserMenu}
@@ -153,6 +166,7 @@
 
               <a
                 href="/"
+                data-sveltekit-reload
                 class="block px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover-item"
               >
                 Home
@@ -185,7 +199,7 @@
                 return async ({ result, update }) => {
                   if (result.type === 'redirect') {
                     await update();
-                    toastState.addToast('Logged out successfully', 'success');
+                    toastState.addToast('Logged out successfully', 'info');
                   }
                 };
               }}>
@@ -213,6 +227,7 @@
               </div>
               <a
                 href="/"
+                data-sveltekit-reload
                 class="block px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover-item"
               >
                 Home

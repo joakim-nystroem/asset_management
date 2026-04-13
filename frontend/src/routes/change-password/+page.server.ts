@@ -1,10 +1,17 @@
 import { fail, redirect } from '@sveltejs/kit';
-import type { Actions } from './$types';
+import type { Actions, PageServerLoad } from './$types';
 import bcrypt from 'bcrypt';
 import { db } from '$lib/db/conn';
+import { logger } from '$lib/logger';
+import { deleteOtherSessions } from '$lib/db/auth/deleteSession';
+import { validatePassword } from '$lib/utils/validatePassword';
+
+export const load: PageServerLoad = async ({ locals }) => {
+  if (!locals.user) redirect(303, '/login');
+};
 
 export const actions: Actions = {
-  default: async ({ request, locals }) => {
+  default: async ({ request, locals, cookies }) => {
     if (!locals.user) {
       redirect(303, '/login');
     }
@@ -22,8 +29,9 @@ export const actions: Actions = {
       return fail(400, { message: 'New passwords do not match' });
     }
 
-    if (newPassword.length < 6) {
-      return fail(400, { message: 'New password must be at least 6 characters' });
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return fail(400, { message: passwordError });
     }
 
     const user = await db
@@ -49,8 +57,14 @@ export const actions: Actions = {
         .where('id', '=', locals.user.id)
         .execute();
     } catch (error) {
-      console.error('Error updating password:', error);
+      logger.error({ err: error, userId: locals.user.id, endpoint: '/change-password' }, 'Password update failed');
       return fail(500, { message: 'Failed to update password' });
+    }
+
+    // Invalidate all other sessions (keep current device logged in)
+    const sessionId = cookies.get('sessionId');
+    if (sessionId) {
+      await deleteOtherSessions(locals.user.id, sessionId);
     }
 
     return { success: true };

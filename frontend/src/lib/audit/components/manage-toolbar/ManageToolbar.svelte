@@ -92,7 +92,7 @@
 
 </script>
 
-<div class="flex items-center flex-shrink-0 mb-1">
+<div class="flex items-center shrink-0 mb-1">
 	{#if hasCycle}
 	<!-- Search -->
 	<div class="flex gap-4 items-center">
@@ -130,7 +130,7 @@
 					auditUiStore.filterPanel = true;
 				}
 			}}
-			class="flex items-center gap-2 px-3 py-1 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-row text-base cursor-pointer"
+			class="flex items-center gap-2 px-3 py-1 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-button text-base cursor-pointer"
 		>
 			Filters
 			{#if auditUiStore.filters.length > 0}
@@ -147,7 +147,7 @@
 	<!-- Bulk assign (appears when items selected) -->
 	{#if hasSelection}
 		<div class="flex items-center gap-2 ml-4">
-			<span class="text-sm text-text-secondary font-medium">
+			<span class="text-sm text-text-secondary font-medium"> 
 				{auditUiStore.checkedIds.length} selected
 			</span>
 			<div class="relative" data-panel="assign-dropdown">
@@ -160,7 +160,7 @@
 						auditUiStore.assignDropdown = true;
 					}
 				}}
-					class="flex items-center justify-between gap-2 bg-bg-card text-text-secondary py-1 px-3 border border-border-strong rounded hover:bg-bg-hover-row cursor-pointer text-sm min-w-36"
+					class="flex items-center justify-between gap-2 bg-bg-card text-text-secondary py-1 px-3 border border-border-strong rounded hover:bg-bg-hover-button cursor-pointer text-sm min-w-36"
 				>
 					<span>Assign...</span>
 					<svg class="w-3.5 h-3.5 text-text-muted transition-transform {auditUiStore.assignDropdown ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -173,7 +173,7 @@
 					>
 						{#each auditStore.users as user (user.id)}
 							<button
-								class="w-full px-3 py-1.5 hover:bg-bg-hover-menu text-left truncate cursor-pointer text-text-primary"
+								class="w-full px-3 py-1.5 hover:bg-bg-hover-button text-left truncate cursor-pointer text-text-primary"
 								onclick={() => assignAssets(user.id)}
 							>
 								{user.lastname}, {user.firstname}
@@ -219,10 +219,9 @@
 </div>
 
 {#if confirmModal}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="fixed inset-0 z-[200] flex items-center justify-center bg-black/40"
-		onkeydown={(e) => { if (e.key === 'Escape') confirmModal = null; }}
+		{@attach () => { onkeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') confirmModal = null; }; }}
+		class="fixed inset-0 z-200 flex items-center justify-center bg-black/40"
 	>
 		<div class="bg-bg-card rounded-lg shadow-2xl p-6 max-w-sm w-full mx-4 border border-border">
 			<p class="text-sm text-text-secondary mb-5">{confirmModal.message}</p>

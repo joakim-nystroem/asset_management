@@ -73,6 +73,7 @@
           id="password"
           name="password"
           type="password"
+          minlength="10"
           required
           class="block w-full px-3 py-1.5 rounded-sm border border-border-strong bg-bg-input text-text-primary placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:shadow-[0_0_0_1px_#3b82f6]"
         />
@@ -87,6 +88,7 @@
           name="confirmPassword"
           type="password"
           autocomplete="new-password"
+          minlength="10"
           required
           class="block w-full px-3 py-1.5 rounded-sm border border-border-strong bg-bg-input text-text-primary placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:shadow-[0_0_0_1px_#3b82f6]"
         />

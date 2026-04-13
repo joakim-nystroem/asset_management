@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"asset-api/internal"
+	"asset-ws/internal"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"

@@ -6,7 +6,7 @@ A collaborative asset tracking app — a spreadsheet-like grid where multiple us
 
 - **Frontend:** SvelteKit, Svelte 5 (runes), Tailwind CSS
 - **Backend:** SvelteKit server routes, Kysely ORM, MariaDB
-- **Realtime:** Go WebSocket hub (`api/`)
+- **Realtime:** Go WebSocket hub (`ws/`)
 - **Base path:** `/asset`
 
 This is a focused codebase — understand the whole before changing a part.
@@ -30,7 +30,7 @@ frontend/src/
 │   ├── toast/         # Toast notification system
 │   └── types.ts       # Shared TypeScript types
 ├── routes/            # SvelteKit pages and API routes
-api/
+ws/
 ├── main.go            # HTTP server + WS upgrade
 └── internal/          # WebSocket hub, presence, locking, pending state
 ```
@@ -192,7 +192,7 @@ Auth guards (`if (!user)`) toast a warning and return before any API call.
 
 Pending edits survive disconnection (local-first). The user can keep editing, but commits require a live WS connection. On reconnect, `CLIENT_STATE` is sent and the server reconciles (may reject conflicting locks/pending cells via `WS_CLIENT_STATE_RECONCILED`).
 
-## Go WebSocket Hub (`api/internal/`)
+## Go WebSocket Hub (`ws/internal/`)
 
 ### Message Format
 

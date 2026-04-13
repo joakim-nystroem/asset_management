@@ -69,6 +69,8 @@
 
     // Acquire row lock on mount, release on unmount
     $effect(() => {
+        if (!asset) return;
+
         const assetId = untrack(() => asset.asset_id);
         const userId = untrack(() => user.id);
 
@@ -125,7 +127,6 @@
                     value: editValue.trim(),
                     original: (asset as any)[editField] ?? '',
                 }],
-                user: { id: user.id },
             },
         });
 
@@ -163,7 +164,11 @@
     }
 </script>
 
-{#if view === 'confirm'}
+{#if !asset}
+    <div class="flex items-center justify-center min-h-[60vh] px-4">
+        <p class="text-text-secondary">Asset not found.</p>
+    </div>
+{:else if view === 'confirm'}
     <!-- CONFIRM AUDIT VIEW -->
     <div class="flex flex-col items-center justify-center min-h-[60vh] px-4 gap-6">
         <div class="w-20 h-20 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">

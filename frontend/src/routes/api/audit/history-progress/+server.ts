@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAuditHistoryProgress } from '$lib/db/select/getAuditHistoryProgress';
+import { logger } from '$lib/logger';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
     if (!locals.user) {
@@ -16,6 +17,7 @@ export const GET: RequestHandler = async ({ locals, url }) => {
         const userProgress = await getAuditHistoryProgress(startDate);
         return json(userProgress);
     } catch (error) {
+        logger.error({ err: error, startDate, endpoint: '/api/audit/history-progress' }, 'Audit history progress fetch failed');
         return json({ error: 'Failed to get history progress' }, { status: 500 });
     }
 };

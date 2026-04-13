@@ -3,6 +3,8 @@ import { fail, redirect } from '@sveltejs/kit';
 import { createUser } from '$lib/db/auth/createUser';
 import { findUserByUsername } from '$lib/db/auth/findUserByUsername';
 import bcrypt from 'bcrypt';
+import { logger } from '$lib/logger';
+import { validatePassword } from '$lib/utils/validatePassword';
 
 export const load = (async () => {
     return {};
@@ -46,12 +48,13 @@ export const actions = {
             });
         }
 
-        if (password.length < 8) {
-            return fail(400, { 
+        const passwordError = validatePassword(password);
+        if (passwordError) {
+            return fail(400, {
                 username,
                 firstname,
                 lastname,
-                message: 'Password must be at least 8 characters long' 
+                message: passwordError
             });
         }
 
@@ -68,7 +71,7 @@ export const actions = {
             await createUser({ username, firstname, lastname, password_hash });
             return { success: true, message: 'User registered successfully!' }; 
         } catch (error) {
-            console.error('Registration error:', error);
+            logger.error({ err: error, username, endpoint: '/admin/register' }, 'User registration failed');
             return fail(500, { message: 'Failed to register user' });
         }
     }

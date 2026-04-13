@@ -2,9 +2,18 @@
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
-  import { uiStore, sortStore } from '$lib/data/uiStore.svelte';
+  import { sortStore } from '$lib/data/uiStore.svelte';
   import { setOpenPanel } from '$lib/utils/gridHelpers';
   import { toggleFilter } from './headerMenu.svelte.ts';
+
+  import type { Attachment } from 'svelte/attachments';
+
+  const metadataOptions: Record<string, () => string[]> = {
+    location: () => assetStore.locations.map((l: any) => l.location_name),
+    status: () => assetStore.statuses.map((s: any) => s.status_name),
+    condition: () => assetStore.conditions.map((c: any) => c.condition_name),
+    department: () => assetStore.departments.map((d: any) => d.department_name),
+  };
 
   let {
     activeKey,
@@ -46,6 +55,15 @@
       submenuDirection = rect.right + SUBMENU_WIDTH > window.innerWidth ? 'left' : 'right';
     }
   });
+
+  const closeOnEscape: Attachment = () => {
+		onkeydown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpenPanel();
+      }
+    };
+	};
+
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -57,30 +75,30 @@
     onclick={(e) => e.stopPropagation()}
   >
     <button
-      class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group w-full"
+      class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group"
       onclick={() => handleSort(activeKey, 'asc')}
     >
-      <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
+      <div class="w-4 flex justify-center text-text-muted">
         {#if sortStore.key === activeKey && sortStore.direction === 'asc'}✓{/if}
       </div>
       <span>Sort A to Z</span>
     </button>
 
     <button
-      class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group w-full"
+      class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group w-full"
       onclick={() => handleSort(activeKey, 'desc')}
     >
-      <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
+      <div class="w-4 flex justify-center text-text-muted">
         {#if sortStore.key === activeKey && sortStore.direction === 'desc'}✓{/if}
       </div>
       <span>Sort Z to A</span>
     </button>
 
-    <div class="border-b border-border my-1"></div>
+    <div class="border-b border-border-strong my-1"></div>
 
     <div class="relative w-full">
       <button
-        class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center justify-between group w-full"
+        class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center justify-between group w-full"
         onclick={() => { filterOpen = !filterOpen; if (filterOpen) filterSearchTerm = ''; }}
       >
         <div class="flex items-center gap-2">
@@ -95,9 +113,10 @@
       {#if filterOpen}
         {@const focusOnInit = (node: HTMLElement) => { node.focus(); }}
         <div
+          {@attach closeOnEscape}
           class="absolute z-50 top-0 bg-bg-header border border-border-strong rounded shadow-xl py-1 text-sm w-48 {submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}"
         >
-          <div class="px-2 py-1 border-b border-border mb-1">
+          <div class="px-2 py-1 border-b border-border-strong mb-1">
             <input
               use:focusOnInit
               bind:value={filterSearchTerm}
@@ -108,17 +127,19 @@
           </div>
 
           <div class="max-h-48 overflow-y-auto no-scrollbar">
-            {#each [...new Set(
-                (queryStore.filters.some(f => f.key !== activeKey)
-                  ? assetStore.displayedAssets
-                  : assetStore.baseAssets
-                ).map((a: Record<string, any>) => String(a[activeKey] ?? '')).filter(Boolean)
-              )]
-              .filter((i: string) => i.toLowerCase().includes(filterSearchTerm.toLowerCase()))
+            {#each (metadataOptions[activeKey]
+                ? metadataOptions[activeKey]()
+                : [...new Set(
+                    (queryStore.filters.some(f => f.key !== activeKey)
+                      ? assetStore.displayedAssets
+                      : assetStore.baseAssets
+                    ).map((a: Record<string, any>) => String(a[activeKey] ?? '')).filter(Boolean)
+                  )]
+              ).filter((i: string) => i.toLowerCase().includes(filterSearchTerm.toLowerCase()))
               as item
             }
               <button
-                class="px-3 py-1.5 hover:bg-bg-hover-menu text-left flex items-center gap-2 group w-full"
+                class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group w-full"
                 onclick={() => toggleFilter(activeKey, item)}
               >
                 <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">

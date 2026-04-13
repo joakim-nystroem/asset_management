@@ -26,10 +26,8 @@ export async function GET({ url, locals }) {
         }
     }
 
-    const hiddenStatuses = url.searchParams.getAll('hidden_status');
-
     try {
-        const assets = await queryAssets(q, filters, resolvedView, hiddenStatuses);
+        const assets = await queryAssets(q, filters, resolvedView);
         return json({ assets, dbError: null });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to fetch assets';

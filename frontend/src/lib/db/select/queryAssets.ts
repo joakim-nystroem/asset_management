@@ -79,10 +79,9 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
   };
 
   for (const [key, values] of Object.entries(filters)) {
-    if (values.length > 0) {
-      const columnName = filterColumnMap[key] || key;
-      query = query.where(columnName as any, 'in', values);
-    }
+    const columnName = filterColumnMap[key];
+    if (!columnName || values.length === 0) continue;
+    query = query.where(columnName as any, 'in', values);
   }
 
   return await query.orderBy('ai.id').execute();

@@ -17,7 +17,7 @@
         switch (result.type) {
           case 'redirect':
             await update();
-            toastState.addToast('Logged in successfully', 'success');
+            toastState.addToast('Logged in successfully', 'info');
             break;
           case 'failure':
             toastState.addToast(String(result.data?.message || 'Login failed'), 'error');
