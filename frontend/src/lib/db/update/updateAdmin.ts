@@ -20,3 +20,10 @@ export async function updateCondition(id: number, name: string) {
         .where('id', '=', id)
         .execute();
 }
+
+export async function updateDepartment(id: number, name: string) {
+    return await db.updateTable('asset_departments')
+        .set({ department_name: name })
+        .where('id', '=', id)
+        .execute();
+}

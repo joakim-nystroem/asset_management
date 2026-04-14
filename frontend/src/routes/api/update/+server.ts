@@ -31,12 +31,6 @@ const ALLOWED_COLUMNS = [
     // Network extension columns
     'ip_address',
     'mac_address',
-    'ip_configuration',
-    'network_connection_type',
-    'ssid',
-    'network_vpn',
-    'ethernet_patch_port',
-    'switch_port',
 ] as const;
 
 const MAX_LENGTHS: Partial<Record<typeof ALLOWED_COLUMNS[number], number>> = {

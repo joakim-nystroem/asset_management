@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { updateLocation, updateStatus, updateCondition } from '$lib/db/update/updateAdmin';
+import { updateLocation, updateStatus, updateCondition, updateDepartment } from '$lib/db/update/updateAdmin';
 import { logger } from '$lib/logger';
 
 function getDynamicPropertyName(pathname: string) {
@@ -32,6 +32,9 @@ export async function PUT({ request, params, locals }) {
         break;
       case 'conditions':
         await updateCondition(id, name);
+        break;
+      case 'departments':
+        await updateDepartment(id, name);
         break;
       default:
         return json({ error: 'Invalid category' }, { status: 400 });

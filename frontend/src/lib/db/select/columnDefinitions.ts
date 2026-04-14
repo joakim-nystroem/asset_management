@@ -22,8 +22,12 @@ export const CORE_COLUMNS = [
 // Warranty columns (Default + extension views only)
 export const WARRANTY_COLUMNS = ['ai.under_warranty_until', 'ai.warranty_details'] as const;
 
-// Change history columns
-export const HISTORY_COLUMNS = ['ai.modified', 'ai.modified_by'] as const;
+// Change history columns — DATE_FORMAT so MySQL returns string, not JS Date
+import { sql } from 'kysely';
+export const HISTORY_COLUMNS = [
+  sql<string>`DATE_FORMAT(ai.modified, '%Y-%m-%d %H:%i:%s')`.as('modified'),
+  'ai.modified_by',
+] as const;
 
 // PED extension columns
 export const PED_COLUMNS = [
@@ -38,11 +42,5 @@ export const PED_COLUMNS = [
 // Network extension columns
 export const NETWORK_COLUMNS = [
 	'and_.ip_address',
-	'and_.mac_address',
-	'and_.ip_configuration',
-	'and_.network_connection_type',
-	'and_.ssid',
-	'and_.network_vpn',
-	'and_.ethernet_patch_port',
-	'and_.switch_port'
+	'and_.mac_address'
 ] as const;

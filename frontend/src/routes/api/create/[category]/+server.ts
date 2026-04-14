@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { createLocation } from '$lib/db/create/createLocation';
 import { createStatus } from '$lib/db/create/createStatus';
 import { createCondition } from '$lib/db/create/createCondition';
+import { createDepartment } from '$lib/db/create/createDepartment';
 import { logger } from '$lib/logger';
 
 function getDynamicPropertyName(pathname: string) {
@@ -34,6 +35,9 @@ export async function POST({ request, params, locals }) {
                 break;
             case 'conditions':
                 newItem = await createCondition(name);
+                break;
+            case 'departments':
+                newItem = await createDepartment(name);
                 break;
             default:
                 return json({ error: 'Invalid category' }, { status: 400 });

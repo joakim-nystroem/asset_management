@@ -17,3 +17,9 @@ export async function deleteCondition(id: number) {
         .where('id', '=', id)
         .execute();
 }
+
+export async function deleteDepartment(id: number) {
+    return await db.deleteFrom('asset_departments')
+        .where('id', '=', id)
+        .execute();
+}

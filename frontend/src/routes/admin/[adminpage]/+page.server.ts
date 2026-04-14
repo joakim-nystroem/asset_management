@@ -3,8 +3,9 @@ import { error } from '@sveltejs/kit';
 import { getLocations } from '$lib/db/select/getLocations';
 import { getStatuses } from '$lib/db/select/getStatuses';
 import { getConditions } from '$lib/db/select/getConditions';
+import { getDepartments } from '$lib/db/select/getDepartments';
 
-const ALLOWED_EDIT_PAGES: string[] = ['locations', 'status', 'conditions'];
+const ALLOWED_EDIT_PAGES: string[] = ['locations', 'status', 'conditions', 'departments'];
 
 export const load = (async ({ params }) => {
     const { adminpage } = params;
@@ -28,6 +29,10 @@ export const load = (async ({ params }) => {
         case 'conditions':
             data = await getConditions();
             title = 'Conditions';
+            break;
+        case 'departments':
+            data = await getDepartments();
+            title = 'Departments';
             break;
     }
 

@@ -22,16 +22,17 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
         .select([
             ...CORE_COLUMNS,
             ...HISTORY_COLUMNS,
-            'aa.audit_start_date',
+            sql<string>`DATE_FORMAT(aa.audit_start_date, '%Y-%m-%d %H:%i:%s')`.as('audit_start_date'),
             sql<string | null>`CONCAT(au.lastname, ', ', au.firstname)`.as('assigned_to'),
-            'aa.completed_at',
+            sql<string | null>`DATE_FORMAT(aa.completed_at, '%Y-%m-%d %H:%i:%s')`.as('completed_at'),
             'aa.result',
         ]);
       break;
     case 'ped':
       query = query
         .leftJoin('asset_ped_details as apd', 'ai.id', 'apd.asset_id')
-        .select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...PED_COLUMNS, ...HISTORY_COLUMNS])
+        .leftJoin('asset_network_details as and_', 'ai.id', 'and_.asset_id')
+        .select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...PED_COLUMNS, ...NETWORK_COLUMNS, ...HISTORY_COLUMNS])
         .where('ai.asset_type', '=', 'PED / EMV');
       break;
     case 'galaxy':

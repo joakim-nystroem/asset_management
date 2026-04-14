@@ -340,7 +340,6 @@ async function handleQuery(
   if (!hasActiveQuery) {
     assetStore.displayedAssets = assetStore.baseAssets;
     scrollStore.scrollTop = 0;
-    scrollStore.scrollLeft = 0;
     urlStore.url = `?${buildQueryParams(view)}`;
     return;
   }
@@ -355,7 +354,6 @@ async function handleQuery(
 
   assetStore.displayedAssets = res.data.assets;
   scrollStore.scrollTop = 0;
-  scrollStore.scrollLeft = 0;
   urlStore.url = `?${buildQueryParams(view, q, filters)}`;
 }
 
@@ -379,7 +377,6 @@ async function handleViewChange(
   queryStore.q = '';
   queryStore.filters = [];
   scrollStore.scrollTop = 0;
-  scrollStore.scrollLeft = 0;
   urlStore.url = `?${buildQueryParams(view)}`;
 }
 
@@ -403,7 +400,6 @@ async function handleSettingsUpdate(
   queryStore.q = '';
   queryStore.filters = [];
   scrollStore.scrollTop = 0;
-  scrollStore.scrollLeft = 0;
   urlStore.url = `?${buildQueryParams(view)}`;
 }
 

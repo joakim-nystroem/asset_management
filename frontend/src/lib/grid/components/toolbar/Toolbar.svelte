@@ -8,6 +8,7 @@
   import { pendingStore } from '$lib/data/cellStore.svelte';
   import { newRowStore } from '$lib/data/newRowStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
+  import SettingsIcon from '$lib/icons/SettingsIcon.svelte';
 
   import { enqueue } from '$lib/eventQueue/eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
@@ -45,7 +46,6 @@
     } else {
       queryStore.hiddenStatuses = [...hidden, status];
     }
-    document.cookie = `hidden_statuses=${queryStore.hiddenStatuses.join(',')};path=/;max-age=${60 * 60 * 24 * 365}`;
     searchInput = '';
     enqueue({ type: 'SETTINGS_UPDATE', payload: { view: queryStore.view, hiddenStatuses: $state.snapshot(queryStore.hiddenStatuses) } });
   }
@@ -114,6 +114,40 @@
       { type: 'DISCARD', payload: {} },
     );
     resetEditState();
+  }
+
+  let csvExporting = $state(false);
+
+  function downloadCsv() {
+    const assets = assetStore.displayedAssets.filter((a: any) => a.id > 0);
+    if (assets.length === 0 || csvExporting) {
+      if (!csvExporting) toastState.addToast('No data to export.', 'warning');
+      return;
+    }
+    csvExporting = true;
+    setTimeout(() => {
+      exportCsv(assets);
+      csvExporting = false;
+    }, 500);
+  }
+
+  function exportCsv(assets: Record<string, any>[]) {
+    const keys = Object.keys(assets[0]);
+    const escape = (val: any) => {
+      const str = String(val ?? '');
+      return str.includes(',') || str.includes('"') || str.includes('\n')
+        ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+    const header = keys.map(escape).join(',');
+    const rows = assets.map((a: any) => keys.map(k => escape(a[k])).join(','));
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${queryStore.view}_export_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
 </script>
@@ -270,6 +304,23 @@
       </div>
 
       <div class="flex gap-2">
+      <!-- Export CSV -->
+      <button
+        onclick={downloadCsv}
+        disabled={csvExporting}
+        class="flex items-center gap-1 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-button text-sm cursor-pointer disabled:opacity-50 disabled:cursor-wait"
+        title="Export to CSV"
+      >
+        {#if csvExporting}
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+        {:else}
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+          </svg>
+        {/if}
+        <span>{csvExporting ? 'Exporting...' : 'Export'}</span>
+      </button>
+
       <!-- View Selector Dropdown -->
       <div class="relative">
         <button
@@ -317,14 +368,14 @@
           class="flex items-center px-2 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-button text-sm cursor-pointer h-full"
           title="Grid Settings"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><circle cx="12" cy="12" r="3" /></svg>
+          <SettingsIcon />
         </button>
         {#if uiStore.settingsMenu.visible}
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <!-- svelte-ignore a11y_click_events_have_key_events -->
           <div class="absolute right-1 mt-1 w-48 bg-bg-header border border-border-strong rounded shadow-lg z-900" onclick={(e) => e.stopPropagation()}>
             <div class="px-3 py-2 border-b border-border">
-              <span class="text-xs font-semibold text-text-muted uppercase tracking-wider">Visible Statuses</span>
+              <span class="text-xs font-semibold text-text-muted uppercase tracking-wider">Default Statuses</span>
             </div>
             {#each allStatuses as status}
               <button

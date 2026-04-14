@@ -7,6 +7,7 @@
     { href: '/admin/locations', label: 'Locations', icon: 'map-pin' },
     { href: '/admin/status', label: 'Status', icon: 'tag' },
     { href: '/admin/conditions', label: 'Conditions', icon: 'shield' },
+    { href: '/admin/departments', label: 'Departments', icon: 'building' },
   ] as const;
 
   let activePath = $derived(page.url.pathname);
@@ -35,6 +36,11 @@
           {:else if item.icon === 'shield'}
             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          {:else if item.icon === 'building'}
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+              <path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M8 10h.01M16 10h.01M12 10h.01M8 14h.01M16 14h.01M12 14h.01" />
             </svg>
           {/if}
           {item.label}

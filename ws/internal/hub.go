@@ -659,7 +659,7 @@ func (h *Hub) ServeWs(w http.ResponseWriter, r *http.Request) {
 		userID:   clientID,
 		userInfo: userInfo,
 		lastPong: time.Now(),
-		limiter:  rate.NewLimiter(50, 10),
+		limiter:  rate.NewLimiter(200, 50),
 	}
 
 	h.register <- client

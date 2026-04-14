@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { deleteLocation, deleteStatus, deleteCondition } from '$lib/db/delete/deleteAdmin';
+import { deleteLocation, deleteStatus, deleteCondition, deleteDepartment } from '$lib/db/delete/deleteAdmin';
 import { logger } from '$lib/logger';
 
 export async function DELETE({ request, params, locals }) {
@@ -23,6 +23,9 @@ export async function DELETE({ request, params, locals }) {
                 break;
             case 'conditions':
                 await deleteCondition(id);
+                break;
+            case 'departments':
+                await deleteDepartment(id);
                 break;
             default:
                 return json({ error: 'Invalid category' }, { status: 400 });

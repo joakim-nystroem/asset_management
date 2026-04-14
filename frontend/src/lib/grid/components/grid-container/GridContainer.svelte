@@ -18,7 +18,7 @@
 
   const virtualGrid = createVirtualGridContainer();
 
-  let keys = $derived(Object.keys(assetStore.displayedAssets[0] ?? {}));
+  let keys = $derived(Object.keys((assetStore.displayedAssets[0] ?? assetStore.baseAssets[0]) ?? {}));
 
   let visibleItems = $derived(
     assetStore.displayedAssets.slice(scrollStore.visibleRange.startIndex, scrollStore.visibleRange.endIndex)
@@ -85,14 +85,16 @@
   class="mt-2 h-[calc(100dvh-8.9rem)] rounded-sm border border-border bg-bg-card shadow-md overflow-hidden flex flex-col select-none focus:outline-none"
   tabindex="-1"
 >
-  {#if assetStore.displayedAssets.length > 0}
-    <!-- Header: scrolls horizontally, stays pinned vertically -->
+  <!-- Header: scrolls horizontally, stays pinned vertically -->
+  {#if keys.length > 0}
     <div class="relative z-10">
       <div style="transform: translateX({-scrollStore.scrollLeft}px);">
         <GridHeader {keys} />
       </div>
     </div>
+  {/if}
 
+  {#if assetStore.displayedAssets.length > 0}
     <!-- Viewport -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div

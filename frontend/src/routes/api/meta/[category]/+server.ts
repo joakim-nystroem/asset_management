@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { getLocations } from '$lib/db/select/getLocations';
 import { getStatuses } from '$lib/db/select/getStatuses';
 import { getConditions } from '$lib/db/select/getConditions';
+import { getDepartments } from '$lib/db/select/getDepartments';
 import { logger } from '$lib/logger';
 
 export async function GET({ params, locals }) {
@@ -22,6 +23,9 @@ export async function GET({ params, locals }) {
         break;
       case 'conditions':
         items = await getConditions();
+        break;
+      case 'departments':
+        items = await getDepartments();
         break;
       default:
         return json({ error: 'Invalid category' }, { status: 400 });

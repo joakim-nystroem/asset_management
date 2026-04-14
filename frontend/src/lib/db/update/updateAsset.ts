@@ -1,4 +1,5 @@
 import { db, type Database } from '$lib/db/conn';
+import { sql } from 'kysely';
 import type { Transaction } from 'kysely';
 
 const assetInventoryCols = [
@@ -18,12 +19,6 @@ const extensionTableMap: Record<string, { table: string; idColumn: string }> = {
     // Network
     ip_address: { table: 'asset_network_details', idColumn: 'asset_id' },
     mac_address: { table: 'asset_network_details', idColumn: 'asset_id' },
-    ip_configuration: { table: 'asset_network_details', idColumn: 'asset_id' },
-    network_connection_type: { table: 'asset_network_details', idColumn: 'asset_id' },
-    ssid: { table: 'asset_network_details', idColumn: 'asset_id' },
-    network_vpn: { table: 'asset_network_details', idColumn: 'asset_id' },
-    ethernet_patch_port: { table: 'asset_network_details', idColumn: 'asset_id' },
-    switch_port: { table: 'asset_network_details', idColumn: 'asset_id' },
 };
 
 export async function updateAsset(id: number, key: string, value: any, username: string, trx?: Transaction<Database>) {
@@ -79,6 +74,8 @@ export async function updateAsset(id: number, key: string, value: any, username:
     // Handle extension table columns
     const mapping = extensionTableMap[key];
     if (mapping) {
+        // Ensure extension row exists (INSERT IGNORE = no-op if already present)
+        await sql`INSERT IGNORE INTO ${sql.table(mapping.table)} (${sql.ref(mapping.idColumn)}) VALUES (${id})`.execute(qb);
         await qb.updateTable(mapping.table as any)
             .set({ [key]: value } as any)
             .where(mapping.idColumn, '=', id)

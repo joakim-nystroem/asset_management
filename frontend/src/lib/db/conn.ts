@@ -80,12 +80,6 @@ export interface NetworkDetailsTable {
     asset_id: number;
     ip_address: string | null;
     mac_address: string | null;
-    ip_configuration: string | null;
-    network_connection_type: string | null;
-    ssid: string | null;
-    network_vpn: string | null;
-    ethernet_patch_port: string | null;
-    switch_port: string | null;
 }
 
 export interface PedDetailsTable {
@@ -165,12 +159,6 @@ export interface AssetAuditCyclesTable {
     closed_by: number | null;
 }
 
-export interface AuditSettingsTable {
-    id: ColumnType<number, never, never>;
-    updated_at: ColumnType<Date, string | undefined, string>;
-    updated_by: number | null;
-}
-
 export interface Database {
     asset_inventory: AssetTable;
     asset_locations: LocationTable;
@@ -185,7 +173,6 @@ export interface Database {
     asset_audit: AssetAuditTable;
     current_audit: CurrentAuditTable;
     asset_audit_history: AssetAuditHistoryTable;
-    audit_settings: AuditSettingsTable;
     asset_audit_cycles: AssetAuditCyclesTable;
     audit_results: AuditResultTable;
 }

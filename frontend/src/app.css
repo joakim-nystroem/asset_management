@@ -91,7 +91,7 @@
 
   --bg-hover-button: var(--color-blue-50);
   --bg-hover-item: var(--color-neutral-100);
-  --bg-hover-row: var(--color-neutral-50);
+  --bg-hover-row: var(--color-blue-50);
   --bg-hover-cell: var(--color-blue-100);
 
   --bdr: var(--color-neutral-200);
@@ -134,7 +134,7 @@
 
   --bg-hover-button: var(--color-slate-700);
   --bg-hover-item: var(--color-slate-600);
-  --bg-hover-row: color-mix(in srgb, var(--color-slate-700) 30%, transparent);
+  --bg-hover-row: color-mix(in srgb, var(--color-slate-700) 50%, transparent);
   --bg-hover-cell: var(--color-slate-600);
 
   --bdr: var(--color-slate-700);

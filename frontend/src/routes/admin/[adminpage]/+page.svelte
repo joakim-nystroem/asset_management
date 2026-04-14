@@ -133,6 +133,7 @@
       });
 
       if (res.ok) {
+        toastState.addToast('Item created successfully', 'success');
         newItemName = '';
         await refetchData();
       } else {

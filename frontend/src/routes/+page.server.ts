@@ -51,7 +51,7 @@ export const load: PageServerLoad = async ({ request, url, cookies }) => {
   const resolvedView = resolveView(viewParam);
 
   const hiddenStatusesCookie = cookies.get('hidden_statuses');
-  const hiddenStatuses = hiddenStatusesCookie ? hiddenStatusesCookie.split(',') : ['Retired'];
+  const hiddenStatuses = hiddenStatusesCookie ? hiddenStatusesCookie.split(',') : [];
 
   try {
     const hasSearch = qParam || filterParams.length > 0;

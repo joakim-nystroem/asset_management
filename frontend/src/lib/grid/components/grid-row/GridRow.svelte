@@ -43,7 +43,7 @@
       group/cell relative h-full flex items-center text-xs
       text-text-secondary
       border-r border-b border-border last:border-r-0
-      px-2 cursor-cell group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell
+      px-2 cursor-cell group-hover:bg-bg-hover-row hover:bg-bg-hover-cell
     "
     style="width: {columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH}px; min-width: {columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH}px;"
     onmousedown={(e) => {
