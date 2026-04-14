@@ -25,9 +25,10 @@ export async function GET({ url, locals }) {
             filters[key].push(value);
         }
     }
+    const hiddenStatuses = url.searchParams.getAll('hidden_status');
 
     try {
-        const assets = await queryAssets(q, filters, resolvedView);
+        const assets = await queryAssets(q, filters, resolvedView, hiddenStatuses);
         return json({ assets, dbError: null });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to fetch assets';

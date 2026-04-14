@@ -78,9 +78,16 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
     'department': 'ad.department_name',
   };
 
+  const directColumns = new Set([
+    'asset_type', 'asset_set_type', 'manufacturer', 'model',
+    'node', 'bu_estate', 'shelf_cabinet_table',
+    'wbd_tag', 'serial_number', 'comment',
+  ]);
+
   for (const [key, values] of Object.entries(filters)) {
-    const columnName = filterColumnMap[key];
-    if (!columnName || values.length === 0) continue;
+    if (values.length === 0) continue;
+    const columnName = filterColumnMap[key] ?? (directColumns.has(key) ? `ai.${key}` : null);
+    if (!columnName) continue;
     query = query.where(columnName as any, 'in', values);
   }
 

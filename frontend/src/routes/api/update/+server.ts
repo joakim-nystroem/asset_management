@@ -39,6 +39,20 @@ const ALLOWED_COLUMNS = [
     'switch_port',
 ] as const;
 
+const MAX_LENGTHS: Partial<Record<typeof ALLOWED_COLUMNS[number], number>> = {
+    bu_estate: 20,
+    shelf_cabinet_table: 30,
+    node: 30,
+    asset_type: 20,
+    asset_set_type: 40,
+    manufacturer: 40,
+    model: 40,
+    wbd_tag: 10,
+    serial_number: 30,
+    comment: 200,
+    warranty_details: 180,
+};
+
 export const POST: RequestHandler = async ({ request, locals }) => {
     if (!locals.user) {
         return json({ error: 'Unauthorized' }, { status: 401 });
@@ -78,6 +92,14 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         if (!ALLOWED_COLUMNS.includes(change.columnId)) {
             return json(
                 { error: `Invalid request: columnId '${change.columnId}' is not allowed` },
+                { status: 400 },
+            );
+        }
+
+        const maxLen = MAX_LENGTHS[change.columnId as keyof typeof MAX_LENGTHS];
+        if (maxLen && typeof change.newValue === 'string' && change.newValue.length > maxLen) {
+            return json(
+                { error: `${change.columnId} exceeds max length of ${maxLen} characters` },
                 { status: 400 },
             );
         }

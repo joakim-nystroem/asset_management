@@ -318,12 +318,15 @@ async function handleCommitCreate(
   toastState.addToast(`${rows.length} new rows saved successfully.`, 'success');
 }
 
-function buildQueryParams(view: string, q?: string, filters?: { key: string; value: string }[]): URLSearchParams {
+function buildQueryParams(view: string, q?: string, filters?: { key: string; value: string }[], hiddenStatuses?: string[]): URLSearchParams {
   const params = new URLSearchParams();
   params.set('view', view || 'default');
   if (q) params.set('q', q);
   if (filters) {
     for (const f of filters) params.append('filter', `${f.key}:${f.value}`);
+  }
+  if (hiddenStatuses) {
+    for (const s of hiddenStatuses) params.append('hidden_status', s);
   }
   return params;
 }
@@ -342,8 +345,8 @@ async function handleQuery(
     return;
   }
 
-  const params = buildQueryParams(view, q, filters);
-  const res = await apiFetch('/api/assets', params);
+  const fetchParams = buildQueryParams(view, q, filters, queryStore.hiddenStatuses);
+  const res = await apiFetch('/api/assets', fetchParams);
 
   if (!res.success) {
     toastState.addToast('Query failed. Please try again.', 'error');
@@ -353,7 +356,7 @@ async function handleQuery(
   assetStore.displayedAssets = res.data.assets;
   scrollStore.scrollTop = 0;
   scrollStore.scrollLeft = 0;
-  urlStore.url = `?${params}`;
+  urlStore.url = `?${buildQueryParams(view, q, filters)}`;
 }
 
 async function handleViewChange(

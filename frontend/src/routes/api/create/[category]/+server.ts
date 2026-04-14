@@ -41,7 +41,9 @@ export async function POST({ request, params, locals }) {
         return json({ success: true, item: newItem });
     } catch (error: any) {
         logger.error({ err: error, category, name, userId: locals.user.id, endpoint: `/api/create/${category}` }, 'Admin item creation failed');
-        const message = error?.sqlMessage || error?.message || `Failed to create ${category}`;
-        return json({ error: message }, { status: 500 });
+        const message = error?.errno === 1062
+            ? 'An item with this name already exists.'
+            : `Failed to create ${category}.`;
+        return json({ error: message }, { status: error?.errno === 1062 ? 409 : 500 });
     }
 }

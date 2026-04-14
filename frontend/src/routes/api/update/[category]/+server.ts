@@ -39,7 +39,9 @@ export async function PUT({ request, params, locals }) {
     return json({ success: true });
   } catch (error: any) {
     logger.error({ err: error, category, id, userId: locals.user.id, endpoint: `/api/update/${category}` }, 'Admin item update failed');
-    const message = error?.sqlMessage || error?.message || `Failed to update ${category}`;
-    return json({ error: message }, { status: 500 });
+    const message = error?.errno === 1062
+        ? 'An item with this name already exists.'
+        : `Failed to update ${category}.`;
+    return json({ error: message }, { status: error?.errno === 1062 ? 409 : 500 });
   }
 }

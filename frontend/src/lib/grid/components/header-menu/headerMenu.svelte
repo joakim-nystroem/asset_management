@@ -43,6 +43,9 @@
   // Local rendering state
   let filterOpen = $state(false);
   let filterSearchTerm = $state('');
+  let tabAnchor = $state('');
+  let tabCycling = $state(false);
+  let selectedIndex = $state(-1);
   let menuElement: HTMLElement | undefined = $state(undefined);
   let submenuDirection = $state<'left' | 'right'>('right');
 
@@ -55,6 +58,80 @@
       submenuDirection = rect.right + SUBMENU_WIDTH > window.innerWidth ? 'left' : 'right';
     }
   });
+
+  // Compute filtered items for keyboard navigation
+  let allItems = $derived(
+    metadataOptions[activeKey]
+      ? metadataOptions[activeKey]()
+      : [...new Set(
+          (queryStore.filters.some(f => f.key !== activeKey)
+            ? assetStore.displayedAssets
+            : assetStore.baseAssets
+          ).map((a: Record<string, any>) => String(a[activeKey] ?? '')).filter(Boolean)
+        )]
+  );
+
+  // Filter by the anchor (what the user typed), not the displayed tab-cycled value
+  let filteredItems = $derived(
+    tabAnchor
+      ? allItems
+          .filter((i: string) => i.toLowerCase().includes(tabAnchor.toLowerCase()))
+          .sort((a: string, b: string) => {
+            const lower = tabAnchor.toLowerCase();
+            const aStarts = a.toLowerCase().startsWith(lower);
+            const bStarts = b.toLowerCase().startsWith(lower);
+            if (aStarts && !bStarts) return -1;
+            if (!aStarts && bStarts) return 1;
+            return a.localeCompare(b);
+          })
+      : allItems
+  );
+
+  function handleFilterKeydown(e: KeyboardEvent) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      if (filteredItems.length === 0) return;
+
+      if (!tabCycling) {
+        tabCycling = true;
+        selectedIndex = e.shiftKey ? filteredItems.length - 1 : 0;
+      } else if (e.shiftKey) {
+        selectedIndex = selectedIndex <= 0 ? filteredItems.length - 1 : selectedIndex - 1;
+      } else {
+        selectedIndex = selectedIndex >= filteredItems.length - 1 ? 0 : selectedIndex + 1;
+      }
+
+      filterSearchTerm = filteredItems[selectedIndex];
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (filteredItems.length === 0) return;
+      selectedIndex = selectedIndex >= filteredItems.length - 1 ? 0 : selectedIndex + 1;
+      return;
+    }
+
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (filteredItems.length === 0) return;
+      selectedIndex = selectedIndex <= 0 ? filteredItems.length - 1 : selectedIndex - 1;
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (selectedIndex >= 0 && selectedIndex < filteredItems.length) {
+        toggleFilter(activeKey, filteredItems[selectedIndex]);
+      }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      setOpenPanel();
+      return;
+    }
+  }
 
   const closeOnEscape: Attachment = () => {
 		onkeydown = (e: KeyboardEvent) => {
@@ -99,7 +176,7 @@
     <div class="relative w-full">
       <button
         class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center justify-between group w-full"
-        onclick={() => { filterOpen = !filterOpen; if (filterOpen) filterSearchTerm = ''; }}
+        onclick={() => { filterOpen = !filterOpen; if (filterOpen) { filterSearchTerm = ''; tabAnchor = ''; tabCycling = false; selectedIndex = -1; } }}
       >
         <div class="flex items-center gap-2">
           <div class="w-4"></div>
@@ -120,6 +197,8 @@
             <input
               use:focusOnInit
               bind:value={filterSearchTerm}
+              oninput={() => { tabAnchor = filterSearchTerm; tabCycling = false; selectedIndex = -1; }}
+              onkeydown={handleFilterKeydown}
               class="w-full pl-2 text-text-primary placeholder:text-neutral-400! dark:placeholder:text-neutral-300! focus:outline-none text-xs"
               placeholder="Search values..."
               onclick={(e) => e.stopPropagation()}
@@ -127,22 +206,13 @@
           </div>
 
           <div class="max-h-48 overflow-y-auto no-scrollbar">
-            {#each (metadataOptions[activeKey]
-                ? metadataOptions[activeKey]()
-                : [...new Set(
-                    (queryStore.filters.some(f => f.key !== activeKey)
-                      ? assetStore.displayedAssets
-                      : assetStore.baseAssets
-                    ).map((a: Record<string, any>) => String(a[activeKey] ?? '')).filter(Boolean)
-                  )]
-              ).filter((i: string) => i.toLowerCase().includes(filterSearchTerm.toLowerCase()))
-              as item
-            }
+            {#each filteredItems as item, idx}
               <button
-                class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group w-full"
+                class="px-3 py-1.5 text-left flex items-center gap-2 group w-full {idx === selectedIndex ? 'bg-blue-500 text-white' : 'hover:bg-bg-hover-item'}"
                 onclick={() => toggleFilter(activeKey, item)}
+                onmouseenter={() => { selectedIndex = idx; }}
               >
-                <div class="w-4 flex justify-center text-blue-600 dark:text-blue-400 font-bold">
+                <div class="w-4 flex justify-center {idx === selectedIndex ? 'text-white' : 'text-blue-600 dark:text-blue-400'} font-bold">
                   {#if queryStore.filters.some(f => f.key === activeKey && f.value === item)}✓{/if}
                 </div>
                 <div class="truncate">{item}</div>
