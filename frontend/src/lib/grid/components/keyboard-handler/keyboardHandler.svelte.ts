@@ -4,7 +4,7 @@ import { setOpenPanel } from '$lib/utils/gridHelpers';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
 import { toastState } from '$lib/toast/toastState.svelte';
-import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+import { DEFAULT_WIDTH, NON_EDITABLE_COLUMNS } from '$lib/grid/gridConfig';
 
 export function colBounds(col: string): { left: number; right: number } {
   // Column keys from first asset
@@ -38,6 +38,11 @@ export function clearClipboard() {
 }
 
 export function startCellEdit(row: number, col: string) {
+  if (NON_EDITABLE_COLUMNS.has(col)) {
+    const label = col.replaceAll('_', ' ');
+    toastState.addToast(`${label.charAt(0).toUpperCase() + label.slice(1)} column cannot be edited.`, 'warning');
+    return;
+  }
   const rowLock = presenceStore.rowLocks[String(row)];
   if (rowLock) {
     toastState.addToast(`Row is locked by ${rowLock.firstname} ${rowLock.lastname}`, 'warning');

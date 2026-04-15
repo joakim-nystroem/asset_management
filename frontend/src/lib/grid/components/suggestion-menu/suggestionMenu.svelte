@@ -148,7 +148,7 @@
             selectedIndex = idx;
           }}
         >
-          {option}
+          <span class="truncate">{option}</span>
         </div>
       {/each}
     </div>

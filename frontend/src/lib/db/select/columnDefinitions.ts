@@ -20,7 +20,10 @@ export const CORE_COLUMNS = [
 ] as const;
 
 // Warranty columns (Default + extension views only)
-export const WARRANTY_COLUMNS = ['ai.under_warranty_until', 'ai.warranty_details'] as const;
+export const WARRANTY_COLUMNS = [
+  sql<string>`DATE_FORMAT(ai.under_warranty_until, '%Y-%m-%d')`.as('under_warranty_until'),
+  'ai.warranty_details',
+] as const;
 
 // Change history columns — DATE_FORMAT so MySQL returns string, not JS Date
 import { sql } from 'kysely';

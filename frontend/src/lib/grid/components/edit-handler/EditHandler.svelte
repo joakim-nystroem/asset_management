@@ -6,15 +6,15 @@
   import { columnWidthStore, uiStore } from '$lib/data/uiStore.svelte';
   import { enqueue } from '$lib/eventQueue/eventQueue';
   import { assetStore } from '$lib/data/assetStore.svelte';
-  import { validateCell } from '$lib/grid/validation';
+  import { validateCell, columnConstraints } from '$lib/grid/validation';
   import { isConstrained, isValidOption, getOptionsForColumn } from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte.ts';
-  import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+  import { DEFAULT_ROW_HEIGHT, NON_EDITABLE_COLUMNS } from '$lib/grid/gridConfig';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
 
   import SuggestionMenu from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte';
-  import { computeEditorPosition } from './editHandler.svelte.ts';
+  import { computeEditorPosition, computeEditorDimensions } from './editHandler.svelte.ts';
   import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
   const assets = $derived(assetStore.displayedAssets);
@@ -22,6 +22,41 @@
 
   // Derive edit properties — editRow is asset ID, editCol is column key string
   const editKey = $derived(editingStore.editCol !== '' ? editingStore.editCol : null);
+
+  // Max input length from DB schema constraints
+  const maxLength = $derived.by(() => {
+    if (!editKey) return undefined;
+    const constraint = columnConstraints[editKey];
+    if (constraint && 'maxChars' in constraint) return constraint.maxChars;
+    return undefined;
+  });
+
+  // Track original column width to restore on edit end
+  let originalColWidth = $state(0);
+
+  // Capture original column width before other effects run
+  $effect.pre(() => {
+    if (editingStore.isEditing && editKey && originalColWidth === 0) {
+      originalColWidth = columnWidthStore.widths.get(editKey) ?? DEFAULT_WIDTH;
+    }
+  });
+
+  // Dynamic editor dimensions based on text content
+  const editorDims = $derived.by(() => {
+    if (!editingStore.isEditing || !editKey) return null;
+    const colWidth = originalColWidth || (columnWidthStore.widths.get(editKey) ?? DEFAULT_WIDTH);
+    return computeEditorDimensions(editingStore.editValue, colWidth);
+  });
+
+  // Expand column width to match editor when editor is wider
+  $effect(() => {
+    if (!editorDims || !editKey) return;
+    if (editorDims.width > originalColWidth) {
+      columnWidthStore.widths.set(editKey, editorDims.width);
+    } else {
+      columnWidthStore.widths.set(editKey, originalColWidth);
+    }
+  });
 
   // Compute absolute position within GridOverlays
   const editorStyle = $derived.by(() => {
@@ -36,7 +71,8 @@
       assets,
     );
     if (!pos) return 'display: none;';
-    return `top: ${pos.top - scrollStore.scrollTop}px; left: ${pos.left}px; width: ${pos.width}px; height: ${pos.height}px;`;
+    const dims = editorDims ?? { width: pos.width, height: pos.height };
+    return `top: ${pos.top - scrollStore.scrollTop}px; left: ${pos.left}px; width: ${dims.width}px; height: ${dims.height}px;`;
   });
 
   // --- Shared helper: resolve the visible value for a cell (pending or asset) ---
@@ -154,7 +190,7 @@
 
       for (let c = 0; c < maxCol; c++) {
         const key = keys[minStartCol + c];
-        if (key === 'id') continue;
+        if (NON_EDITABLE_COLUMNS.has(key)) continue;
 
         const newValue = clipRow[c % clipWidth];
         const oldValue = cellValue(asset.id, key);
@@ -261,7 +297,15 @@
   });
 
   function cancelEdit() {
+    // Restore original column width before closing editor
+    const colToRestore = editKey;
+    const widthToRestore = originalColWidth;
+    // Clear editing state first — prevents effects from re-firing with stale values
     resetEditing();
+    originalColWidth = 0;
+    if (colToRestore && widthToRestore > 0) {
+      columnWidthStore.widths.set(colToRestore, widthToRestore);
+    }
     enqueue({ type: 'CELL_EDIT_END', payload: {} });
     uiStore.suggestionMenu.visible = false;
   }
@@ -319,7 +363,9 @@
         onkeydown={handleKeydown}
         onmousedown={(e) => e.stopPropagation()}
         onblur={handleBlur}
-        class="w-full h-full resize-none bg-bg-elevated text-text-primary text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none overflow-hidden"
+        maxlength={maxLength}
+        class="w-full h-full resize-none bg-bg-elevated text-text-primary text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none overflow-hidden break-words"
+        style="word-wrap: break-word; white-space: pre-wrap;"
       ></textarea>
       {#if uiStore.suggestionMenu.visible}
         <SuggestionMenu options={getOptionsForColumn(editingStore.editCol)} constrained={isConstrained(editingStore.editCol)} />

@@ -53,6 +53,8 @@ export const columnConstraints: Record<string, ColumnConstraint> = {
   bu_estate:          { type: 'text', maxChars: 20, required: true },
   node:               { type: 'text', maxChars: 30, required: true },
   asset_set_type:     { type: 'text', maxChars: 40, required: true },
+  // Date columns
+  under_warranty_until: { type: 'text', maxChars: 10 },
   // Text columns — nullable
   shelf_cabinet_table: { type: 'text', maxChars: 30 },
   warranty_details:   { type: 'text', maxChars: 180 },

@@ -6,7 +6,7 @@
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
 
-  import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+  import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT, NON_EDITABLE_COLUMNS } from '$lib/grid/gridConfig';
   import { columnConstraints } from '$lib/grid/validation';
 
   function getCellError(key: string): string | null {
@@ -70,8 +70,9 @@
         toastState.addToast('Log in to edit.', 'warning');
         return;
       }
-      if (key === 'id') {
-        toastState.addToast('ID column cannot be edited.', 'warning');
+      if (NON_EDITABLE_COLUMNS.has(key)) {
+        const label = key.replaceAll('_', ' ');
+        toastState.addToast(`${label.charAt(0).toUpperCase() + label.slice(1)} column cannot be edited.`, 'warning');
         return;
       }
       const rowLock = presenceStore.rowLocks[String(asset.id)];

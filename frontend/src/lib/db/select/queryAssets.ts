@@ -83,6 +83,7 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
     'asset_type', 'asset_set_type', 'manufacturer', 'model',
     'node', 'bu_estate', 'shelf_cabinet_table',
     'wbd_tag', 'serial_number', 'comment',
+    'under_warranty_until', 'warranty_details',
   ]);
 
   for (const [key, values] of Object.entries(filters)) {

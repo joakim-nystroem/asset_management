@@ -4,6 +4,7 @@
   import { uiStore } from '$lib/data/uiStore.svelte';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
+  import { NON_EDITABLE_COLUMNS } from '$lib/grid/gridConfig';
   import { handleFilterByValue } from './contextMenu.svelte.ts';
 
 </script>
@@ -27,8 +28,9 @@
         }
         const row = uiStore.contextMenu.row;
         const col = uiStore.contextMenu.col;
-        if (col === 'id') {
-          toastState.addToast('ID column cannot be edited.', 'warning');
+        if (NON_EDITABLE_COLUMNS.has(col)) {
+          const label = col.replaceAll('_', ' ');
+          toastState.addToast(`${label.charAt(0).toUpperCase() + label.slice(1)} column cannot be edited.`, 'warning');
           uiStore.contextMenu.visible = false;
           return;
         }
