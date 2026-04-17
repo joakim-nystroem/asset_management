@@ -14,19 +14,28 @@ const vibrantColors = [
   '#8b5cf6', '#ec4899', '#f97316', '#84cc16', '#14b8a6', '#06b6d4',
 ];
 
-// Tar pit: progressive delay after failed login attempts
+// Tar pit: per-username failure counter. Advisory only — server doesn't block,
+// it just tells the client how long to disable the submit button.
+// Curve: 5 free, then 2/5/10/30 seconds. Counter resets after 15 min of inactivity.
 const failedAttempts = new Map<string, { count: number; lastAttempt: number }>();
-const MAX_DELAY_S = 30;
-const DECAY_MS = 60 * 5 * 1000; // reset after 5 minutes of no attempts
+const DECAY_MS = 15 * 60 * 1000;
 
-function getTarPitDelay(username: string): number {
+function delayForCount(count: number): number {
+  if (count <= 5) return 0;
+  if (count === 6) return 2;
+  if (count === 7) return 5;
+  if (count === 8) return 10;
+  return 30;
+}
+
+function getRetryAfterSeconds(username: string): number {
   const entry = failedAttempts.get(username);
   if (!entry) return 0;
   if (Date.now() - entry.lastAttempt > DECAY_MS) {
     failedAttempts.delete(username);
     return 0;
   }
-  return Math.min(2 ** (entry.count - 1), MAX_DELAY_S) * 1000;
+  return delayForCount(entry.count);
 }
 
 function recordFailure(username: string) {
@@ -42,6 +51,10 @@ function recordFailure(username: string) {
 function clearFailures(username: string) {
   failedAttempts.delete(username);
 }
+
+const LOGIN_ERROR = 'Incorrect username or password.';
+const LOGIN_ERROR_THROTTLED =
+  'Incorrect username or password. If you\'re having trouble logging in, contact an administrator.';
 
 export const load: PageServerLoad = async ({ locals }) => {
   if (locals.user) redirect(302, '/?view=default');
@@ -60,19 +73,15 @@ export const actions = {
       });
     }
 
-    // Tar pit: delay before processing if previous failures exist
-    const delay = getTarPitDelay(username);
-    if (delay > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-    }
-
     const user = await findUserByUsername(username);
 
     if (!user) {
       recordFailure(username);
+      const retryAfter = getRetryAfterSeconds(username);
       return fail(401, {
         username,
-        message: 'Invalid credentials',
+        message: retryAfter > 0 ? LOGIN_ERROR_THROTTLED : LOGIN_ERROR,
+        retryAfter,
       });
     }
 
@@ -80,9 +89,11 @@ export const actions = {
 
     if (!passwordMatch) {
       recordFailure(username);
+      const retryAfter = getRetryAfterSeconds(username);
       return fail(401, {
         username,
-        message: 'Invalid credentials',
+        message: retryAfter > 0 ? LOGIN_ERROR_THROTTLED : LOGIN_ERROR,
+        retryAfter,
       });
     }
 

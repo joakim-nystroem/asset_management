@@ -6,6 +6,7 @@ export interface User {
     password_hash: string;
     created_at: Date;
     last_login_at: Date | null;
+    is_super_admin: boolean;
 }
 
 export type SafeUser = Omit<User, 'password_hash'>;

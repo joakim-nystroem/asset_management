@@ -58,6 +58,8 @@ export async function createAsset(row: any, username: string, trx?: Transaction<
             .selectFrom('asset_departments')
             .select('id')
             .where('department_name', '=', row.department);
+    } else {
+        throw new Error('Department is required');
     }
 
     // Insert the row

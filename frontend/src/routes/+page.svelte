@@ -49,6 +49,8 @@
   // svelte-ignore state_referenced_locally
   queryStore.hiddenStatuses = data.hiddenStatuses ?? ['Retired'];
 
+
+
   // Subscribe to grid room when WS connects (re-subscribes after logout/reconnect)
   $effect(() => {
     if (connectionStore.status === 'connected') {

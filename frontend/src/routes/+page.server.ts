@@ -26,12 +26,16 @@ function parseFilters(filterParams: string[]): Record<string, string[]> {
   return filterMap;
 }
 
-const VALID_VIEWS = ['default', 'ped', 'galaxy', 'network'] as const;
+const VALID_VIEWS = ['default', 'ped', 'galaxy'] as const;
 function resolveView(param: string): string {
   return VALID_VIEWS.includes(param as any) ? param : 'default';
 }
 
-export const load: PageServerLoad = async ({ request, url, cookies }) => {
+export const load: PageServerLoad = async ({ request, url, cookies, locals }) => {
+  if (!locals.user) {
+    redirect(302, '/login');
+  }
+
   // Redirect mobile users to the mobile page
   const userAgent = request.headers.get('user-agent') || '';
   if (MOBILE_UA_REGEX.test(userAgent)) {

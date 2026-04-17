@@ -1,10 +1,14 @@
 <script lang="ts">
+	import type { PageProps } from './$types';
 	import CustomScrollbar from '$lib/utils/custom-scrollbar/CustomScrollbar.svelte';
 	import { auditStore } from '$lib/data/auditStore.svelte';
 	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
 	import { createAuditScroll, ROW_HEIGHT } from '$lib/audit/utils/auditScroll.svelte';
 	import { enqueue } from '$lib/eventQueue/eventQueue';
-	import { timeAgo, buildAuditFilters } from '$lib/audit/components/overview-grid/overviewGrid.svelte';
+	import { buildAuditFilters } from '$lib/audit/components/overview-grid/overviewGrid.svelte';
+
+	let { data }: PageProps = $props();
+	$effect(() => { auditStore.closedCycles = data.closedCycles; });
 
 	const OVERVIEW_KEYS = ['asset_id', 'location', 'node', 'asset_type', 'wbd_tag', 'auditor_name'];
 
@@ -17,8 +21,9 @@
 	// History filtering (client-side on store data)
 	let historyDisplayed = $derived.by(() => {
 		if (statusFilter === 'all') return auditStore.historyAssignments;
-		const name = statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1);
-		return auditStore.historyAssignments.filter(a => (a as any).result_name === name);
+		// 1 = Completed, 2 = Flagged
+		const wantedResultId = statusFilter === 'completed' ? 1 : 2;
+		return auditStore.historyAssignments.filter(a => (a as any).result_id === wantedResultId);
 	});
 
 	let userStats = $derived(viewingHistory ? auditStore.historyUserProgress : auditStore.userProgress);
@@ -135,7 +140,7 @@
 
 	// --- CSV export ---
 	const dateColumns = new Set(['audit_start_date', 'completed_at']);
-	const excludeColumns = new Set(['assigned_to', 'result_id']);
+	const excludeColumns = new Set(['assigned_to', 'result_id', 'id', 'comment']);
 
 	function formatCsvDate(val: string | Date | null): string {
 		if (!val) return '';
@@ -201,14 +206,11 @@
 					<span class="text-sm font-semibold text-text-primary">{stat.name}</span>
 					<span class="text-xs font-semibold {hasFlagged ? 'text-text-warning' : pct === 100 ? 'text-text-completed' : 'text-text-warning'}">{stat.completed}/{stat.total}</span>
 				</div>
-				<div class="w-full h-1 bg-border rounded-sm overflow-hidden mb-3 flex">
+				<div class="w-full h-1 bg-border rounded-sm overflow-hidden flex">
 					{#if flaggedPct > 0}
 						<div class="h-full bg-amber-500 transition-all duration-500" style="width: {flaggedPct}%"></div>
 					{/if}
 					<div class="h-full bg-green-500 transition-all duration-500" style="width: {greenPct}%"></div>
-				</div>
-				<div class="text-xs text-text-muted">
-					{timeAgo(stat.lastCompletedAt)}
 				</div>
 			</button>
 		{/each}
@@ -264,7 +266,7 @@
 										{selectedCycleDate === dateStr ? 'text-blue-600 dark:text-blue-400 font-medium' : 'text-text-primary'}"
 									onclick={() => { selectCycle(dateStr); cycleDropdownOpen = false; }}
 								>
-									{formatCycleDate(cycle.started_at)} — {formatCycleDate(cycle.closed_at!)}
+									{formatCycleDate(cycle.started_at)} - {formatCycleDate(cycle.closed_at!)}
 								</button>
 							{/each}
 						</div>
@@ -339,14 +341,14 @@
 								{/each}
 								<div class="flex-1 min-w-0 h-full flex items-center px-2 group-hover:bg-blue-50 dark:group-hover:bg-slate-700">
 									{#if item.result_id && item.result_id !== 1}
-										<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-text-warning">
-											<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-											{(item as any).result_name || 'Flagged'}
+										<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-text-flagged">
+											<span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+											Flagged
 										</span>
 									{:else if item.completed_at}
 										<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-text-completed">
 											<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-											{(item as any).result_name || 'Completed'}
+											Completed
 										</span>
 									{:else}
 										<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-amber-100 dark:bg-amber-900/30 text-text-warning">

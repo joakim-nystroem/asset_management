@@ -1,11 +1,41 @@
 <script lang="ts">
 
   import { enhance } from '$app/forms';
+  import { onDestroy } from 'svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
 
   let username = $state('');
   let password = $state('');
 
+  let submitting = $state(false);
+  let cooldownRemaining = $state(0);
+  let cooldownTimer: ReturnType<typeof setInterval> | null = null;
+
+  let disabled = $derived(submitting || cooldownRemaining > 0);
+  let buttonLabel = $derived(
+    submitting
+      ? 'Signing in...'
+      : cooldownRemaining > 0
+        ? `Try again in ${cooldownRemaining}s`
+        : 'Sign In'
+  );
+
+  function startCooldown(seconds: number) {
+    if (cooldownTimer) clearInterval(cooldownTimer);
+    cooldownRemaining = seconds;
+    if (seconds <= 0) return;
+    cooldownTimer = setInterval(() => {
+      cooldownRemaining = Math.max(0, cooldownRemaining - 1);
+      if (cooldownRemaining === 0 && cooldownTimer) {
+        clearInterval(cooldownTimer);
+        cooldownTimer = null;
+      }
+    }, 1000);
+  }
+
+  onDestroy(() => {
+    if (cooldownTimer) clearInterval(cooldownTimer);
+  });
 </script>
 
 <div class="flex items-center justify-center min-h-[calc(100dvh-5rem)]">
@@ -13,15 +43,21 @@
     <h1 class="text-lg font-semibold text-text-primary mb-6">Login</h1>
 
     <form method="POST" action="?/login" use:enhance={() => {
+      submitting = true;
       return async ({ result, update }) => {
+        submitting = false;
         switch (result.type) {
           case 'redirect':
             await update();
             toastState.addToast('Logged in successfully', 'info');
             break;
-          case 'failure':
-            toastState.addToast(String(result.data?.message || 'Login failed'), 'error');
+          case 'failure': {
+            const msg = String(result.data?.message || 'Login failed');
+            const retryAfter = Number(result.data?.retryAfter ?? 0);
+            toastState.addToast(msg, 'error');
+            if (retryAfter > 0) startCooldown(retryAfter);
             break;
+          }
           case 'error':
             console.error('Login error:', result.error);
             toastState.addToast(result.error.message, 'error');
@@ -58,9 +94,13 @@
 
       <button
         type="submit"
-        class="mt-3 px-4 py-3 rounded-sm text-sm font-medium bg-btn-primary hover:bg-btn-primary-hover text-white text-shadow-warm cursor-pointer"
+        disabled={disabled}
+        class="mt-3 px-4 py-3 rounded-sm text-sm font-medium text-white text-shadow-warm
+          {disabled
+            ? 'bg-bg-header text-text-muted! cursor-not-allowed'
+            : 'bg-btn-primary hover:bg-btn-primary-hover cursor-pointer'}"
       >
-        Sign In
+        {buttonLabel}
       </button>
     </form>
   </div>

@@ -1,6 +1,9 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
+  import { page } from '$app/state';
   import { toastState } from '$lib/toast/toastState.svelte';
+
+  let isSuperAdmin = $derived(!!page.data.user?.is_super_admin);
 </script>
 
 <div class="h-full flex flex-col items-center pt-12">
@@ -93,6 +96,22 @@
           class="block w-full px-3 py-1.5 rounded-sm border border-border-strong bg-bg-input text-text-primary placeholder-neutral-400 dark:placeholder-neutral-500 text-sm focus:outline-none focus:shadow-[0_0_0_1px_#3b82f6]"
         />
       </div>
+
+      {#if isSuperAdmin}
+        <div>
+          <label for="role" class="block text-sm font-medium text-text-secondary mb-1">
+            Role
+          </label>
+          <select
+            id="role"
+            name="role"
+            class="block w-full px-3 py-1.5 rounded-sm border border-border-strong bg-bg-input text-text-primary text-sm focus:outline-none focus:shadow-[0_0_0_1px_#3b82f6]"
+          >
+            <option value="admin">Admin</option>
+            <option value="super_admin">Super Admin</option>
+          </select>
+        </div>
+      {/if}
 
       <button
         type="submit"

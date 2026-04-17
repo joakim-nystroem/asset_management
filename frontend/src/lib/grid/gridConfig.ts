@@ -1,5 +1,7 @@
 /** Default column width in pixels when no explicit width is set in ColumnWidthContext. */
 export const DEFAULT_WIDTH = 150;
+/** Default column width for views with fewer columns (e.g. Galaxy). */
+export const WIDE_DEFAULT_WIDTH = 220;
 /** Default row height in pixels when no explicit height is set in RowHeightContext. */
 export const DEFAULT_ROW_HEIGHT = 32;
 /** Minimum column width in pixels during drag-to-resize. */

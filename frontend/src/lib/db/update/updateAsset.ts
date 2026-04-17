@@ -21,6 +21,17 @@ const extensionTableMap: Record<string, { table: string; idColumn: string }> = {
     mac_address: { table: 'asset_network_details', idColumn: 'asset_id' },
 };
 
+// Galaxy extension columns — same pattern as PED
+const galaxyExtensionMap: Record<string, { table: string; idColumn: string }> = {
+    node_type: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
+    node_number: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
+    environment: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
+    hostname: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
+    node_link: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
+    license_number: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
+    galaxy_module: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
+};
+
 export async function updateAsset(id: number, key: string, value: any, username: string, trx?: Transaction<Database>) {
     const qb = trx ?? db;
     const modified = new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-');
@@ -31,7 +42,7 @@ export async function updateAsset(id: number, key: string, value: any, username:
                 .set({
                     status_id: qb.selectFrom('asset_status').select('id').where('status_name', '=', value as string),
                     modified_by: username,
-                    modified: modified as any
+                    modified
                 })
                 .where('id', '=', id)
                 .execute();
@@ -40,7 +51,7 @@ export async function updateAsset(id: number, key: string, value: any, username:
                 .set({
                     condition_id: qb.selectFrom('asset_condition').select('id').where('condition_name', '=', value as string),
                     modified_by: username,
-                    modified: modified as any
+                    modified
                 })
                 .where('id', '=', id)
                 .execute();
@@ -49,7 +60,7 @@ export async function updateAsset(id: number, key: string, value: any, username:
                 .set({
                     location_id: qb.selectFrom('asset_locations').select('id').where('location_name', '=', value as string),
                     modified_by: username,
-                    modified: modified as any
+                    modified
                 })
                 .where('id', '=', id)
                 .execute();
@@ -58,7 +69,7 @@ export async function updateAsset(id: number, key: string, value: any, username:
                 .set({
                     department_id: qb.selectFrom('asset_departments').select('id').where('department_name', '=', value as string),
                     modified_by: username,
-                    modified: modified as any
+                    modified
                 })
                 .where('id', '=', id)
                 .execute();
@@ -71,8 +82,8 @@ export async function updateAsset(id: number, key: string, value: any, username:
             .execute();
     }
 
-    // Handle extension table columns
-    const mapping = extensionTableMap[key];
+    // Handle extension table columns (PED, Network, Galaxy)
+    const mapping = extensionTableMap[key] ?? galaxyExtensionMap[key];
     if (mapping) {
         // Ensure extension row exists (INSERT IGNORE = no-op if already present)
         await sql`INSERT IGNORE INTO ${sql.table(mapping.table)} (${sql.ref(mapping.idColumn)}) VALUES (${id})`.execute(qb);
@@ -82,7 +93,7 @@ export async function updateAsset(id: number, key: string, value: any, username:
             .execute();
         // Also update modified tracking on the main asset
         await qb.updateTable('asset_inventory')
-            .set({ modified_by: username, modified: modified as any })
+            .set({ modified_by: username, modified })
             .where('id', '=', id)
             .execute();
         return;

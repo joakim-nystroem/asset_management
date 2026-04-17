@@ -33,7 +33,7 @@ export async function queryAuditAssignments(
 			'aa.assigned_to',
 			sql<null>`NULL`.as('completed_at'),
 			sql<null>`NULL`.as('result_id'),
-			sql<null>`NULL`.as('result_name'),
+			sql<null>`NULL`.as('audit_comment'),
 			sql<string>`CONCAT(au.lastname, ', ', au.firstname)`.as('auditor_name'),
 			'ai.id',
 			'ai.bu_estate',
@@ -56,14 +56,13 @@ export async function queryAuditAssignments(
 	let completedQuery = db.selectFrom('asset_audit as aa')
 		.innerJoin('current_audit as ca', 'ca.asset_id', 'aa.asset_id')
 		.leftJoin('users as au', 'aa.assigned_to', 'au.id')
-		.leftJoin('audit_results as ar', 'ca.result_id', 'ar.id')
 		.select([
 			'aa.asset_id',
 			'aa.audit_start_date',
 			'aa.assigned_to',
 			'ca.completed_at',
 			'ca.result_id',
-			'ar.name as result_name',
+			'ca.audit_comment',
 			sql<string>`CONCAT(au.lastname, ', ', au.firstname)`.as('auditor_name'),
 			'aa.asset_id as id',
 			'ca.bu_estate',

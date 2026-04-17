@@ -33,9 +33,6 @@
 		}
 	});
 
-	$inspect(auditStore.baseAssignments, 'auditStore.baseAssignments');
-	$inspect(auditStore.displayedAssignments, 'auditStore.displayedAssignments');
-
 	const tabs = [
 		{ label: 'Overview', href: '/audit/overview' },
 		{ label: 'Manage', href: '/audit/manage' },

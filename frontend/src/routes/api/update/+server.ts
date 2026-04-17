@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/db/conn';
 import { updateAsset } from '$lib/db/update/updateAsset';
 import { logChange } from '$lib/db/create/logChange';
+import { logger } from '$lib/logger';
 
 const ALLOWED_COLUMNS = [
     'bu_estate',
@@ -31,6 +32,14 @@ const ALLOWED_COLUMNS = [
     // Network extension columns
     'ip_address',
     'mac_address',
+    // Galaxy extension columns
+    'node_type',
+    'node_number',
+    'environment',
+    'hostname',
+    'node_link',
+    'license_number',
+    'galaxy_module',
 ] as const;
 
 const MAX_LENGTHS: Partial<Record<typeof ALLOWED_COLUMNS[number], number>> = {
@@ -143,16 +152,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
     } catch (error: any) {
         if (error?.errno === 1062) {
             return json(
-                { error: 'Duplicate value — this value already exists' },
+                { error: 'Duplicate value - this value already exists' },
                 { status: 409 },
             );
         }
-        return json(
-            {
-                error: 'Bulk update failed',
-                message: error instanceof Error ? error.message : 'Unknown error',
-            },
-            { status: 500 },
-        );
+        logger.error({ err: error, userId: user.id, endpoint: '/api/update' }, 'Bulk update failed');
+        return json({ error: 'Bulk update failed' }, { status: 500 });
     }
 };

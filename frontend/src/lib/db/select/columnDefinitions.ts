@@ -1,4 +1,5 @@
 // Shared column definitions used across queries
+import { sql } from 'kysely';
 
 // Core identifying columns (shared by all views)
 export const CORE_COLUMNS = [
@@ -25,8 +26,18 @@ export const WARRANTY_COLUMNS = [
   'ai.warranty_details',
 ] as const;
 
+// Galaxy extension columns
+export const GALAXY_COLUMNS = [
+  'agd.node_number',
+  'agd.node_type',
+  'agd.environment',
+  'agd.license_number',
+  'agd.hostname',
+  'agd.galaxy_module',
+  'agd.node_link',
+] as const;
+
 // Change history columns — DATE_FORMAT so MySQL returns string, not JS Date
-import { sql } from 'kysely';
 export const HISTORY_COLUMNS = [
   sql<string>`DATE_FORMAT(ai.modified, '%Y-%m-%d %H:%i:%s')`.as('modified'),
   'ai.modified_by',

@@ -24,7 +24,7 @@ export interface AssetTable {
     warranty_details: string | null;
     created: ColumnType<Date, string | undefined, never>;
     created_by: string | null;
-    modified: ColumnType<Date, string | undefined, never>;
+    modified: ColumnType<Date, string | undefined, string>;
     modified_by: string | null;
 }
 
@@ -57,6 +57,7 @@ export interface UserTable {
     password_hash: string;
     created_at: ColumnType<Date, string | undefined, never>;
     last_login_at: ColumnType<Date | null, string | null, string | null>;
+    is_super_admin: ColumnType<boolean, boolean | undefined, boolean>;
 }
 
 export interface SessionTable {
@@ -92,6 +93,17 @@ export interface PedDetailsTable {
     physical_security_method_ped_emv: string | null;
 }
 
+export interface GalaxyDetailsTable {
+    asset_id: number;
+    node_number: number;
+    node_type: string | null;
+    environment: string | null;
+    license_number: string | null;
+    hostname: string | null;
+    galaxy_module: string | null;
+    node_link: string | null;
+}
+
 export interface AssetAuditTable {
     asset_id: ColumnType<number, number, never>;
     audit_start_date: ColumnType<Date, string, never>;
@@ -104,8 +116,7 @@ export interface CurrentAuditTable {
     assigned_to: number;
     completed_at: ColumnType<Date, string, never>;
     result_id: number | null;
-    result: string | null;
-    issue: string | null;
+    audit_comment: string | null;
     location: string | null;
     node: string | null;
     asset_type: string | null;
@@ -129,7 +140,7 @@ export interface AssetAuditHistoryTable {
     assigned_to: ColumnType<number, number, never>;
     completed_at: ColumnType<Date, string, never>;
     result_id: number | null;
-    result: string | null;
+    audit_comment: string | null;
     location: string | null;
     node: string | null;
     asset_type: string | null;
@@ -165,6 +176,7 @@ export interface Database {
     asset_status: StatusTable;
     asset_condition: ConditionTable;
     asset_departments: DepartmentTable;
+    asset_galaxy_details: GalaxyDetailsTable;
     users: UserTable;
     sessions: SessionTable;
     change_log: ChangeLogTable;

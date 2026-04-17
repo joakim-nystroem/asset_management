@@ -18,7 +18,7 @@ export async function getAuditAssignments(userId: number) {
             'aa.audit_start_date',
             sql<null>`NULL`.as('completed_at'),
             sql<null>`NULL`.as('result_id'),
-            sql<null>`NULL`.as('result_name'),
+            sql<null>`NULL`.as('audit_comment'),
             sql<string>`CONCAT(au.lastname, ', ', au.firstname)`.as('auditor_name'),
             'ai.id',
             'ai.bu_estate',

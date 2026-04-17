@@ -9,7 +9,6 @@ export async function getAuditHistoryProgress(startDate: string) {
             sql<string>`CONCAT(u.lastname, ', ', u.firstname)`.as('name'),
             sql<number>`COUNT(aa.asset_id)`.as('total'),
             sql<number>`SUM(CASE WHEN aa.completed_at IS NOT NULL THEN 1 ELSE 0 END)`.as('completed'),
-            sql<string | null>`MAX(aa.completed_at)`.as('lastCompletedAt'),
         ])
         .where(sql<SqlBool>`aa.audit_start_date = ${startDate}`)
         .groupBy(['aa.assigned_to', 'u.lastname', 'u.firstname'])
@@ -21,6 +20,5 @@ export async function getAuditHistoryProgress(startDate: string) {
         name: r.name,
         total: Number(r.total),
         completed: Number(r.completed),
-        lastCompletedAt: r.lastCompletedAt ?? null,
     }));
 }

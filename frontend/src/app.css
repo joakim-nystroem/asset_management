@@ -34,6 +34,7 @@
   --color-text-accent: var(--txt-accent);
   --color-text-completed: var(--txt-completed);
   --color-text-warning: var(--txt-warning);
+  --color-text-flagged: var(--txt-flagged);
   --color-text-danger: var(--txt-danger);
   --color-text-danger-hover: var(--txt-danger-hover);
 
@@ -80,6 +81,7 @@
   --txt-accent: var(--color-blue-600);
   --txt-completed: var(--color-green-600);
   --txt-warning: var(--color-amber-600);
+  --txt-flagged: var(--color-red-700);
   --txt-danger: var(--color-red-600);
   --txt-danger-hover: var(--color-red-700);
 
@@ -123,6 +125,7 @@
   --txt-accent: var(--color-blue-400);
   --txt-completed: var(--color-green-400);
   --txt-warning: var(--color-amber-400);
+  --txt-flagged: var(--color-red-400);
   --txt-danger: var(--color-red-400);
   --txt-danger-hover: var(--color-red-300);
 

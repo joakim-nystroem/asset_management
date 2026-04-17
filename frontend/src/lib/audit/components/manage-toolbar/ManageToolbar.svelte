@@ -1,11 +1,34 @@
 <script lang="ts">
-	import { auditStore } from '$lib/data/auditStore.svelte';
+	import { page } from '$app/state';
+	import { auditStore, type AuditAssignment } from '$lib/data/auditStore.svelte';
 	import { auditUiStore } from '$lib/data/auditUiStore.svelte';
 	import { setAuditOpenPanel } from '$lib/audit/utils/auditHelpers';
 	import { enqueue } from '$lib/eventQueue/eventQueue';
 	import { toastState } from '$lib/toast/toastState.svelte';
 	import AuditFilterPanel from '$lib/audit/components/audit-filter-panel/AuditFilterPanel.svelte';
 
+	function partitionByCompletion(checkedIds: number[], assignments: AuditAssignment[]) {
+		const byId = new Map<number, AuditAssignment>();
+		for (const a of assignments) byId.set(a.asset_id, a);
+
+		const completed: number[] = [];
+		const eligible: number[] = [];
+		for (const id of checkedIds) {
+			const a = byId.get(id);
+			if (!a) continue;
+			if (a.completed_at) completed.push(id);
+			else eligible.push(id);
+		}
+
+		const missing = checkedIds.length - (completed.length + eligible.length);
+		if (missing > 0) {
+			console.warn(`[partitionByCompletion] ${missing} of ${checkedIds.length} checked IDs not found in displayed assignments`);
+		}
+
+		return { completed, eligible, byId };
+	}
+
+	let isSuperAdmin = $derived(!!page.data.user?.is_super_admin);
 	let hasCycle = $derived(auditStore.cycle !== null);
 	let pending = $derived(auditStore.baseAssignments.filter(a => !a.completed_at).length);
 	let hasSelection = $derived(auditUiStore.checkedIds.length > 0);
@@ -54,28 +77,25 @@
 	function assignAssets(userId: number) {
 		if (auditUiStore.checkedIds.length === 0) return;
 
-		// Block completed items from reassignment
-		const completedIds = auditUiStore.checkedIds.filter(id => {
-			const a = auditStore.displayedAssignments.find(a => a.asset_id === id);
-			return a?.completed_at;
-		});
-		if (completedIds.length > 0) {
-			const msg = completedIds.length === auditUiStore.checkedIds.length
+		const { completed, eligible, byId } = partitionByCompletion(
+			auditUiStore.checkedIds,
+			auditStore.displayedAssignments,
+		);
+
+		if (completed.length > 0) {
+			const allCompleted = completed.length === auditUiStore.checkedIds.length;
+			const msg = allCompleted
 				? 'Cannot reassign completed audit items.'
-				: `${completedIds.length} completed item${completedIds.length === 1 ? '' : 's'} skipped — cannot reassign.`;
+				: `${completed.length} completed item${completed.length === 1 ? '' : 's'} skipped - cannot reassign.`;
 			toastState.addToast(msg, 'warning');
-			if (completedIds.length === auditUiStore.checkedIds.length) {
+			if (allCompleted) {
 				clearSelection();
 				return;
 			}
 		}
 
-		const ids = auditUiStore.checkedIds.filter(id => {
-			const a = auditStore.displayedAssignments.find(a => a.asset_id === id);
-			if (a?.completed_at) return false;
-			return !a || a.assigned_to !== userId;
-		});
-		if (ids.length === 0) {
+		const toAssign = eligible.filter(id => byId.get(id)!.assigned_to !== userId);
+		if (toAssign.length === 0) {
 			const user = auditStore.users.find(u => u.id === userId);
 			const name = user ? `${user.lastname}, ${user.firstname}` : 'that user';
 			const msg = auditUiStore.checkedIds.length === 1
@@ -85,7 +105,8 @@
 			clearSelection();
 			return;
 		}
-		enqueue({ type: 'AUDIT_ASSIGN', payload: { assetIds: ids, userId } });
+
+		enqueue({ type: 'AUDIT_ASSIGN', payload: { assetIds: toAssign, userId } });
 		clearSelection();
 	}
 
@@ -195,26 +216,28 @@
 	<!-- Spacer -->
 	<div class="flex-1"></div>
 
-	<!-- Start / Close Audit -->
-	{#if !hasCycle && auditStore.baseAssignments.length === 0}
-		<button
-			onclick={() => confirmAndEnqueue('start')}
-			class="px-3 py-1 rounded text-base font-semibold bg-btn-success hover:bg-btn-success-hover text-white text-shadow-warm cursor-pointer border border-btn-success hover:border-btn-success-hover"
-		>
-			Start Audit
-		</button>
-	{:else}
-		<button
-			onclick={() => confirmAndEnqueue('close')}
-			disabled={pending > 0}
-			class="px-3 py-1 rounded text-base font-semibold
-				{pending > 0
-					? 'bg-bg-header text-text-muted cursor-not-allowed'
-					: 'bg-btn-warning hover:bg-btn-warning-hover text-white text-shadow-warm cursor-pointer'}"
-			title={pending > 0 ? `${pending} items still pending` : 'Close audit cycle'}
-		>
-			Close Audit
-		</button>
+	<!-- Start / Close Audit (super-admin only) -->
+	{#if isSuperAdmin}
+		{#if !hasCycle && auditStore.baseAssignments.length === 0}
+			<button
+				onclick={() => confirmAndEnqueue('start')}
+				class="px-3 py-1 rounded text-base font-semibold bg-btn-success hover:bg-btn-success-hover text-white text-shadow-warm cursor-pointer border border-btn-success hover:border-btn-success-hover"
+			>
+				Start Audit
+			</button>
+		{:else}
+			<button
+				onclick={() => confirmAndEnqueue('close')}
+				disabled={pending > 0}
+				class="px-3 py-1 rounded text-base font-semibold
+					{pending > 0
+						? 'bg-bg-header text-text-muted cursor-not-allowed'
+						: 'bg-btn-warning hover:bg-btn-warning-hover text-white text-shadow-warm cursor-pointer'}"
+				title={pending > 0 ? `${pending} items still pending` : 'Close audit cycle'}
+			>
+				Close Audit
+			</button>
+		{/if}
 	{/if}
 </div>
 

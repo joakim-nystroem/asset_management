@@ -2,7 +2,7 @@ import { db } from '$lib/db/conn';
 import { sql } from 'kysely';
 import {
     CORE_COLUMNS, WARRANTY_COLUMNS, HISTORY_COLUMNS,
-    PED_COLUMNS, NETWORK_COLUMNS
+    PED_COLUMNS, NETWORK_COLUMNS, GALAXY_COLUMNS
 } from './columnDefinitions';
 
 export async function queryAssets(searchTerm: string | null, filters: Record<string, string[]>, view: string = 'default', hiddenStatuses: string[] = []) {
@@ -36,19 +36,27 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
         .where('ai.asset_type', '=', 'PED / EMV');
       break;
     case 'galaxy':
-      // Temporary filter-based view — no extension table yet
       query = query
-        .select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...HISTORY_COLUMNS])
-        .where('ai.asset_set_type', '=', 'Admission POS set')
-        .where('ai.asset_type', '=', 'POS');
-      break;
-    case 'network':
-      query = query
-        .innerJoin('asset_network_details as and_', 'ai.id', 'and_.asset_id')
-        .select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...NETWORK_COLUMNS, ...HISTORY_COLUMNS]);
+        .innerJoin('asset_galaxy_details as agd', 'agd.asset_id', 'ai.id')
+        .select([
+          'ai.id',
+          'ad.department_name as department',
+          'agd.environment',
+          'ai.node',
+          'agd.node_number',
+          'agd.node_type',
+          'agd.node_link',
+          'agd.license_number',
+          'agd.hostname',
+          'agd.galaxy_module',
+          ...HISTORY_COLUMNS,
+        ])
+        .where('ast.status_name', '!=', 'Retired');
       break;
     default:
-      query = query.select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...HISTORY_COLUMNS]);
+      query = query
+        .select([...CORE_COLUMNS, ...WARRANTY_COLUMNS, ...HISTORY_COLUMNS])
+        .where('ai.asset_type', '!=', 'Virtual Machine');
       break;
   }
 

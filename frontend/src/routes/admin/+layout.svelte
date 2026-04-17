@@ -1,7 +1,10 @@
 <script lang="ts">
   import { page } from '$app/state';
+  import UsersIcon from '$lib/icons/UsersIcon.svelte';
 
   let { children } = $props();
+
+  let isSuperAdmin = $derived(!!page.data.user?.is_super_admin);
 
   const metadataItems = [
     { href: '/admin/locations', label: 'Locations', icon: 'map-pin' },
@@ -65,6 +68,17 @@
         </svg>
         Register User
       </a>
+      {#if isSuperAdmin}
+        <a
+          href="/admin/users"
+          class="flex items-center gap-2.5 px-3 py-2 text-sm {activePath.startsWith('/admin/users')
+              ? 'text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/30 border-l-2 border-blue-500 dark:border-blue-400 font-semibold'
+              : 'text-text-secondary border-l-2 border-transparent hover:text-text-primary hover:bg-bg-hover-row font-medium'}"
+        >
+          <UsersIcon class="w-4 h-4 shrink-0" />
+          Manage Users
+        </a>
+      {/if}
     </nav>
   </div>
 

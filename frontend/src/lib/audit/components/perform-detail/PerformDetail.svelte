@@ -20,10 +20,10 @@
 	let editField = $state<string | null>(null);
 	let editValue = $state('');
 	let completing = $state(false);
-	let selectedIssue = $state('');
-	let issueComment = $state('');
+	let selectedAuditComment = $state('');
+	let customAuditComment = $state('');
 
-	const auditIssues = [
+	const auditCommentOptions = [
 		'Item missing',
 		'Item damaged',
 		'Location incorrect',
@@ -292,8 +292,8 @@
 	}
 
 	function openReport() {
-		selectedIssue = '';
-		issueComment = '';
+		selectedAuditComment = '';
+		customAuditComment = '';
 		view = 'report';
 	}
 
@@ -311,13 +311,13 @@
 	}
 
 	async function submitReport() {
-		if (!selectedIssue || completing) return;
+		if (!selectedAuditComment || completing) return;
 		completing = true;
 		// Result ID 2 = Flagged
-		const issue = selectedIssue === 'Other' ? issueComment.trim().slice(0, 200) : selectedIssue;
+		const audit_comment = selectedAuditComment === 'Other' ? customAuditComment.trim().slice(0, 200) : selectedAuditComment;
 		enqueue({
 			type: 'AUDIT_COMPLETE',
-			payload: { assetId: assignment.asset_id, resultId: 2, userId, issue },
+			payload: { assetId: assignment.asset_id, resultId: 2, userId, audit_comment },
 		});
 		setTimeout(() => {
 			completing = false;
@@ -550,24 +550,22 @@
 					<!-- svelte-ignore a11y_label_has_associated_control -->
 					<label class="block text-sm font-medium text-text-secondary mb-2">Select Issue Type</label>
 					<div class="flex flex-col gap-1.5">
-						{#each auditIssues as issue}
+						{#each auditCommentOptions as option}
 							<button
-								onclick={() => { selectedIssue = issue; }}
-								class="w-full text-left px-4 py-2.5 rounded border text-sm cursor-pointer transition-colors
-									{selectedIssue === issue
-										? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500 text-blue-700 dark:text-blue-300 font-medium'
-										: 'bg-bg-elevated border-border text-text-secondary hover:bg-bg-hover-row'}"
-							>{issue}</button>
+								onclick={() => { selectedAuditComment = option; }}
+								class="w-full text-left px-4 py-2.5 rounded text-sm cursor-pointer bg-bg-elevated text-text-secondary hover:bg-bg-hover-row
+									{selectedAuditComment === option ? 'shadow-[0_0_0_1px_#eab308]' : ''}"
+							>{option}</button>
 						{/each}
 					</div>
 				</div>
 
-				{#if selectedIssue === 'Other'}
+				{#if selectedAuditComment === 'Other'}
 					<div>
 						<!-- svelte-ignore a11y_label_has_associated_control -->
 						<label class="block text-sm font-medium text-text-secondary mb-1">Describe the issue</label>
 						<textarea
-							bind:value={issueComment}
+							bind:value={customAuditComment}
 							placeholder="Enter details..."
 							class="w-full p-2 border border-border-strong rounded bg-bg-elevated text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none"
 							rows="3"
@@ -582,7 +580,7 @@
 					>Cancel</button>
 					<button
 						onclick={submitReport}
-						disabled={!selectedIssue || completing}
+						disabled={!selectedAuditComment || completing}
 						class="flex-1 py-2 px-4 rounded text-sm font-semibold text-white bg-btn-warning hover:bg-btn-warning-hover cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
 					>{completing ? 'Submitting...' : 'Submit Report'}</button>
 				</div>

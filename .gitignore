@@ -41,3 +41,4 @@ deploy.sh
 RAW
 scripts
 migrations
+tests

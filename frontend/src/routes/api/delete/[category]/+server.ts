@@ -34,7 +34,7 @@ export async function DELETE({ request, params, locals }) {
     } catch (error: any) {
         logger.error({ err: error, category, id, userId: locals.user.id, endpoint: `/api/delete/${category}` }, 'Admin item deletion failed');
         const message = error?.errno === 1451
-            ? 'Cannot delete — this item is still assigned to one or more assets.'
+            ? 'Cannot delete - this item is still assigned to one or more assets.'
             : `Failed to delete ${category}.`;
         return json({ error: message }, { status: error?.errno === 1451 ? 409 : 500 });
     }

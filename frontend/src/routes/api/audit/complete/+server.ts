@@ -9,13 +9,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { assetId, resultId, issue } = await request.json();
+    const { assetId, resultId, audit_comment } = await request.json();
 
     if (!assetId || !resultId) {
         return json({ error: 'Missing assetId or resultId' }, { status: 400 });
     }
 
-    const sanitizedIssue = typeof issue === 'string' ? issue.slice(0, 200) : null;
+    const sanitizedComment = typeof audit_comment === 'string' ? audit_comment.slice(0, 200) : null;
 
     const completedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
 
@@ -34,13 +34,13 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         // Insert snapshot into current_audit: audit fields + frozen inventory data
         await sql`
             INSERT INTO current_audit (
-                asset_id, audit_start_date, assigned_to, completed_at, result_id, issue,
+                asset_id, audit_start_date, assigned_to, completed_at, result_id, audit_comment,
                 location, node, asset_type, department, status, \`condition\`,
                 manufacturer, model, serial_number, wbd_tag, shelf_cabinet_table,
                 bu_estate, asset_set_type, comment
             )
             SELECT
-                aa.asset_id, aa.audit_start_date, aa.assigned_to, ${completedAt}, ${resultId}, ${sanitizedIssue},
+                aa.asset_id, aa.audit_start_date, aa.assigned_to, ${completedAt}, ${resultId}, ${sanitizedComment},
                 al.location_name, ai.node, ai.asset_type, ad.department_name,
                 ast.status_name, ac.condition_name,
                 ai.manufacturer, ai.model, ai.serial_number, ai.wbd_tag, ai.shelf_cabinet_table,

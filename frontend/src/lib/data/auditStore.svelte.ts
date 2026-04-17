@@ -25,8 +25,7 @@ export interface AuditAssignment {
 	audit_start_date: string | Date | null;
 	completed_at: string | Date | null;
 	result_id?: number | null;
-	result?: string | null;
-	result_name?: string | null;
+	audit_comment?: string | null;
 	auditor_name: string | null;
 }
 
@@ -56,7 +55,6 @@ export interface AuditUserProgress {
 	name: string;
 	total: number;
 	completed: number;
-	lastCompletedAt: string | null;
 }
 
 export const auditStore = $state({

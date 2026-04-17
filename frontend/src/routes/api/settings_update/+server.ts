@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { queryAssets } from '$lib/db/select/queryAssets';
 import { logger } from '$lib/logger';
 
-const VALID_VIEWS = ['default', 'audit', 'ped', 'galaxy', 'network'];
+const VALID_VIEWS = ['default', 'audit', 'ped', 'galaxy'];
 
 export async function GET({ url, locals, cookies }) {
     if (!locals.user) {

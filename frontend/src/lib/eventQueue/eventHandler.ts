@@ -8,11 +8,13 @@ import { realtime } from '$lib/utils/realtimeManager.svelte';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
 import { urlStore } from '$lib/data/urlStore.svelte';
 import { scrollStore } from '$lib/data/scrollStore.svelte';
+
 import { pendingStore } from '$lib/data/cellStore.svelte';
 import { newRowStore } from '$lib/data/newRowStore.svelte';
-import { auditStore } from '$lib/data/auditStore.svelte';
+import { auditStore, type AuditAssignment } from '$lib/data/auditStore.svelte';
 import { auditUiStore } from '$lib/data/auditUiStore.svelte';
 import { userStore } from '$lib/data/userStore.svelte';
+import { usersAdminStore } from '$lib/data/usersAdminStore.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
 
@@ -43,6 +45,34 @@ async function apiPost(endpoint: string, body: any): Promise<ApiResult> {
     return { success: true, data };
   } catch (err) {
     console.error(`Post failed for ${endpoint}:`, err);
+    return { success: false, data: null };
+  }
+}
+
+async function apiPut(endpoint: string, body: any): Promise<ApiResult> {
+  try {
+    const response = await fetch(endpoint, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json();
+    if (!response.ok) return { success: false, data, status: response.status };
+    return { success: true, data };
+  } catch (err) {
+    console.error(`Put failed for ${endpoint}:`, err);
+    return { success: false, data: null };
+  }
+}
+
+async function apiDelete(endpoint: string): Promise<ApiResult> {
+  try {
+    const response = await fetch(endpoint, { method: 'DELETE' });
+    const data = await response.json();
+    if (!response.ok) return { success: false, data, status: response.status };
+    return { success: true, data };
+  } catch (err) {
+    console.error(`Delete failed for ${endpoint}:`, err);
     return { success: false, data: null };
   }
 }
@@ -171,6 +201,19 @@ export async function processEvent(
       await handleAuditHistoryQuery(event.payload);
       break;
 
+    // ─── Admin: user management ────────────────────────────────────────────
+    case 'USER_UPDATE':
+      await handleUserUpdate(event.payload);
+      break;
+
+    case 'USER_DELETE':
+      await handleUserDelete(event.payload);
+      break;
+
+    case 'USER_RESET_PASSWORD':
+      await handleUserResetPassword(event.payload);
+      break;
+
     // ─── Audit incoming WS events ──────────────────────────────────────────
     case 'WS_AUDIT_ASSIGN_BROADCAST':
       await handleWsAuditAssign(event.payload);
@@ -238,7 +281,7 @@ async function handleCommitUpdate(
   const res = await apiPost('/api/update', apiChanges);
   if (!res.success) {
     if (res.status === 409) {
-      toastState.addToast(res.data?.error || 'Duplicate value — this value already exists.', 'warning');
+      toastState.addToast(res.data?.error || 'Duplicate value - this value already exists.', 'warning');
     } else {
       toastState.addToast(res.data?.error || 'Failed to commit changes.', 'error');
     }
@@ -291,7 +334,7 @@ async function handleCommitCreate(
 
   const res = await apiPost('/api/create/asset', rowsToSave);
   if (!res.success) {
-    toastState.addToast('Failed to save new rows.', 'error');
+    toastState.addToast(res.data?.message || res.data?.error || 'Failed to save new rows.', 'error');
     return;
   }
 
@@ -372,6 +415,7 @@ async function handleViewChange(
     return;
   }
 
+  queryStore.view = view;
   assetStore.baseAssets = res.data.assets;
   assetStore.displayedAssets = res.data.assets;
   queryStore.q = '';
@@ -657,6 +701,21 @@ function handleWsClientStateReconciled(
 
 // ─── Audit Handlers ──────────────────────────────────────────────────────────
 
+// Apply an auditor assignment update to baseAssignments and displayedAssignments.
+// Builds new arrays once (map + spread for matched ids), preserves displayedAssignments order,
+// and produces exactly two reactive writes regardless of selection size.
+function applyAuditAssignmentUpdate(assetIds: number[], userId: number, auditorName: string | null) {
+  const idSet = new Set(assetIds);
+  const newBase = auditStore.baseAssignments.map(a =>
+    idSet.has(a.asset_id) ? { ...a, assigned_to: userId, auditor_name: auditorName } : a
+  );
+  const byId = new Map<number, AuditAssignment>();
+  for (const a of newBase) byId.set(a.asset_id, a);
+  const newDisplayed = auditStore.displayedAssignments.map(a => byId.get(a.asset_id)!);
+  auditStore.baseAssignments = newBase;
+  auditStore.displayedAssignments = newDisplayed;
+}
+
 async function handleAuditAssign(payload: Record<string, any>): Promise<void> {
   const { assetIds, userId } = payload;
   const res = await apiPost('/api/audit/assign', { assetIds, userId });
@@ -671,24 +730,23 @@ async function handleAuditAssign(payload: Record<string, any>): Promise<void> {
 
   const user = auditStore.users.find(u => u.id === userId);
   const auditorName = user ? `${user.lastname}, ${user.firstname}` : null;
-  const idSet = new Set(assetIds as number[]);
-  for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
-    for (const a of arr) {
-      if (idSet.has(a.asset_id)) {
-        a.assigned_to = userId;
-        a.auditor_name = auditorName;
-      }
-    }
-  }
+
+  applyAuditAssignmentUpdate(assetIds, userId, auditorName);
+
   toastState.addToast(`Assigned ${assetIds.length} item${assetIds.length === 1 ? '' : 's'}.`, 'success');
   realtime.sendAuditAssign(assetIds, userId, auditorName ?? '');
+
+  const t0 = performance.now();
   const progressRes = await apiFetch('/api/audit/user-progress');
+  const t1 = performance.now();
   if (progressRes.success) auditStore.userProgress = progressRes.data;
+
+  console.log('[userProgress]', +(t1 - t0).toFixed(1), 'ms');
 }
 
 async function handleAuditComplete(payload: Record<string, any>): Promise<void> {
-  const { assetId, resultId, userId, issue } = payload;
-  const res = await apiPost('/api/audit/complete', { assetId, resultId, issue: issue ?? null });
+  const { assetId, resultId, userId, audit_comment } = payload;
+  const res = await apiPost('/api/audit/complete', { assetId, resultId, audit_comment: audit_comment ?? null });
   if (!res.success) {
     toastState.addToast('Failed to complete audit.', 'error');
     return;
@@ -697,12 +755,16 @@ async function handleAuditComplete(payload: Record<string, any>): Promise<void> 
   const now = new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-');
   for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
     const a = arr.find(a => a.asset_id === assetId);
-    if (a) { a.completed_at = now; a.result_id = resultId; }
+    if (a) {
+      a.completed_at = now;
+      a.result_id = resultId;
+      a.audit_comment = audit_comment ?? null;
+    }
   }
   const completed = res.data.completedCount;
   auditStore.progress = { total: auditStore.progress.total, completed, pending: auditStore.progress.total - completed };
   toastState.addToast('Audit completed.', 'success');
-  realtime.sendAuditComplete(assetId, resultId, now, userId, res.data.completedCount);
+  realtime.sendAuditComplete(assetId, res.data.completedCount);
   const progressRes = await apiFetch('/api/audit/user-progress');
   if (progressRes.success) auditStore.userProgress = progressRes.data;
 }
@@ -747,6 +809,8 @@ async function handleAuditClose(payload: Record<string, any>): Promise<void> {
 
 async function handleAuditQuery(payload: Record<string, any>): Promise<void> {
   const { filters, q } = payload;
+  // Filter/search changes the displayed set; stale selection across views causes silent drops on assign.
+  auditUiStore.checkedIds = [];
   if ((!filters || filters.length === 0) && !q) {
     auditStore.displayedAssignments = auditStore.baseAssignments;
     return;
@@ -786,25 +850,23 @@ async function handleAuditHistoryQuery(payload: Record<string, any>): Promise<vo
 
 async function handleWsAuditAssign(payload: Record<string, any>): Promise<void> {
   const { assetIds, userId, auditorName } = payload;
-  const idSet = new Set(assetIds as number[]);
-  for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
-    for (const a of arr) {
-      if (idSet.has(a.asset_id)) {
-        a.assigned_to = userId;
-        a.auditor_name = auditorName;
-      }
-    }
-  }
+  applyAuditAssignmentUpdate(assetIds as number[], userId, auditorName ?? null);
   const progressRes = await apiFetch('/api/audit/user-progress');
   if (progressRes.success) auditStore.userProgress = progressRes.data;
 }
 
 async function handleWsAuditComplete(payload: Record<string, any>): Promise<void> {
-  const { assetId, resultId, completedAt, userId, completedCount } = payload;
-  for (const arr of [auditStore.baseAssignments, auditStore.displayedAssignments]) {
-    const a = arr.find(a => a.asset_id === assetId);
-    if (a) { a.completed_at = completedAt; a.result_id = resultId; }
+  const { assetId, completedCount } = payload;
+
+  // Pull authoritative fresh row from server, replace in both arrays.
+  const rowRes = await apiFetch(`/api/audit/assignment/${assetId}`);
+  if (rowRes.success && rowRes.data?.row) {
+    const fresh = rowRes.data.row as AuditAssignment;
+    const replace = (a: AuditAssignment) => (a.asset_id === assetId ? fresh : a);
+    auditStore.baseAssignments = auditStore.baseAssignments.map(replace);
+    auditStore.displayedAssignments = auditStore.displayedAssignments.map(replace);
   }
+
   auditStore.progress = { total: auditStore.progress.total, completed: completedCount, pending: auditStore.progress.total - completedCount };
   const res = await apiFetch('/api/audit/user-progress');
   if (res.success) auditStore.userProgress = res.data;
@@ -853,4 +915,44 @@ function handleWsRowLockRejected(payload: Record<string, any>): void {
   } else {
     toastState.addToast(`Row is locked by ${firstname} ${lastname}.`, 'warning');
   }
+}
+
+// ─── Admin: user management ──────────────────────────────────────────────────
+
+async function handleUserUpdate(payload: Record<string, any>): Promise<void> {
+  const { id, username, firstname, lastname, is_super_admin } = payload;
+  const res = await apiPut(`/api/users/${id}`, { username, firstname, lastname, is_super_admin });
+  if (!res.success) {
+    toastState.addToast(res.data?.error || 'Failed to update user.', 'error');
+    return;
+  }
+  const u = usersAdminStore.users.find(u => u.id === id);
+  if (u) {
+    u.username = username;
+    u.firstname = firstname;
+    u.lastname = lastname;
+    u.is_super_admin = is_super_admin;
+  }
+  toastState.addToast('User updated.', 'success');
+}
+
+async function handleUserDelete(payload: Record<string, any>): Promise<void> {
+  const { id } = payload;
+  const res = await apiDelete(`/api/users/${id}`);
+  if (!res.success) {
+    toastState.addToast(res.data?.error || 'Failed to delete user.', 'error');
+    return;
+  }
+  usersAdminStore.users = usersAdminStore.users.filter(u => u.id !== id);
+  toastState.addToast('User deleted.', 'success');
+}
+
+async function handleUserResetPassword(payload: Record<string, any>): Promise<void> {
+  const { id, password } = payload;
+  const res = await apiPost(`/api/users/${id}/reset-password`, { password });
+  if (!res.success) {
+    toastState.addToast(res.data?.error || 'Failed to reset password.', 'error');
+    return;
+  }
+  toastState.addToast('Password reset.', 'success');
 }

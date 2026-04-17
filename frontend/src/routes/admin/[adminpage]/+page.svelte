@@ -212,7 +212,7 @@
 
       {#if pageItems.length === 0}
         <div class="px-4 py-10 text-center text-sm text-text-muted">
-          No items yet — type a name above and click Add.
+          No items yet - type a name above and click Add.
         </div>
       {/if}
     </div>

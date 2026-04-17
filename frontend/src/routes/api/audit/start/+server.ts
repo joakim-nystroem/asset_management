@@ -8,6 +8,9 @@ export const POST: RequestHandler = async ({ locals }) => {
     if (!locals.user) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (!locals.user.is_super_admin) {
+        return json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     try {
         // Guard: block if a cycle is already active
@@ -23,13 +26,12 @@ export const POST: RequestHandler = async ({ locals }) => {
         const today = new Date().toISOString().slice(0, 10);
 
         // Snapshot + cycle record in a single transaction
-        // TODO: Add status exclusion filter once statuses are cleaned up
-        // e.g. .where('status_id', 'not in', [retiredId, brokenId])
         await db.transaction().execute(async (trx) => {
             await sql`
                 INSERT INTO asset_audit (asset_id, audit_start_date)
                 SELECT id, ${today}
                 FROM asset_inventory
+                WHERE asset_type != 'Virtual Machine'
             `.execute(trx);
 
             await trx.insertInto('asset_audit_cycles')

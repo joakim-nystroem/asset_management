@@ -37,7 +37,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     // Fetch user without password_hash
     const user = await db
         .selectFrom('users')
-        .select(['id', 'username', 'firstname', 'lastname', 'created_at', 'last_login_at'])
+        .select(['id', 'username', 'firstname', 'lastname', 'created_at', 'last_login_at', 'is_super_admin'])
         .where('id', '=', session.user_id)
         .executeTakeFirst();
 

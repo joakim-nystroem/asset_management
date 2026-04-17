@@ -8,6 +8,9 @@ export const POST: RequestHandler = async ({ locals }) => {
     if (!locals.user) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
+    if (!locals.user.is_super_admin) {
+        return json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     try {
         // Check all items are completed (no items in asset_audit without a current_audit match)
@@ -40,7 +43,7 @@ export const POST: RequestHandler = async ({ locals }) => {
             await trx.insertInto('asset_audit_history')
                 .columns([
                     'audit_start_date', 'asset_id', 'assigned_to', 'completed_at',
-                    'result_id', 'result',
+                    'result_id', 'audit_comment',
                     'location', 'node', 'asset_type', 'department', 'status', 'condition',
                     'manufacturer', 'model', 'serial_number', 'wbd_tag', 'shelf_cabinet_table',
                     'bu_estate', 'asset_set_type', 'comment',
@@ -49,7 +52,7 @@ export const POST: RequestHandler = async ({ locals }) => {
                     trx.selectFrom('current_audit')
                         .select([
                             'audit_start_date', 'asset_id', 'assigned_to', 'completed_at',
-                            'result_id', 'result',
+                            'result_id', 'audit_comment',
                             'location', 'node', 'asset_type', 'department', 'status', 'condition',
                             'manufacturer', 'model', 'serial_number', 'wbd_tag', 'shelf_cabinet_table',
                             'bu_estate', 'asset_set_type', 'comment',
