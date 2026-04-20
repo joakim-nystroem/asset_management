@@ -135,12 +135,13 @@
         </div>
 
         <div class="bg-bg-card rounded-xl border border-border p-4">
-            <label class="block text-sm font-medium text-text-secondary mb-2">
+            <label for="edit-value" class="block text-sm font-medium text-text-secondary mb-2">
                 {fieldLabels[editField] || editField}
             </label>
 
             {#if constrainedFields[editField]}
                 <select
+                    id="edit-value"
                     bind:value={editValue}
                     class="w-full p-3 border rounded-lg bg-bg-input border-border-strong focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
                 >
@@ -151,6 +152,7 @@
                 </select>
             {:else}
                 <input
+                    id="edit-value"
                     type="text"
                     bind:value={editValue}
                     class="w-full p-3 border rounded-lg bg-bg-input border-border-strong focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"

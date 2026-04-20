@@ -13,7 +13,7 @@ import { pendingStore } from '$lib/data/cellStore.svelte';
 import { newRowStore } from '$lib/data/newRowStore.svelte';
 import { auditStore, type AuditAssignment } from '$lib/data/auditStore.svelte';
 import { auditUiStore } from '$lib/data/auditUiStore.svelte';
-import { userStore } from '$lib/data/userStore.svelte';
+import { page } from '$app/state';
 import { usersAdminStore } from '$lib/data/usersAdminStore.svelte';
 
 // ─── API helpers ────────────────────────────────────────────────────────────
@@ -265,7 +265,8 @@ async function handleCommitUpdate(
 ): Promise<void> {
   const { changes } = payload;
 
-  if (!userStore.id) {
+  const user = page.data.user;
+  if (!user) {
     toastState.addToast('Log in to edit.', 'warning');
     return;
   }
@@ -289,7 +290,7 @@ async function handleCommitUpdate(
   }
 
   // Apply committed values to the live assets
-  const displayName = `${userStore.lastname}, ${userStore.firstname}`;
+  const displayName = `${user.lastname}, ${user.firstname}`;
   const now = new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-');
   for (const change of changes) {
     const filtered = assetStore.displayedAssets.find((a: any) => a.id === change.row);
@@ -321,7 +322,7 @@ async function handleCommitCreate(
 ): Promise<void> {
   const { rows } = payload;
 
-  if (!userStore.id) {
+  if (!page.data.user) {
     toastState.addToast('Log in to edit.', 'warning');
     return;
   }

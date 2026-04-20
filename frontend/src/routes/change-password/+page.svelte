@@ -1,8 +1,8 @@
 <script lang="ts">
   import { enhance } from '$app/forms';
   import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { toastState } from '$lib/toast/toastState.svelte';
-  import { userStore } from '$lib/data/userStore.svelte';
 </script>
 
 <div class="flex items-center justify-center min-h-[calc(100dvh-5rem)]">
@@ -29,7 +29,7 @@
         }
       };
     }} class="flex flex-col gap-4">
-      <input type="text" name="username" autocomplete="username" value={userStore.username} class="hidden invisible" aria-hidden="true" tabindex="-1" readonly />
+      <input type="text" name="username" autocomplete="username" value={page.data.user?.username ?? ''} class="hidden invisible" aria-hidden="true" tabindex="-1" readonly />
       <div>
         <label for="currentPassword" class="block text-sm font-medium text-text-secondary mb-1">Current Password</label>
         <input

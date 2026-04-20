@@ -9,21 +9,8 @@
   import { realtime } from '$lib/utils/realtimeManager.svelte.js';
   import { connectionStore } from '$lib/data/connectionStore.svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
-  import { userStore } from '$lib/data/userStore.svelte';
   import ToastContainer from '$lib/toast/ToastContainer.svelte';
   let { children, data } = $props();
-
-  // Seed user store
-  if (data.user) {
-    // svelte-ignore state_referenced_locally
-    userStore.id = data.user.id;
-    // svelte-ignore state_referenced_locally
-    userStore.username = data.user.username;
-    // svelte-ignore state_referenced_locally
-    userStore.firstname = data.user.firstname;
-    // svelte-ignore state_referenced_locally
-    userStore.lastname = data.user.lastname;
-  }
 
   // Seed metadata once — available everywhere
   // svelte-ignore state_referenced_locally
