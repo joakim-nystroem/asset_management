@@ -1,10 +1,12 @@
 import { json } from '@sveltejs/kit';
+import { sql } from 'kysely';
+import { db } from '$lib/db/conn';
 import { queryAssets } from '$lib/db/select/queryAssets';
 import { logger } from '$lib/logger';
 
 const VALID_VIEWS = ['default', 'audit', 'ped', 'galaxy'];
 
-export async function GET({ url, locals, cookies }) {
+export async function GET({ url, locals }) {
     if (!locals.user) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -13,16 +15,17 @@ export async function GET({ url, locals, cookies }) {
     const resolvedView = VALID_VIEWS.includes(view) ? view : 'default';
     const hiddenStatuses = url.searchParams.getAll('hidden_status');
 
-    // Persist hidden statuses to cookie
-    if (hiddenStatuses.length > 0) {
-        cookies.set('hidden_statuses', hiddenStatuses.join(','), {
-            path: '/',
-            httpOnly: true,
-            sameSite: 'lax',
-            maxAge: 60 * 60 * 24 * 365,
-        });
-    } else {
-        cookies.delete('hidden_statuses', { path: '/' });
+    // Persist hidden_statuses into users.user_settings JSON (merge-patch: other keys untouched).
+    const patch = JSON.stringify({ hidden_statuses: hiddenStatuses });
+    try {
+        await db.updateTable('users')
+            .set({
+                user_settings: sql`JSON_MERGE_PATCH(user_settings, ${patch})`,
+            })
+            .where('id', '=', locals.user.id)
+            .execute();
+    } catch (err) {
+        logger.error({ err, userId: locals.user.id, endpoint: '/api/settings_update' }, 'Failed to persist hidden_statuses');
     }
 
     try {

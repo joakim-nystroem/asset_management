@@ -1,6 +1,7 @@
 import { columnWidthStore } from '$lib/data/uiStore.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
-import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+import { gridPrefsStore } from '$lib/data/gridPrefsStore.svelte';
+import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
 export function getWidth(key: string): number {
   return columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH;
@@ -14,7 +15,7 @@ export function computeVisualOverlay(
 ) {
   // Column keys from first asset
   const keys = Object.keys(assetStore.displayedAssets[0] ?? {});
-  const rowHeight = DEFAULT_ROW_HEIGHT;
+  const rowHeight = gridPrefsStore.rowHeight;
 
   // Find asset position by ID
   const startRowIdx = assetStore.displayedAssets.findIndex((a: Record<string, any>) => a.id === start.row);
@@ -63,7 +64,7 @@ export function computeLocalPendingOverlays(
   // Column keys from first asset
   const keys = Object.keys(assets[0] ?? {});
   const { startIndex, endIndex } = visibleRange;
-  const rowHeight = DEFAULT_ROW_HEIGHT;
+  const rowHeight = gridPrefsStore.rowHeight;
 
   const editMap = new Map<string, typeof edits[0]>();
   for (const edit of edits) {
@@ -111,7 +112,7 @@ export function computeRowLockOverlays(
   const assets = assetStore.displayedAssets;
   const keys = Object.keys(assets[0] ?? {});
   const { startIndex, endIndex } = visibleRange;
-  const rowHeight = DEFAULT_ROW_HEIGHT;
+  const rowHeight = gridPrefsStore.rowHeight;
 
   let totalWidth = 0;
   for (const key of keys) totalWidth += getWidth(key);
@@ -146,7 +147,7 @@ export function computeRemotePendingOverlays(
   // Column keys from first asset
   const keys = Object.keys(assets[0] ?? {});
   const { startIndex, endIndex } = visibleRange;
-  const rowHeight = DEFAULT_ROW_HEIGHT;
+  const rowHeight = gridPrefsStore.rowHeight;
 
   const overlays: { top: number; left: number; width: number; height: number; color: string; name: string }[] = [];
 

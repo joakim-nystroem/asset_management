@@ -9,8 +9,20 @@
   import { realtime } from '$lib/utils/realtimeManager.svelte.js';
   import { connectionStore } from '$lib/data/connectionStore.svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
+  import { gridPrefsStore } from '$lib/data/gridPrefsStore.svelte';
+  import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
   import ToastContainer from '$lib/toast/ToastContainer.svelte';
   let { children, data } = $props();
+
+  // Synchronous seed so the grid paints at the saved row height on first
+  // render (no flash from the default). The $effect below handles later
+  // changes (logout/login while layout stays mounted).
+  // svelte-ignore state_referenced_locally
+  gridPrefsStore.rowHeight = data.user?.settings?.row_height ?? DEFAULT_ROW_HEIGHT;
+
+  $effect(() => {
+    gridPrefsStore.rowHeight = data.user?.settings?.row_height ?? DEFAULT_ROW_HEIGHT;
+  });
 
   // Seed metadata once — available everywhere
   // svelte-ignore state_referenced_locally
@@ -38,6 +50,15 @@
     }
   });
 
+  // Sync DOM + local darkMode from the server-resolved theme. Writes only
+  // (no read of darkMode) so the effect tracks data.theme alone; user toggles
+  // — which update darkMode optimistically — don't loop back through here.
+  $effect(() => {
+    const shouldBeDark = data.theme === 'dark';
+    darkMode = shouldBeDark;
+    document.documentElement.classList.toggle('dark', shouldBeDark);
+  });
+
   // Get user initials
   let userInitials = $derived.by(() => {
     if (!data.user) return 'G';
@@ -61,9 +82,15 @@
       document.documentElement.classList.remove('dark');
     }
 
-    // Persist to localStorage and cookie
-    localStorage.theme = newTheme;
-    document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=Lax`;
+    // Logged-in users persist to DB (cross-device). Fire-and-forget —
+    // the optimistic DOM update is already done; failure is logged-only.
+    if (data.user) {
+      fetch('/api/settings/theme', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ theme: newTheme }),
+      }).catch(err => console.error('theme persist failed', err));
+    }
 
     // Brief cooldown to prevent spam-clicking race conditions
     setTimeout(() => { themeToggling = false; }, 150);

@@ -5,7 +5,9 @@ import { getConditions } from '$lib/db/select/getConditions';
 import { getDepartments } from '$lib/db/select/getDepartments';
 
 export const load: LayoutServerLoad = async ({ cookies, locals }) => {
-  const theme = cookies.get('theme') || 'dark';
+  // Theme source of truth: DB for logged-in users (cross-device). Anon
+  // visits default to dark (the app's canonical theme).
+  const theme = locals.user?.settings?.theme ?? 'dark';
   const session_color = cookies.get('session_color');
   const sessionId = cookies.get('sessionId');
 

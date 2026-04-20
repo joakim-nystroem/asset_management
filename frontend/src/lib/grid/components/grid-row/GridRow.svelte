@@ -6,7 +6,8 @@
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
 
-  import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT, NON_EDITABLE_COLUMNS } from '$lib/grid/gridConfig';
+  import { DEFAULT_WIDTH, NON_EDITABLE_COLUMNS } from '$lib/grid/gridConfig';
+  import { gridPrefsStore } from '$lib/data/gridPrefsStore.svelte';
   import { columnConstraints } from '$lib/grid/validation';
 
   function getCellError(key: string): string | null {
@@ -33,7 +34,7 @@
 
 </script>
 
-<div class="group flex h-full border-b border-border" style="height: {DEFAULT_ROW_HEIGHT}px;">
+<div class="group flex h-full border-b border-border" style="height: {gridPrefsStore.rowHeight}px;">
 {#each keys as key, j}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div

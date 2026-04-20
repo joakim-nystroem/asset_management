@@ -21,29 +21,43 @@ export const handle: Handle = async ({ event, resolve }) => {
 
     const sessionId = event.cookies.get('sessionId');
 
-    if (!sessionId) {
-        return resolve(event);
+    if (sessionId) {
+        const session = await findSessionById(sessionId);
+
+        if (!session) {
+            // Session is invalid or expired, clear cookies
+            event.cookies.delete('sessionId', { path: '/' });
+            event.cookies.delete('session_color', { path: '/' });
+        } else {
+            // Fetch user without password_hash
+            const row = await db
+                .selectFrom('users')
+                .select(['id', 'username', 'firstname', 'lastname', 'created_at', 'last_login_at', 'is_super_admin', 'user_settings'])
+                .where('id', '=', session.user_id)
+                .executeTakeFirst();
+
+            if (row) {
+                const { user_settings, ...rest } = row;
+                let settings: Record<string, unknown> = {};
+                try {
+                    settings = user_settings ? JSON.parse(user_settings) : {};
+                } catch (err) {
+                    logger.warn({ err, userId: rest.id }, 'Failed to parse user_settings JSON; falling back to {}');
+                }
+                event.locals.user = { ...rest, settings };
+            }
+        }
     }
 
-    const session = await findSessionById(sessionId);
+    // Resolve theme: DB (logged in) → default. Anon users get dark; any theme
+    // mismatch on /login flashes toward dark (non-retinal, non-jarring) and
+    // self-corrects after login via data.theme → effect sync.
+    // Whitelist defense-in-depth: guards against a user_settings row that
+    // bypassed the endpoint's validation ending up in the HTML response.
+    const raw = (event.locals.user?.settings as { theme?: string } | undefined)?.theme ?? 'dark';
+    const theme = raw === 'dark' || raw === 'light' ? raw : 'dark';
 
-    if (!session) {
-        // Session is invalid or expired, clear cookies
-        event.cookies.delete('sessionId', { path: '/' });
-        event.cookies.delete('session_color', { path: '/' });
-        return resolve(event);
-    }
-
-    // Fetch user without password_hash
-    const user = await db
-        .selectFrom('users')
-        .select(['id', 'username', 'firstname', 'lastname', 'created_at', 'last_login_at', 'is_super_admin'])
-        .where('id', '=', session.user_id)
-        .executeTakeFirst();
-
-    if (user) {
-        event.locals.user = user;
-    }
-
-    return resolve(event);
+    return resolve(event, {
+        transformPageChunk: ({ html }) => html.replace('%sveltekit.theme%', theme),
+    });
 };

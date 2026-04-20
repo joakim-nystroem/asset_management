@@ -31,7 +31,7 @@ function resolveView(param: string): string {
   return VALID_VIEWS.includes(param as any) ? param : 'default';
 }
 
-export const load: PageServerLoad = async ({ request, url, cookies, locals }) => {
+export const load: PageServerLoad = async ({ request, url, locals }) => {
   if (!locals.user) {
     redirect(302, '/login');
   }
@@ -54,8 +54,7 @@ export const load: PageServerLoad = async ({ request, url, cookies, locals }) =>
   const filterParams = url.searchParams.getAll('filter');
   const resolvedView = resolveView(viewParam);
 
-  const hiddenStatusesCookie = cookies.get('hidden_statuses');
-  const hiddenStatuses = hiddenStatusesCookie ? hiddenStatusesCookie.split(',') : [];
+  const hiddenStatuses = locals.user.settings?.hidden_statuses ?? [];
 
   try {
     const hasSearch = qParam || filterParams.length > 0;

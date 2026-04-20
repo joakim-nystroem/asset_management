@@ -3,7 +3,7 @@
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
-  import { DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+  import { gridPrefsStore } from '$lib/data/gridPrefsStore.svelte';
   import {
     computeVisualOverlay,
     computeLocalPendingOverlays,
@@ -51,7 +51,7 @@
 
 <div
   class="absolute top-0 left-0 w-max min-w-full pointer-events-none"
-  style="height: {assets.length * DEFAULT_ROW_HEIGHT + 16}px;"
+  style="height: {assets.length * gridPrefsStore.rowHeight + 16}px;"
 >
   <!-- Other user cursors -->
   {#each otherUserSelections as user (user.id)}

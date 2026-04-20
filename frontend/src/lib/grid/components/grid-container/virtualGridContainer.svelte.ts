@@ -1,10 +1,10 @@
 import { scrollStore } from '$lib/data/scrollStore.svelte';
 import { assetStore } from '$lib/data/assetStore.svelte';
 import { uiStore, columnWidthStore } from '$lib/data/uiStore.svelte';
-import { DEFAULT_ROW_HEIGHT, DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+import { gridPrefsStore } from '$lib/data/gridPrefsStore.svelte';
+import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 import { getContext } from 'svelte';
 
-const ROW_HEIGHT = DEFAULT_ROW_HEIGHT;
 const OVERSCAN = 15;
 const AUTO_SCROLL_DEADZONE = 5;
 const AUTO_SCROLL_SPEED = 0.15;
@@ -12,7 +12,7 @@ const AUTO_SCROLL_SPEED = 0.15;
 // ── Helpers ──────────────────────────────────────────────────
 
 function calculateContentHeight(): number {
-  return assetStore.displayedAssets.length * ROW_HEIGHT;
+  return assetStore.displayedAssets.length * gridPrefsStore.rowHeight;
 }
 
 function calculateContentWidth(colWidths: Map<string, number>): number {
@@ -67,7 +67,7 @@ export function createVirtualGridContainer() {
 function setupVisibleRangeTracking(viewport: { height: number }) {
   $effect(() => {
     const rowCount = assetStore.displayedAssets.length;
-    const contentHeight = rowCount * ROW_HEIGHT;
+    const contentHeight = rowCount * gridPrefsStore.rowHeight;
     const maxScroll = Math.max(0, contentHeight - viewport.height);
 
     // Clamp scrollTop when content shrinks (e.g. discard new rows, filter)
@@ -75,8 +75,8 @@ function setupVisibleRangeTracking(viewport: { height: number }) {
       scrollStore.scrollTop = maxScroll;
     }
 
-    const visibleCount = Math.ceil(viewport.height / ROW_HEIGHT);
-    const startIndex = Math.max(0, Math.floor(scrollStore.scrollTop / ROW_HEIGHT) - OVERSCAN);
+    const visibleCount = Math.ceil(viewport.height / gridPrefsStore.rowHeight);
+    const startIndex = Math.max(0, Math.floor(scrollStore.scrollTop / gridPrefsStore.rowHeight) - OVERSCAN);
     const endIndex = Math.min(startIndex + visibleCount + OVERSCAN * 2, rowCount);
 
     scrollStore.visibleRange = { startIndex, endIndex };
@@ -90,8 +90,8 @@ function setupScrollToRowSignal(viewport: { height: number }) {
     const row = scrollStore.scrollToRow;
     if (row === null) return;
 
-    const rowTop = row * ROW_HEIGHT;
-    const rowBottom = rowTop + ROW_HEIGHT;
+    const rowTop = row * gridPrefsStore.rowHeight;
+    const rowBottom = rowTop + gridPrefsStore.rowHeight;
     const viewBottom = scrollStore.scrollTop + viewport.height;
 
     if (rowTop < scrollStore.scrollTop) {

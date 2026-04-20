@@ -58,6 +58,10 @@ export interface UserTable {
     created_at: ColumnType<Date, string | undefined, never>;
     last_login_at: ColumnType<Date | null, string | null, string | null>;
     is_super_admin: ColumnType<boolean, boolean | undefined, boolean>;
+    // Stored as JSON (MariaDB represents JSON as LONGTEXT). Reads return a raw
+    // string from mysql2 — parse with JSON.parse in callers. Writes accept
+    // either a pre-serialized string or a JSON_MERGE_PATCH sql fragment.
+    user_settings: ColumnType<string, string | undefined, string>;
 }
 
 export interface SessionTable {

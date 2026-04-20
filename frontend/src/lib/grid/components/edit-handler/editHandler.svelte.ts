@@ -1,6 +1,7 @@
 import type { SvelteMap } from 'svelte/reactivity';
 
-import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+import { gridPrefsStore } from '$lib/data/gridPrefsStore.svelte';
 
 /** Minimum width before text wraps in the edit box. Columns wider than this use their own width. */
 export const MIN_EDIT_WIDTH = 280;
@@ -39,14 +40,14 @@ export function computeEditorDimensions(
 
   if (textWidth <= contentWidth) {
     // Text fits — editor width = text width + padding (at least column width)
-    return { width: Math.max(colWidth, textWidth + EDITOR_H_PADDING), height: DEFAULT_ROW_HEIGHT };
+    return { width: Math.max(colWidth, textWidth + EDITOR_H_PADDING), height: gridPrefsStore.rowHeight };
   }
 
   // First wrap → expand to 2 rows. After that, grow every 2 lines (2 text lines fit per row height)
   const lines = Math.ceil(textWidth / contentWidth);
   // lines=1 → 1 row, lines=2 → 2 rows, lines=3 → 2 rows, lines=4 → 3 rows, lines=5 → 3 rows...
   const rows = 1 + Math.ceil((lines - 1) / 2);
-  return { width: wrapWidth, height: rows * DEFAULT_ROW_HEIGHT };
+  return { width: wrapWidth, height: rows * gridPrefsStore.rowHeight };
 }
 
 /**
@@ -61,7 +62,7 @@ export function computeEditorPosition(
   columnWidths: SvelteMap<string, number>,
   keys: string[],
   assets: Record<string, any>[],
-  rowHeight: number = DEFAULT_ROW_HEIGHT
+  rowHeight: number = gridPrefsStore.rowHeight
 ): { top: number; left: number; width: number; height: number } | null {
   const rowIndex = assets.findIndex((a) => a.id === editRowId);
   if (rowIndex === -1) return null;

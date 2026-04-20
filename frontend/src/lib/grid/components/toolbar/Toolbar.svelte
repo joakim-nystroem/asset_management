@@ -15,6 +15,26 @@
   import { validateNewRow } from '$lib/grid/validation';
   import { resetEditState, resetAfterCommit } from '$lib/utils/gridHelpers';
   import { WIDE_DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+  import { gridPrefsStore, ROW_HEIGHT_PRESETS, type RowHeight } from '$lib/data/gridPrefsStore.svelte';
+
+  const ROW_HEIGHT_LABELS: Record<RowHeight, string> = { 24: 'Compact', 32: 'Default', 40: 'Spacious' };
+
+  async function selectRowHeight(next: RowHeight) {
+    if (gridPrefsStore.rowHeight === next) return;
+    const previous = gridPrefsStore.rowHeight;
+    gridPrefsStore.rowHeight = next;  // optimistic
+    try {
+      const res = await fetch('/api/settings/row-height', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row_height: next }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    } catch {
+      gridPrefsStore.rowHeight = previous;
+      toastState.addToast('Failed to save row height.', 'error');
+    }
+  }
 
   // Local search input — seeded from queryStore on mount, only pushed back on explicit action
   let searchInput = $state(queryStore.q);
@@ -379,7 +399,25 @@
         {#if uiStore.settingsMenu.visible}
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <div class="absolute right-1 mt-1 w-48 bg-bg-header border border-border-strong rounded shadow-lg z-900" onclick={(e) => e.stopPropagation()}>
+          <div class="absolute right-1 mt-1 w-60 bg-bg-header border border-border-strong rounded shadow-lg z-900" onclick={(e) => e.stopPropagation()}>
+            <div class="px-3 py-2 border-b border-border">
+              <span class="text-xs font-semibold text-text-muted uppercase tracking-wider">Row Height</span>
+            </div>
+            <div class="p-3 border-b border-border">
+              <div class="inline-flex w-full rounded border border-border-strong bg-bg-card overflow-hidden text-xs">
+                {#each ROW_HEIGHT_PRESETS as preset (preset)}
+                  {@const active = gridPrefsStore.rowHeight === preset}
+                  <button
+                    onclick={() => selectRowHeight(preset)}
+                    class="flex-1 px-2 py-1.5 cursor-pointer
+                      {active
+                        ? 'bg-btn-primary text-white text-shadow-warm font-medium'
+                        : 'text-text-secondary hover:bg-bg-hover-item'}"
+                    title="{ROW_HEIGHT_LABELS[preset]} ({preset}px)"
+                  >{ROW_HEIGHT_LABELS[preset]}</button>
+                {/each}
+              </div>
+            </div>
             <div class="px-3 py-2 border-b border-border">
               <span class="text-xs font-semibold text-text-muted uppercase tracking-wider">Default Statuses</span>
             </div>

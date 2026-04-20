@@ -8,7 +8,8 @@
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { validateCell, columnConstraints } from '$lib/grid/validation';
   import { isConstrained, isValidOption, getOptionsForColumn } from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte.ts';
-  import { DEFAULT_ROW_HEIGHT, NON_EDITABLE_COLUMNS } from '$lib/grid/gridConfig';
+  import { NON_EDITABLE_COLUMNS } from '$lib/grid/gridConfig';
+  import { gridPrefsStore } from '$lib/data/gridPrefsStore.svelte';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
@@ -364,8 +365,8 @@
         onmousedown={(e) => e.stopPropagation()}
         onblur={handleBlur}
         maxlength={maxLength}
-        class="w-full h-full resize-none bg-bg-elevated text-text-primary text-xs border-2 border-blue-500 rounded px-1.5 py-1.5 focus:outline-none overflow-hidden break-words"
-        style="word-wrap: break-word; white-space: pre-wrap;"
+        class="w-full h-full resize-none bg-bg-elevated text-text-primary text-xs border-2 border-blue-500 rounded px-1.5 focus:outline-none overflow-hidden break-words"
+        style="word-wrap: break-word; white-space: pre-wrap; padding-top: {Math.max(2, gridPrefsStore.rowHeight / 2 - 10)}px; padding-bottom: {Math.max(2, gridPrefsStore.rowHeight / 2 - 10)}px;"
       ></textarea>
       {#if uiStore.suggestionMenu.visible}
         <SuggestionMenu options={getOptionsForColumn(editingStore.editCol)} constrained={isConstrained(editingStore.editCol)} />

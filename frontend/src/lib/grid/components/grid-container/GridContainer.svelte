@@ -2,7 +2,8 @@
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { uiStore, columnWidthStore } from '$lib/data/uiStore.svelte';
-  import { DEFAULT_WIDTH, DEFAULT_ROW_HEIGHT } from '$lib/grid/gridConfig';
+  import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
+  import { gridPrefsStore } from '$lib/data/gridPrefsStore.svelte';
   import GridRow from '$lib/grid/components/grid-row/GridRow.svelte';
   import GridHeader from '$lib/grid/components/grid-header/GridHeader.svelte';
   import GridOverlays from '$lib/grid/components/grid-overlays/GridOverlays.svelte';
@@ -25,7 +26,7 @@
   );
 
   // Content dimensions (derived, not stored)
-  let contentHeight = $derived(assetStore.displayedAssets.length * DEFAULT_ROW_HEIGHT);
+  let contentHeight = $derived(assetStore.displayedAssets.length * gridPrefsStore.rowHeight);
   let contentWidth = $derived(
     keys.reduce((sum, key) => sum + (columnWidthStore.widths.get(key) ?? DEFAULT_WIDTH), 0)
   );
@@ -108,7 +109,7 @@
 
         <div
           class="absolute top-0 w-full"
-          style="top: {scrollStore.visibleRange.startIndex * DEFAULT_ROW_HEIGHT - scrollStore.scrollTop}px;"
+          style="top: {scrollStore.visibleRange.startIndex * gridPrefsStore.rowHeight - scrollStore.scrollTop}px;"
         >
           {#each visibleItems as asset, i (asset.id || scrollStore.visibleRange.startIndex + i)}
             <GridRow {asset} {keys} />
