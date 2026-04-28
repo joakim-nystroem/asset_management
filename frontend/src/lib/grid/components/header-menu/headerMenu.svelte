@@ -59,17 +59,33 @@
     }
   });
 
-  // Compute filtered items for keyboard navigation
-  let allItems = $derived(
-    metadataOptions[activeKey]
-      ? metadataOptions[activeKey]()
-      : [...new Set(
-          (queryStore.filters.some(f => f.key !== activeKey)
-            ? assetStore.displayedAssets
-            : assetStore.baseAssets
-          ).map((a: Record<string, any>) => String(a[activeKey] ?? '')).filter(Boolean)
-        )]
-  );
+  // Compute filtered items for keyboard navigation.
+  // Cascading: source = baseAssets narrowed by every filter EXCEPT the active column's own.
+  // (Using displayedAssets directly hides values of the active column when it is itself filtered.)
+  let allItems = $derived.by<string[]>(() => {
+    if (metadataOptions[activeKey]) return metadataOptions[activeKey]();
+
+    const otherFilters = queryStore.filters.filter(f => f.key !== activeKey);
+    let source: Record<string, any>[] = assetStore.baseAssets;
+
+    if (otherFilters.length > 0) {
+      const byKey = new Map<string, Set<string>>();
+      for (const f of otherFilters) {
+        if (!byKey.has(f.key)) byKey.set(f.key, new Set());
+        byKey.get(f.key)!.add(f.value);
+      }
+      source = source.filter(asset =>
+        [...byKey.entries()].every(([key, values]) => values.has(String(asset[key] ?? '')))
+      );
+    }
+
+    const out = new Set<string>();
+    for (const a of source) {
+      const v = String(a[activeKey] ?? '');
+      if (v) out.add(v);
+    }
+    return [...out];
+  });
 
   // Filter by the anchor (what the user typed), not the displayed tab-cycled value
   let filteredItems = $derived(
