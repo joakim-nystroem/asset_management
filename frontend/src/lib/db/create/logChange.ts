@@ -8,6 +8,7 @@ export async function logChange(
     newValue: string | null,
     modifiedBy: string,
     trx?: Transaction<Database>,
+    action: 'update' | 'insert' = 'update',
 ) {
     const qb = trx ?? db;
     await qb.insertInto('change_log')
@@ -16,6 +17,7 @@ export async function logChange(
             column_name: columnName,
             old_value: oldValue,
             new_value: newValue,
+            action,
             modified_by: modifiedBy,
         })
         .execute();

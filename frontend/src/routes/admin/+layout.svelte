@@ -80,6 +80,28 @@
         </a>
       {/if}
     </nav>
+
+    {#if isSuperAdmin}
+      <!-- Divider -->
+      <div class="border-t border-border-strong my-2 mx-4"></div>
+
+      <!-- History section -->
+      <h2 class="text-[11px] font-semibold text-text-muted uppercase tracking-wider px-4 mb-1">History</h2>
+      <nav class="px-2">
+        <a
+          href="/admin/history"
+          class="flex items-center gap-2.5 px-3 py-2 text-sm {activePath.startsWith('/admin/history')
+              ? 'text-blue-600 dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/30 border-l-2 border-blue-500 dark:border-blue-400 font-semibold'
+              : 'text-text-secondary border-l-2 border-transparent hover:text-text-primary hover:bg-bg-hover-row font-medium'}"
+        >
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          Change Log
+        </a>
+      </nav>
+    {/if}
   </div>
 
   <div class="flex-1 min-w-0">

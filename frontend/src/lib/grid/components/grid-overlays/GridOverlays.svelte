@@ -140,7 +140,7 @@
   <!-- Copy overlay -->
   {#if copyOverlay}
     <div
-      class="absolute pointer-events-none z-[10] border-cell-copy-border"
+      class="absolute pointer-events-none z-[22] border-cell-copy-border"
       style="
       top: {copyOverlay.top}px;
       left: {copyOverlay.left}px;

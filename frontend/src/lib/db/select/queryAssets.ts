@@ -68,6 +68,7 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
     const escaped = searchTerm.replace(/[%_\\]/g, '\\$&');
     const searchTermLike = `%${escaped}%`;
     query = query.where((eb: any) => eb.or([
+      eb('ai.id', 'like', searchTermLike),
       eb('ai.serial_number', 'like', searchTermLike),
       eb('ai.wbd_tag', 'like', searchTermLike),
       eb('ai.manufacturer', 'like', searchTermLike),
@@ -88,6 +89,7 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
   };
 
   const directColumns = new Set([
+    'id',
     'asset_type', 'asset_set_type', 'manufacturer', 'model',
     'node', 'bu_estate', 'shelf_cabinet_table',
     'wbd_tag', 'serial_number', 'comment',

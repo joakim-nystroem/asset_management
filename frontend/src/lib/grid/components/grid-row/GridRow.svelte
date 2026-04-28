@@ -53,6 +53,7 @@
 
       if (e.shiftKey) {
         selectionStore.selectionEnd = { row: asset.id, col: key };
+        selectionStore.hideSelection = false;
       } else {
         selectionStore.pasteRange = null;
         selectionStore.selectionStart = { row: asset.id, col: key };

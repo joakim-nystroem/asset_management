@@ -35,7 +35,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
                 for (const field of fieldsToLog) {
                     if (row[field] !== undefined && row[field] !== null && row[field] !== '') {
-                        await logChange(insertedId, field, null, String(row[field]), displayName, trx);
+                        await logChange(insertedId, field, null, String(row[field]), displayName, trx, 'insert');
                     }
                 }
             }

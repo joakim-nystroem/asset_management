@@ -77,6 +77,7 @@ export interface ChangeLogTable {
     column_name: string;
     old_value: string | null;
     new_value: string | null;
+    action: ColumnType<'update' | 'insert', 'update' | 'insert' | undefined, never>;
     modified_at: ColumnType<Date, string | undefined, never>;
     modified_by: string;
 }

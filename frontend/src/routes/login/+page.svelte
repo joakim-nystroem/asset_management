@@ -1,6 +1,7 @@
 <script lang="ts">
 
   import { enhance } from '$app/forms';
+  import { goto } from '$app/navigation';
   import { onDestroy } from 'svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
 
@@ -48,7 +49,7 @@
         submitting = false;
         switch (result.type) {
           case 'redirect':
-            await update();
+            await goto(result.location, { invalidateAll: true });
             toastState.addToast('Logged in successfully', 'info');
             break;
           case 'failure': {

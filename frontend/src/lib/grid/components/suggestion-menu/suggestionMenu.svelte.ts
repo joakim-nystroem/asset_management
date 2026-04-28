@@ -4,6 +4,8 @@
 import { assetStore } from '$lib/data/assetStore.svelte';
 import { columnConstraints } from '$lib/grid/validation';
 
+const NO_SUGGEST_COLUMNS = new Set(['comment', 'under_warranty_until', 'warranty_details']);
+
 /** Check if a column uses a constrained dropdown. */
 export function isConstrained(editCol: string): boolean {
   return columnConstraints[editCol]?.type === 'dropdown';
@@ -17,9 +19,11 @@ export function getOptionsForColumn(editCol: string): string[] {
     return constraint.options();
   }
 
-  // Free text: unique values from displayed assets
+  if (NO_SUGGEST_COLUMNS.has(editCol)) return [];
+
+  // Free text: unique values across all assets (filters shouldn't shrink suggestions)
   const uniqueValues = new Set<string>();
-  for (const asset of assetStore.displayedAssets) {
+  for (const asset of assetStore.baseAssets) {
     const value = String(asset[editCol] ?? '').trim();
     if (value) uniqueValues.add(value);
   }

@@ -48,12 +48,7 @@ export const handle: Handle = async ({ event, resolve }) => {
             }
         }
     }
-
-    // Resolve theme: DB (logged in) → default. Anon users get dark; any theme
-    // mismatch on /login flashes toward dark (non-retinal, non-jarring) and
-    // self-corrects after login via data.theme → effect sync.
-    // Whitelist defense-in-depth: guards against a user_settings row that
-    // bypassed the endpoint's validation ending up in the HTML response.
+    
     const raw = (event.locals.user?.settings as { theme?: string } | undefined)?.theme ?? 'dark';
     const theme = raw === 'dark' || raw === 'light' ? raw : 'dark';
 
