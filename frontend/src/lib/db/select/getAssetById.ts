@@ -15,6 +15,8 @@ export async function getAssetById(assetId: number) {
             'ai.comment',
             sql<string>`DATE_FORMAT(ai.under_warranty_until, '%Y-%m-%d')`.as('under_warranty_until'),
             'ai.warranty_details',
+            sql<string>`DATE_FORMAT(ai.created, '%Y-%m-%d %H:%i:%s')`.as('created'),
+            'ai.created_by',
         ])
         .where('ai.id', '=', assetId)
         .executeTakeFirst();

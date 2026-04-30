@@ -10,10 +10,12 @@
 	let { data }: PageProps = $props();
 	$effect(() => { auditStore.closedCycles = data.closedCycles; });
 
-	const OVERVIEW_KEYS = ['asset_id', 'location', 'node', 'asset_type', 'wbd_tag', 'auditor_name', 'completed_at'];
+	const OVERVIEW_KEYS = ['asset_id', 'completed_at', 'audit_comment', 'location', 'node', 'asset_type', 'wbd_tag', 'auditor_name'];
 
 	const COLUMN_LABELS: Record<string, string> = {
-		completed_at: 'audit datetime',
+		asset_id: 'audit id',
+		completed_at: 'audit completed',
+		audit_comment: 'audit comment',
 	};
 	function displayLabel(key: string): string {
 		return COLUMN_LABELS[key] ?? key.replaceAll('_', ' ');
@@ -24,6 +26,13 @@
 		const d = val instanceof Date ? val : new Date(val);
 		const pad = (n: number) => String(n).padStart(2, '0');
 		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+	}
+
+	function formatDate(val: string | Date | null): string {
+		if (!val) return '';
+		const d = val instanceof Date ? val : new Date(val);
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 	}
 
 	let selectedUser = $state<number | null>(null);
@@ -158,6 +167,9 @@
 	// the pending/completed/history query variants.
 	const EXPORT_KEYS = [
 		'asset_id',
+		'auditor_name',
+		'completed_at',
+		'audit_comment',
 		'bu_estate',
 		'department',
 		'location',
@@ -172,12 +184,9 @@
 		'status',
 		'condition',
 		'comment',
-		'auditor_name',
-		'audit_start_date',
-		'completed_at',
-		'audit_comment',
 	];
-	const datetimeColumns = new Set(['audit_start_date', 'completed_at']);
+	const datetimeColumns = new Set(['completed_at']);
+	const dateColumns = new Set(['audit_start_date']);
 
 	function csvEscape(val: string): string {
 		return val.includes(',') || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
@@ -199,7 +208,9 @@
 		const body = displayed.map(row =>
 			EXPORT_KEYS.map(k => {
 				const raw = (row as any)[k];
-				const val = datetimeColumns.has(k) ? formatDatetime(raw) : String(raw ?? '');
+				const val = datetimeColumns.has(k) ? formatDatetime(raw)
+					: dateColumns.has(k) ? formatDate(raw)
+					: String(raw ?? '');
 				return csvEscape(val);
 			}).join(',')
 		).join('\n');

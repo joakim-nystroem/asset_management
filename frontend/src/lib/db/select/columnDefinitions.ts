@@ -41,6 +41,8 @@ export const GALAXY_COLUMNS = [
 export const HISTORY_COLUMNS = [
   sql<string>`DATE_FORMAT(ai.modified, '%Y-%m-%d %H:%i:%s')`.as('modified'),
   'ai.modified_by',
+  sql<string>`DATE_FORMAT(ai.created, '%Y-%m-%d %H:%i:%s')`.as('created'),
+  'ai.created_by',
 ] as const;
 
 // PED extension columns
