@@ -27,6 +27,12 @@ Dockerfile
 .dockerignore
 docker-compose.yml
 
+# Docs (project notes, not part of the app)
+*.md
+
+# Dev-only scripts
+dev.sh
+
 # Other
 .github
 metadata
