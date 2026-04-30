@@ -100,6 +100,8 @@ export const actions = {
     clearFailures(username);
 
     const sessionId = uuidv4();
+    // Cookie expiry — cookies use absolute UTC, no DB tz coupling needed.
+    // The DB-side expires_at is computed in createSession via DATE_ADD(NOW(), ...).
     const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7); // 7 days
 
     try {
@@ -107,7 +109,6 @@ export const actions = {
         createSession({
           session_id: sessionId,
           user_id: user.id,
-          expires_at: expiresAt,
         }),
         db
           .updateTable('users')

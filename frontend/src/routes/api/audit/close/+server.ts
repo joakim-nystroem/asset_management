@@ -36,9 +36,8 @@ export const POST: RequestHandler = async ({ locals }) => {
             return json({ error: 'No active audit cycle to close' }, { status: 400 });
         }
 
-        const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-
-        // Atomic close: bulk copy current_audit → history, close cycle, clear working tables
+        // Atomic close: bulk copy current_audit → history, close cycle, clear working tables.
+        // NOW() runs in the DB session — uses the server's (Tokyo) clock.
         await db.transaction().execute(async (trx) => {
             await trx.insertInto('asset_audit_history')
                 .columns([
@@ -61,7 +60,7 @@ export const POST: RequestHandler = async ({ locals }) => {
                 .execute();
 
             await trx.updateTable('asset_audit_cycles')
-                .set({ closed_at: now, closed_by: locals.user!.id })
+                .set({ closed_at: sql<string>`NOW()`, closed_by: locals.user!.id })
                 .where('closed_at', 'is', null)
                 .execute();
 

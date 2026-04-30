@@ -22,21 +22,19 @@ export const POST: RequestHandler = async ({ locals }) => {
             return json({ error: 'An audit cycle is already active' }, { status: 400 });
         }
 
-        // Get today's date in YYYY-MM-DD format
-        const today = new Date().toISOString().slice(0, 10);
-
-        // Snapshot + cycle record in a single transaction
+        // Snapshot + cycle record in a single transaction.
+        // CURDATE() runs in the DB session — uses the server's (Tokyo) date.
         await db.transaction().execute(async (trx) => {
             await sql`
                 INSERT INTO asset_audit (asset_id, audit_start_date)
-                SELECT id, ${today}
+                SELECT id, CURDATE()
                 FROM asset_inventory
                 WHERE asset_type != 'Virtual Machine'
             `.execute(trx);
 
             await trx.insertInto('asset_audit_cycles')
                 .values({
-                    started_at: today,
+                    started_at: sql<string>`CURDATE()`,
                     started_by: locals.user!.id,
                     closed_at: null,
                     closed_by: null,

@@ -17,8 +17,6 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const sanitizedComment = typeof audit_comment === 'string' ? audit_comment.slice(0, 200) : null;
 
-    const completedAt = new Date().toISOString().slice(0, 19).replace('T', ' ');
-
     try {
         // Verify the assignment exists and belongs to this user
         const assignment = await db.selectFrom('asset_audit')
@@ -31,7 +29,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
             return json({ error: 'Audit assignment not found or not authorized' }, { status: 404 });
         }
 
-        // Insert snapshot into current_audit: audit fields + frozen inventory data
+        // Insert snapshot into current_audit: audit fields + frozen inventory data.
+        // NOW() runs in the DB session — uses the server's (Tokyo) clock.
         await sql`
             INSERT INTO current_audit (
                 asset_id, audit_start_date, assigned_to, completed_at, result_id, audit_comment,
@@ -40,7 +39,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
                 bu_estate, asset_set_type, comment
             )
             SELECT
-                aa.asset_id, aa.audit_start_date, aa.assigned_to, ${completedAt}, ${resultId}, ${sanitizedComment},
+                aa.asset_id, aa.audit_start_date, aa.assigned_to, NOW(), ${resultId}, ${sanitizedComment},
                 al.location_name, ai.node, ai.asset_type, ad.department_name,
                 ast.status_name, ac.condition_name,
                 ai.manufacturer, ai.model, ai.serial_number, ai.wbd_tag, ai.shelf_cabinet_table,

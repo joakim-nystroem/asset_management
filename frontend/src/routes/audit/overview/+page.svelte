@@ -10,7 +10,21 @@
 	let { data }: PageProps = $props();
 	$effect(() => { auditStore.closedCycles = data.closedCycles; });
 
-	const OVERVIEW_KEYS = ['asset_id', 'location', 'node', 'asset_type', 'wbd_tag', 'auditor_name'];
+	const OVERVIEW_KEYS = ['asset_id', 'location', 'node', 'asset_type', 'wbd_tag', 'auditor_name', 'completed_at'];
+
+	const COLUMN_LABELS: Record<string, string> = {
+		completed_at: 'audit datetime',
+	};
+	function displayLabel(key: string): string {
+		return COLUMN_LABELS[key] ?? key.replaceAll('_', ' ');
+	}
+
+	function formatDatetime(val: string | Date | null): string {
+		if (!val) return '';
+		const d = val instanceof Date ? val : new Date(val);
+		const pad = (n: number) => String(n).padStart(2, '0');
+		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+	}
 
 	let selectedUser = $state<number | null>(null);
 	let statusFilter = $state<string>('all');
@@ -139,14 +153,31 @@
 	}
 
 	// --- CSV export ---
-	const dateColumns = new Set(['audit_start_date', 'completed_at']);
-	const excludeColumns = new Set(['assigned_to', 'result_id', 'id', 'comment']);
-
-	function formatCsvDate(val: string | Date | null): string {
-		if (!val) return '';
-		const d = val instanceof Date ? val : new Date(val);
-		return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
-	}
+	// Explicit column order: matches main grid (getDefaultAssets) for shared fields,
+	// then appends audit-specific columns. Avoids Object.keys() order drift across
+	// the pending/completed/history query variants.
+	const EXPORT_KEYS = [
+		'asset_id',
+		'bu_estate',
+		'department',
+		'location',
+		'shelf_cabinet_table',
+		'node',
+		'asset_type',
+		'asset_set_type',
+		'manufacturer',
+		'model',
+		'wbd_tag',
+		'serial_number',
+		'status',
+		'condition',
+		'comment',
+		'auditor_name',
+		'audit_start_date',
+		'completed_at',
+		'audit_comment',
+	];
+	const datetimeColumns = new Set(['audit_start_date', 'completed_at']);
 
 	function csvEscape(val: string): string {
 		return val.includes(',') || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
@@ -164,12 +195,11 @@
 	}
 
 	function exportCsv() {
-		const allKeys = Object.keys(displayed[0]).filter(k => !excludeColumns.has(k));
-		const header = allKeys.map(k => k.replaceAll('_', ' ')).join(',');
+		const header = EXPORT_KEYS.map(k => displayLabel(k)).join(',');
 		const body = displayed.map(row =>
-			allKeys.map(k => {
+			EXPORT_KEYS.map(k => {
 				const raw = (row as any)[k];
-				const val = dateColumns.has(k) ? formatCsvDate(raw) : String(raw ?? '');
+				const val = datetimeColumns.has(k) ? formatDatetime(raw) : String(raw ?? '');
 				return csvEscape(val);
 			}).join(',')
 		).join('\n');
@@ -295,7 +325,7 @@
 			<div class="sticky top-0 z-20 flex border-b border-border flex-shrink-0">
 				{#each [...OVERVIEW_KEYS, 'status'] as key}
 					<div class="flex-1 min-w-0 border-r border-border last:border-r-0 bg-bg-header px-2 py-2 text-xs font-medium text-text-primary uppercase">
-						{key.replaceAll('_', ' ')}
+						{displayLabel(key)}
 					</div>
 				{/each}
 			</div>
@@ -334,6 +364,8 @@
 										{key === 'auditor_name' && !(item as any)[key] ? 'text-text-muted' : 'text-text-secondary'}">
 										{#if key === 'auditor_name'}
 											{(item as any)[key] || 'Unassigned'}
+										{:else if key === 'completed_at'}
+											{formatDatetime((item as any)[key])}
 										{:else}
 											{(item as any)[key] ?? ''}
 										{/if}

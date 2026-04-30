@@ -34,7 +34,8 @@ const galaxyExtensionMap: Record<string, { table: string; idColumn: string }> = 
 
 export async function updateAsset(id: number, key: string, value: any, username: string, trx?: Transaction<Database>) {
     const qb = trx ?? db;
-    const modified = new Date().toLocaleString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\//g, '-');
+    // asset_inventory.modified has DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+    // so the DB sets it automatically on every UPDATE. No explicit value needed.
 
     switch (key) {
         case 'status':
@@ -42,7 +43,6 @@ export async function updateAsset(id: number, key: string, value: any, username:
                 .set({
                     status_id: qb.selectFrom('asset_status').select('id').where('status_name', '=', value as string),
                     modified_by: username,
-                    modified
                 })
                 .where('id', '=', id)
                 .execute();
@@ -51,7 +51,6 @@ export async function updateAsset(id: number, key: string, value: any, username:
                 .set({
                     condition_id: qb.selectFrom('asset_condition').select('id').where('condition_name', '=', value as string),
                     modified_by: username,
-                    modified
                 })
                 .where('id', '=', id)
                 .execute();
@@ -60,7 +59,6 @@ export async function updateAsset(id: number, key: string, value: any, username:
                 .set({
                     location_id: qb.selectFrom('asset_locations').select('id').where('location_name', '=', value as string),
                     modified_by: username,
-                    modified
                 })
                 .where('id', '=', id)
                 .execute();
@@ -69,7 +67,6 @@ export async function updateAsset(id: number, key: string, value: any, username:
                 .set({
                     department_id: qb.selectFrom('asset_departments').select('id').where('department_name', '=', value as string),
                     modified_by: username,
-                    modified
                 })
                 .where('id', '=', id)
                 .execute();
@@ -77,7 +74,7 @@ export async function updateAsset(id: number, key: string, value: any, username:
 
     if (assetInventoryCols.includes(key)) {
         return await qb.updateTable('asset_inventory')
-            .set({ [key]: value, modified_by: username, modified } as any)
+            .set({ [key]: value, modified_by: username } as any)
             .where('id', '=', id)
             .execute();
     }
@@ -93,7 +90,7 @@ export async function updateAsset(id: number, key: string, value: any, username:
             .execute();
         // Also update modified tracking on the main asset
         await qb.updateTable('asset_inventory')
-            .set({ modified_by: username, modified })
+            .set({ modified_by: username })
             .where('id', '=', id)
             .execute();
         return;
