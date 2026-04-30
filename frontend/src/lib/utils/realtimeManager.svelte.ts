@@ -4,6 +4,9 @@ import { enqueue } from '$lib/eventQueue/eventQueue';
 
 const INSTANCE_KEY = Symbol.for('APP_REALTIME_MANAGER');
 const MAX_QUEUE_SIZE = 50;
+// Stop retrying after this many consecutive failures. The next user action
+// (focus / visibility / click / keypress) wakes the connection and resets.
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 function createRealtimeManager() {
     // --- GHOST KILLER ---
@@ -17,6 +20,7 @@ function createRealtimeManager() {
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let attempts = 0;
     let shouldReconnect = true;
+    let gaveUp = false;
     let session: { id: string; color?: string } | null = null;
     let currentRoom: string = '';
     let localStateProvider: (() => { position: any; lock: any; pending: any[] }) | null = null;
@@ -169,6 +173,7 @@ function createRealtimeManager() {
 
         ws.onopen = () => {
             attempts = 0;
+            gaveUp = false;
             connectionStore.status = 'connected';
 
             // SEND CLIENT_STATE (bundles position, lock, pending for reconnect reconciliation)
@@ -214,6 +219,12 @@ function createRealtimeManager() {
     }
 
     function scheduleReconnect() {
+        if (attempts >= MAX_RECONNECT_ATTEMPTS) {
+            // Give up. The next user action (see wake()) will retry.
+            gaveUp = true;
+            connectionStore.status = 'disconnected';
+            return;
+        }
         connectionStore.status = 'reconnecting';
         if (reconnectTimer) return; // Don't schedule multiple timers
 
@@ -222,6 +233,23 @@ function createRealtimeManager() {
             reconnectTimer = null;
             if (session) connect(session.id, session.color);
         }, delay);
+    }
+
+    /**
+     * User-action hook: re-arm the connection after we've given up.
+     * No-op when already connected / connecting, or when there's no session.
+     */
+    function wake() {
+        if (!session || !shouldReconnect) return;
+        const sockAlive = socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING);
+        if (sockAlive && !gaveUp) return;
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
+        attempts = 0;
+        gaveUp = false;
+        connect(session.id, session.color);
     }
 
     function disconnect() {
@@ -264,17 +292,18 @@ function createRealtimeManager() {
         enqueue({ type: 'WS_' + type, payload });
     }
 
-    // --- RECONNECT ON TAB FOCUS ---
+    // --- WAKE ON USER ACTION ---
+    // After the retry cap is hit we stop trying. These signals get the
+    // socket back: tab becomes visible, window gains focus, or the user
+    // clicks/types anywhere. Listeners are passive; wake() is a no-op
+    // when the socket is already alive.
     if (typeof window !== 'undefined') {
-        window.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && session && shouldReconnect) {
-                // Check if socket is dead and wake it up immediately
-                if (!socket || socket.readyState === WebSocket.CLOSED || socket.readyState === WebSocket.CLOSING) {
-                    attempts = 0; // Reset backoff for immediate retry
-                    connect(session.id, session.color);
-                }
-            }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') wake();
         });
+        window.addEventListener('focus', wake);
+        window.addEventListener('pointerdown', wake, { passive: true });
+        window.addEventListener('keydown', wake);
     }
 
     // --- EXPORT ---
