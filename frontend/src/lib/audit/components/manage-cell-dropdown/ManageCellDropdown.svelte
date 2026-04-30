@@ -48,5 +48,7 @@
 		>
 			{user.lastname}, {user.firstname}
 		</button>
+	{:else}
+		<div class="px-3 py-1.5 text-text-muted">No users available.</div>
 	{/each}
 </div>

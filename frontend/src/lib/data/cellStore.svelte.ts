@@ -24,7 +24,6 @@ export type PendingEdit = {
 
 export const editingStore = $state({
   isEditing: false,
-  isPasting: false,
   isUndoing: false,
   isRedoing: false,
   editRow: -1,
@@ -52,7 +51,5 @@ export const selectionStore = $state({
 export const clipboardStore = $state({
   copyStart: { row: -1, col: '' } as GridCell,
   copyEnd: { row: -1, col: '' } as GridCell,
-  isCopying: false,
-  grid: [] as string[][],
 });
 

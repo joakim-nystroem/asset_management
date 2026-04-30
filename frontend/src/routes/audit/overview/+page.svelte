@@ -330,7 +330,7 @@
 								style="top: {(scroll.visibleRange.start + i) * ROW_HEIGHT - scroll.scrollTop}px; height: {ROW_HEIGHT}px;"
 							>
 								{#each OVERVIEW_KEYS as key}
-									<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate
+									<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row truncate
 										{key === 'auditor_name' && !(item as any)[key] ? 'text-text-muted' : 'text-text-secondary'}">
 										{#if key === 'auditor_name'}
 											{(item as any)[key] || 'Unassigned'}
@@ -339,7 +339,7 @@
 										{/if}
 									</div>
 								{/each}
-								<div class="flex-1 min-w-0 h-full flex items-center px-2 group-hover:bg-blue-50 dark:group-hover:bg-slate-700">
+								<div class="flex-1 min-w-0 h-full flex items-center px-2 group-hover:bg-bg-hover-row">
 									{#if item.result_id && item.result_id !== 1}
 										<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-red-100 dark:bg-red-900/30 text-text-flagged">
 											<span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>

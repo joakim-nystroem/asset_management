@@ -9,7 +9,7 @@ import { presenceStore } from '$lib/data/presenceStore.svelte';
 import { urlStore } from '$lib/data/urlStore.svelte';
 import { scrollStore } from '$lib/data/scrollStore.svelte';
 
-import { pendingStore } from '$lib/data/cellStore.svelte';
+import { pendingStore, selectionStore } from '$lib/data/cellStore.svelte';
 import { newRowStore } from '$lib/data/newRowStore.svelte';
 import { auditStore, type AuditAssignment } from '$lib/data/auditStore.svelte';
 import { auditUiStore } from '$lib/data/auditUiStore.svelte';
@@ -381,6 +381,13 @@ async function handleQuery(
   const { view, q, filters } = payload;
   const hasActiveQuery = q || (filters && filters.length > 0);
 
+  // Clear selection — the previously selected asset may not be in the new result set
+  selectionStore.selectionStart = { row: -1, col: '' };
+  selectionStore.selectionEnd = { row: -1, col: '' };
+  selectionStore.isSelecting = false;
+  selectionStore.hideSelection = false;
+  selectionStore.pasteRange = null;
+
   if (!hasActiveQuery) {
     assetStore.displayedAssets = assetStore.baseAssets;
     scrollStore.scrollTop = 0;
@@ -415,6 +422,13 @@ async function handleViewChange(
     toastState.addToast('Failed to load view. Please try again.', 'error');
     return;
   }
+
+  // Clear selection — the previously selected asset may not exist in the new view
+  selectionStore.selectionStart = { row: -1, col: '' };
+  selectionStore.selectionEnd = { row: -1, col: '' };
+  selectionStore.isSelecting = false;
+  selectionStore.hideSelection = false;
+  selectionStore.pasteRange = null;
 
   queryStore.view = view;
   assetStore.baseAssets = res.data.assets;

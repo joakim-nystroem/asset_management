@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { editingStore, pendingStore, selectionStore, clipboardStore } from '$lib/data/cellStore.svelte';
+  import { editingStore, pendingStore, selectionStore } from '$lib/data/cellStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { resetEditing, setOpenPanel } from '$lib/utils/gridHelpers';
   import { realtime } from '$lib/utils/realtimeManager.svelte';
@@ -97,21 +97,6 @@
     if (e.metaKey || e.ctrlKey) {
       const k = e.key.toLowerCase();
 
-      if (k === 'c') {
-        e.preventDefault();
-        if (selectionStore.selectionStart.row === -1) return;
-        clipboardStore.isCopying = true;
-        return;
-      }
-
-      if (k === 'v') {
-        e.preventDefault();
-        if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
-        if (selectionStore.selectionStart.row === -1) return;
-        editingStore.isPasting = true;
-        return;
-      }
-
       if (k === 'z') {
         e.preventDefault();
         if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
@@ -145,6 +130,7 @@
           case 'ArrowRight': targetCol = keys[keys.length - 1]; break;
         }
         if (e.shiftKey) {
+          selectionStore.pasteRange = null;
           selectionStore.selectionEnd = { row: targetRow, col: targetCol };
         } else {
           selectCell(targetRow, targetCol);
@@ -159,6 +145,7 @@
       if (e.shiftKey) {
         const next = getArrowTarget(e.key, selectionStore.selectionEnd);
         if (next) {
+          selectionStore.pasteRange = null;
           selectionStore.selectionEnd = next;
           // Find asset position by ID
           const idx = assets.findIndex((a: Record<string, any>) => a.id === next.row);

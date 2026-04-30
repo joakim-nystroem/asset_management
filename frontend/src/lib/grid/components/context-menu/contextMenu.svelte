@@ -1,11 +1,12 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { editingStore, clipboardStore, selectionStore } from '$lib/data/cellStore.svelte';
+  import { editingStore, selectionStore } from '$lib/data/cellStore.svelte';
   import { uiStore } from '$lib/data/uiStore.svelte';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
   import { NON_EDITABLE_COLUMNS } from '$lib/grid/gridConfig';
   import { handleFilterByValue } from './contextMenu.svelte.ts';
+  import { doCopy, doPaste } from '$lib/utils/clipboard';
 
 </script>
 
@@ -73,7 +74,7 @@
     <button
       class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group"
       onclick={() => {
-        clipboardStore.isCopying = true;
+        doCopy();
         uiStore.contextMenu.visible = false;
       }}
     >
@@ -86,14 +87,19 @@
     <!-- Paste -->
     <button
       class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center gap-2 group"
-      onclick={() => {
+      onclick={async () => {
         if (!page.data.user) {
           toastState.addToast('Log in to edit.', 'warning');
           uiStore.contextMenu.visible = false;
           return;
         }
         uiStore.contextMenu.visible = false;
-        editingStore.isPasting = true;
+        try {
+          const text = await navigator.clipboard.readText();
+          doPaste(text);
+        } catch {
+          toastState.addToast('Could not read clipboard. Use Ctrl+V instead.', 'warning');
+        }
       }}
     >
       <svg class="w-4 h-4 text-text-muted group-hover:text-blue-600 dark:group-hover:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

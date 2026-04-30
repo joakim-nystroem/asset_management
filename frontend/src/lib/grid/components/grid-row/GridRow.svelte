@@ -52,6 +52,7 @@
       setOpenPanel();
 
       if (e.shiftKey) {
+        selectionStore.pasteRange = null;
         selectionStore.selectionEnd = { row: asset.id, col: key };
         selectionStore.hideSelection = false;
       } else {

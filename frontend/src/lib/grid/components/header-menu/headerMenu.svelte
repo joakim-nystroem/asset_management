@@ -1,10 +1,13 @@
 <script lang="ts">
+  import { untrack } from 'svelte';
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
   import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { sortStore } from '$lib/data/uiStore.svelte';
   import { setOpenPanel } from '$lib/utils/gridHelpers';
   import { toggleFilter } from './headerMenu.svelte.ts';
+  import CustomScrollbar from '$lib/utils/custom-scrollbar/CustomScrollbar.svelte';
+  import { createScrollbarState } from '$lib/utils/custom-scrollbar/customScrollbar.svelte.ts';
 
   import type { Attachment } from 'svelte/attachments';
 
@@ -103,6 +106,50 @@
       : allItems
   );
 
+  // Custom scrollbar for filter list (matches suggestionMenu pattern)
+  const filterScroll = createScrollbarState();
+  const ITEM_HEIGHT = 32;
+  const MAX_VISIBLE_ITEMS = 7;
+  const THUMB_MIN = 24;
+  const contentHeight = $derived(filteredItems.length * ITEM_HEIGHT);
+  const viewportHeight = $derived(Math.min(filteredItems.length, MAX_VISIBLE_ITEMS) * ITEM_HEIGHT);
+  const showVScroll = $derived(contentHeight > viewportHeight);
+  const vMaxScroll = $derived(Math.max(0, contentHeight - viewportHeight));
+  const vThumbSize = $derived(showVScroll ? Math.max(THUMB_MIN, (viewportHeight / contentHeight) * viewportHeight) : 0);
+  const vTrackSpace = $derived(viewportHeight - vThumbSize);
+  const vThumbPos = $derived(vMaxScroll > 0 ? (filterScroll.scrollTop / vMaxScroll) * vTrackSpace : 0);
+
+  // Scroll selected item into view on keyboard nav
+  $effect(() => {
+    if (selectedIndex < 0) return;
+    const itemTop = selectedIndex * ITEM_HEIGHT;
+    const itemBottom = itemTop + ITEM_HEIGHT;
+    const currentScroll = untrack(() => filterScroll.scrollTop);
+    if (itemTop < currentScroll) {
+      filterScroll.setScroll(itemTop, 0, vMaxScroll, 0);
+    } else if (itemBottom > currentScroll + viewportHeight) {
+      filterScroll.setScroll(itemBottom - viewportHeight, 0, vMaxScroll, 0);
+    }
+  });
+
+  // Reset scroll when filter input changes
+  $effect(() => {
+    filterSearchTerm;
+    untrack(() => filterScroll.setScroll(0, 0, 0, 0));
+  });
+
+  // Reset all filter UI state when the dropdown unmounts
+  $effect(() => {
+    if (!filterOpen) return;
+    return () => {
+      filterSearchTerm = '';
+      tabAnchor = '';
+      tabCycling = false;
+      selectedIndex = -1;
+      filterScroll.setScroll(0, 0, 0, 0);
+    };
+  });
+
   function handleFilterKeydown(e: KeyboardEvent) {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -192,7 +239,7 @@
     <div class="relative w-full">
       <button
         class="px-3 py-1.5 hover:bg-bg-hover-item text-left flex items-center justify-between group w-full"
-        onclick={() => { filterOpen = !filterOpen; if (filterOpen) { filterSearchTerm = ''; tabAnchor = ''; tabCycling = false; selectedIndex = -1; } }}
+        onclick={() => { filterOpen = !filterOpen; }}
       >
         <div class="flex items-center gap-2">
           <div class="w-4"></div>
@@ -221,22 +268,47 @@
             />
           </div>
 
-          <div class="max-h-48 overflow-y-auto no-scrollbar">
-            {#each filteredItems as item, idx}
-              <button
-                class="px-3 py-1.5 text-left flex items-center gap-2 group w-full {idx === selectedIndex ? 'bg-blue-500 text-white' : 'hover:bg-bg-hover-item'}"
-                onclick={() => toggleFilter(activeKey, item)}
-                onmouseenter={() => { selectedIndex = idx; }}
-              >
-                <div class="w-4 flex justify-center {idx === selectedIndex ? 'text-white' : 'text-blue-600 dark:text-blue-400'} font-bold">
-                  {#if queryStore.filters.some(f => f.key === activeKey && f.value === item)}✓{/if}
-                </div>
-                <div class="truncate">{item}</div>
-              </button>
-            {:else}
-              <div class="px-3 py-1.5 text-text-muted">No items found.</div>
-            {/each}
-          </div>
+          {#if filteredItems.length === 0}
+            <div class="px-3 py-1.5 text-text-muted">No items found.</div>
+          {:else}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class="relative overflow-hidden"
+              style="height: {viewportHeight}px;"
+              onwheel={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                filterScroll.setScroll(filterScroll.scrollTop + e.deltaY, 0, vMaxScroll, 0);
+              }}
+            >
+              <div style="height: {contentHeight}px; position: relative;">
+                {#each filteredItems as item, idx}
+                  <button
+                    class="absolute left-0 right-0 px-3 py-1.5 text-left flex items-center gap-2 group {idx === selectedIndex ? 'bg-blue-500 text-white' : 'hover:bg-bg-hover-item'}"
+                    style="top: {idx * ITEM_HEIGHT - filterScroll.scrollTop}px; height: {ITEM_HEIGHT}px;"
+                    onclick={() => toggleFilter(activeKey, item)}
+                    onmouseenter={() => { selectedIndex = idx; }}
+                  >
+                    <div class="w-4 flex justify-center {idx === selectedIndex ? 'text-white' : 'text-blue-600 dark:text-blue-400'} font-bold">
+                      {#if queryStore.filters.some(f => f.key === activeKey && f.value === item)}✓{/if}
+                    </div>
+                    <div class="truncate">{item}</div>
+                  </button>
+                {/each}
+              </div>
+
+              <CustomScrollbar
+                orientation="vertical"
+                visible={showVScroll}
+                size="thin"
+                thumbSize={vThumbSize}
+                thumbPosition={vThumbPos}
+                trackSpace={vTrackSpace}
+                maxScroll={vMaxScroll}
+                onscroll={(pos) => filterScroll.setScroll(pos, 0, vMaxScroll, 0)}
+              />
+            </div>
+          {/if}
         </div>
       {/if}
     </div>

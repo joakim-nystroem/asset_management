@@ -194,11 +194,13 @@
 					>
 						{#each auditStore.users as user (user.id)}
 							<button
-								class="w-full px-3 py-1.5 hover:bg-bg-hover-button text-left truncate cursor-pointer text-text-primary"
+								class="w-full px-3 py-1.5 hover:bg-bg-hover-item text-left truncate cursor-pointer text-text-primary"
 								onclick={() => assignAssets(user.id)}
 							>
 								{user.lastname}, {user.firstname}
 							</button>
+						{:else}
+							<div class="px-3 py-1.5 text-text-muted">No users available.</div>
 						{/each}
 					</div>
 				{/if}

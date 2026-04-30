@@ -132,12 +132,12 @@
 							role="button"
 							tabindex="0"
 						>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-text-secondary">{assignment.asset_id}</div>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-text-secondary">{assignment.location || ''}</div>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-text-secondary">{assignment.node || ''}</div>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-text-secondary">{assignment.asset_type || ''}</div>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 truncate text-text-secondary">{assignment.wbd_tag || ''}</div>
-							<div class="flex-1 min-w-0 h-full flex items-center px-2 group-hover:bg-blue-50 dark:group-hover:bg-slate-700">
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row truncate text-text-secondary">{assignment.asset_id}</div>
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row truncate text-text-secondary">{assignment.location || ''}</div>
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row truncate text-text-secondary">{assignment.node || ''}</div>
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row truncate text-text-secondary">{assignment.asset_type || ''}</div>
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row truncate text-text-secondary">{assignment.wbd_tag || ''}</div>
+							<div class="flex-1 min-w-0 h-full flex items-center px-2 group-hover:bg-bg-hover-row">
 								{#if assignment.completed_at}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-text-completed">
 										<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>

@@ -125,7 +125,7 @@
 							style="top: {(scroll.visibleRange.start + i) * ROW_HEIGHT - scroll.scrollTop}px; height: {ROW_HEIGHT}px;"
 						>
 							<div
-									class="w-8 shrink-0 h-full flex items-center justify-center border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell cursor-pointer"
+									class="w-8 shrink-0 h-full flex items-center justify-center border-r border-border group-hover:bg-bg-hover-row hover:bg-bg-hover-cell cursor-pointer"
 									onmousedown={() => { checkboxDragging = true; toggleOne(assignment.asset_id); }}
 									onmouseenter={() => handleCheckboxEnter(assignment.asset_id)}
 								>
@@ -133,10 +133,10 @@
 										<Checkbox checked={auditUiStore.checkedIds.includes(assignment.asset_id)} />
 									</div>
 							</div>
-							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'location', assignment.location || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell truncate text-text-secondary">{assignment.location || ''}</div>
-							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'node', assignment.node || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell truncate text-text-secondary">{assignment.node || ''}</div>
-							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'asset_type', assignment.asset_type || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell truncate text-text-secondary">{assignment.asset_type || ''}</div>
-							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'wbd_tag', assignment.wbd_tag || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell truncate text-text-secondary">{assignment.wbd_tag || ''}</div>
+							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'location', assignment.location || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row hover:bg-bg-hover-cell truncate text-text-secondary">{assignment.location || ''}</div>
+							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'node', assignment.node || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row hover:bg-bg-hover-cell truncate text-text-secondary">{assignment.node || ''}</div>
+							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'asset_type', assignment.asset_type || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row hover:bg-bg-hover-cell truncate text-text-secondary">{assignment.asset_type || ''}</div>
+							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'wbd_tag', assignment.wbd_tag || '')} class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row hover:bg-bg-hover-cell truncate text-text-secondary">{assignment.wbd_tag || ''}</div>
 							<!-- svelte-ignore a11y_click_events_have_key_events -->
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
 							<div
@@ -150,7 +150,7 @@
 										auditUiStore.cellDropdown = { visible: true, assetId: assignment.asset_id, selectedUserId: null };
 									}
 								}}
-								class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell cursor-pointer relative
+								class="flex-1 min-w-0 h-full flex items-center px-2 border-r border-border group-hover:bg-bg-hover-row hover:bg-bg-hover-cell cursor-pointer relative
 									{auditUiStore.cellDropdown.visible && auditUiStore.cellDropdown.assetId === assignment.asset_id ? 'outline-2 outline-blue-500 -outline-offset-1 z-10' : ''}"
 							>
 								<span class="text-xs truncate {assignment.auditor_name ? 'text-text-secondary' : 'text-text-muted'}">{assignment.auditor_name || 'Unassigned'}</span>
@@ -158,7 +158,7 @@
 									<ManageCellDropdown assetId={assignment.asset_id} currentUserId={assignment.assigned_to} />
 								{/if}
 							</div>
-							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'status', assignment.completed_at ? 'completed' : 'pending')} class="flex-1 min-w-0 h-full flex items-center px-2 group-hover:bg-blue-50 dark:group-hover:bg-slate-700 hover:bg-bg-hover-cell">
+							<div oncontextmenu={(e) => openContextMenu(e, assignment.asset_id, 'status', assignment.completed_at ? 'completed' : 'pending')} class="flex-1 min-w-0 h-full flex items-center px-2 group-hover:bg-bg-hover-row hover:bg-bg-hover-cell">
 								{#if assignment.completed_at}
 									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-text-completed">
 										<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
