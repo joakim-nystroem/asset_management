@@ -53,11 +53,9 @@
   class="absolute top-0 left-0 w-max min-w-full pointer-events-none"
   style="height: {assets.length * gridPrefsStore.rowHeight + 16}px;"
 >
-  <!-- Other user cursors -->
+  <!-- Other user cursors (border only) -->
   {#each otherUserSelections as user (user.id)}
     {@const otherOverlay = computeVisualOverlay(user, user, scrollStore.visibleRange, scrollStore.scrollTop)}
-    {@const initials = ((user.firstname?.[0] || '') + (user.lastname?.[0] || '')).toUpperCase()}
-    {@const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim()}
     {#if otherOverlay}
       <div
         class="absolute pointer-events-none z-[40]"
@@ -69,31 +67,7 @@
             border: {user.isLocked ? '2px' : '1px'} solid {user.color};
             box-sizing: border-box;
           "
-      >
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <div
-          class="absolute flex items-center justify-center text-white text-[10px] rounded-full font-bold shadow-sm overflow-hidden pointer-events-auto cursor-default"
-          style="
-            top: -8px;
-            right: -8px;
-            height: 16px;
-            background-color: {user.color};
-            min-width: 16px;
-            max-width: {hoveredUser === user.id ? '200px' : '16px'};
-            transition: max-width 0.2s ease-in-out, background-color 0.2s ease-in-out;
-          "
-          onmouseenter={() => hoveredUser = user.id}
-          onmouseleave={() => hoveredUser = null}
-        >
-          <div class="{hoveredUser === user.id ? 'px-1' : ''} whitespace-nowrap">
-            {#if user.isLocked}
-              {hoveredUser === user.id ? `${fullName} editing...` : '...'}
-            {:else}
-              {hoveredUser === user.id ? fullName : initials}
-            {/if}
-          </div>
-        </div>
-      </div>
+      ></div>
     {/if}
   {/each}
 
@@ -115,6 +89,39 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
       </svg>
     </div>
+  {/each}
+
+  <!-- Other user badges (rendered above remote pending/row-lock overlays) -->
+  {#each otherUserSelections as user (user.id)}
+    {@const otherOverlay = computeVisualOverlay(user, user, scrollStore.visibleRange, scrollStore.scrollTop)}
+    {@const initials = ((user.firstname?.[0] || '') + (user.lastname?.[0] || '')).toUpperCase()}
+    {@const fullName = `${user.firstname || ''} ${user.lastname || ''}`.trim()}
+    {#if otherOverlay}
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div
+        class="absolute flex items-center justify-center text-white text-[10px] rounded-full font-bold shadow-sm overflow-hidden pointer-events-auto cursor-default z-[42]"
+        style="
+          top: {otherOverlay.top - 8}px;
+          left: {otherOverlay.left + otherOverlay.width + 8}px;
+          height: 16px;
+          background-color: {user.color};
+          min-width: 16px;
+          max-width: {hoveredUser === user.id ? '200px' : '16px'};
+          transform: translateX(-100%);
+          transition: max-width 0.2s ease-in-out, background-color 0.2s ease-in-out;
+        "
+        onmouseenter={() => hoveredUser = user.id}
+        onmouseleave={() => hoveredUser = null}
+      >
+        <div class="{hoveredUser === user.id ? 'px-1' : ''} whitespace-nowrap">
+          {#if user.isLocked}
+            {hoveredUser === user.id ? `${fullName} editing...` : '...'}
+          {:else}
+            {hoveredUser === user.id ? fullName : initials}
+          {/if}
+        </div>
+      </div>
+    {/if}
   {/each}
 
   <!-- Row lock overlays -->
