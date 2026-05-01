@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -202,6 +203,7 @@ func (c *Client) handleClientState(payload interface{}) {
 	// 3. Reconcile pending cells
 	if pendingRaw, ok := payloadMap["pending"]; ok && pendingRaw != nil {
 		if pendingArr, ok := pendingRaw.([]interface{}); ok {
+			var addedKeys []string
 			for _, item := range pendingArr {
 				cellMap, ok := item.(map[string]interface{})
 				if !ok {
@@ -218,6 +220,7 @@ func (c *Client) handleClientState(payload interface{}) {
 				cellKey := assetId + ":" + keyStr
 
 				if added := c.hub.pendingCells.Add(cellKey, c, assetId, keyStr, valueStr); added {
+					addedKeys = append(addedKeys, cellKey)
 					broadcastPayload := map[string]interface{}{
 						"assetId":   assetIdRaw,
 						"key":       keyStr,
@@ -242,6 +245,15 @@ func (c *Client) handleClientState(payload interface{}) {
 						conflicts = append(conflicts, conflict)
 					}
 				}
+			}
+			if n := len(addedKeys); n > 0 {
+				preview := addedKeys
+				suffix := ""
+				if n > 5 {
+					preview = addedKeys[:5]
+					suffix = fmt.Sprintf(", ...+%d", n-5)
+				}
+				log.Printf("[Pending] %s (%s %s) pended %d cells: %s%s", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, n, strings.Join(preview, ", "), suffix)
 			}
 		}
 	}

@@ -140,6 +140,7 @@ func (c *Client) handleCellPending(payload interface{}) {
 	added := c.hub.pendingCells.Add(cellKey, c, assetId, keyStr, valueStr)
 
 	if added {
+		log.Printf("[Pending] %s (%s %s) pended cell %s", c.userInfo.Username, c.userInfo.Firstname, c.userInfo.Lastname, cellKey)
 		broadcastPayload := map[string]interface{}{
 			"assetId":   assetIdRaw,
 			"key":       keyStr,
@@ -169,6 +170,7 @@ func (c *Client) handleCellPendingClear(payload interface{}) {
 
 	removed := c.hub.pendingCells.Remove(cellKey, c)
 	if removed {
+		log.Printf("[Pending] %s cleared cell %s", c.userInfo.Username, cellKey)
 		broadcastPayload := map[string]interface{}{
 			"assetId": assetIdRaw,
 			"key":     keyStr,
@@ -196,6 +198,7 @@ func (c *Client) handlePendingClearAll() {
 			"cells":  cells,
 		}
 		c.hub.BroadcastToRoom(c.room,"PENDING_CLEAR_BROADCAST", broadcastPayload, c)
+		log.Printf("[Pending] %s cleared all (%d cells)", c.userInfo.Username, len(removedCells))
 	}
 }
 
