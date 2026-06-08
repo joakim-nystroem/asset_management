@@ -4,6 +4,8 @@ import {
     CORE_COLUMNS, WARRANTY_COLUMNS, HISTORY_COLUMNS,
     PED_COLUMNS, NETWORK_COLUMNS, GALAXY_COLUMNS
 } from './columnDefinitions';
+import { DATE_COLUMNS } from '$lib/grid/validation';
+import { parseDateFilter, nextDayIso } from '$lib/grid/dateFilter';
 
 export async function queryAssets(searchTerm: string | null, filters: Record<string, string[]>, view: string = 'default', hiddenStatuses: string[] = []) {
   // Start with base query — all views share these joins
@@ -94,13 +96,49 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
     'node', 'bu_estate', 'shelf_cabinet_table',
     'wbd_tag', 'serial_number', 'comment',
     'under_warranty_until', 'warranty_details',
+    'modified', 'created',
   ]);
 
   for (const [key, values] of Object.entries(filters)) {
     if (values.length === 0) continue;
     const columnName = filterColumnMap[key] ?? (directColumns.has(key) ? `ai.${key}` : null);
     if (!columnName) continue;
-    query = query.where(columnName as any, 'in', values);
+
+    if (DATE_COLUMNS.has(key)) {
+      const parsed = parseDateFilter(values[0]);
+      if (!parsed) continue;
+      // Half-open ranges keep the column unwrapped → index-friendly.
+      // For DATETIME cols (`modified`, `created`), this also captures the
+      // full day for `=` instead of relying on DATE() per-row coercion.
+      if (parsed.op === '=') {
+        query = query
+          .where(columnName as any, '>=', parsed.iso)
+          .where(columnName as any, '<', nextDayIso(parsed.iso));
+      } else if (parsed.op === '<=') {
+        query = query.where(columnName as any, '<', nextDayIso(parsed.iso));
+      } else {
+        query = query.where(columnName as any, '>=', parsed.iso);
+      }
+      continue;
+    }
+
+    const hasBlank = values.includes('__BLANK__');
+    const realValues = values.filter(v => v !== '__BLANK__');
+
+    if (hasBlank) {
+      query = query.where((eb: any) => {
+        const branches = [
+          eb(columnName as any, 'is', null),
+          eb(columnName as any, '=', ''),
+        ];
+        if (realValues.length > 0) {
+          branches.push(eb(columnName as any, 'in', realValues));
+        }
+        return eb.or(branches);
+      });
+    } else {
+      query = query.where(columnName as any, 'in', realValues);
+    }
   }
 
   return await query.orderBy('ai.id').execute();

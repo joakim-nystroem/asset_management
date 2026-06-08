@@ -34,6 +34,24 @@ export type TextConstraint = {
 
 export type ColumnConstraint = DropdownConstraint | UniqueConstraint | TextConstraint;
 
+// --- Column metadata ---
+// Mirrors DB schema (DESCRIBE asset_inventory).
+
+export const NULLABLE_COLUMNS = new Set<string>([
+  'shelf_cabinet_table',
+  'comment',
+  'under_warranty_until',
+  'warranty_details',
+]);
+
+export const DATE_COLUMNS = new Set<string>([
+  'under_warranty_until',
+  'modified',
+  'created',
+]);
+
+export const BLANK_FILTER_VALUE = '__BLANK__';
+
 // --- Constraints ---
 // Derived from DB schema: DESCRIBE asset_inventory
 

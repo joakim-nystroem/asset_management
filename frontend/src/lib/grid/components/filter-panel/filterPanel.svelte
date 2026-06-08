@@ -1,6 +1,17 @@
 <script lang="ts">
   import { queryStore } from '$lib/data/queryStore.svelte';
   import { clearAllFilters, removeFilter } from './filterPanel.svelte.ts';
+  import { BLANK_FILTER_VALUE, DATE_COLUMNS } from '$lib/grid/validation';
+  import { formatDateFilter } from '$lib/grid/dateFilter';
+
+  function formatFilterValue(key: string, value: string): string {
+    if (value === BLANK_FILTER_VALUE) return '(Blanks)';
+    if (DATE_COLUMNS.has(key)) {
+      const formatted = formatDateFilter(value);
+      if (formatted) return formatted;
+    }
+    return value;
+  }
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -37,8 +48,8 @@
               <div class="text-xs text-text-muted uppercase tracking-wide">
                 {filter.key.replaceAll('_', ' ')}
               </div>
-              <div class="text-sm font-medium text-text-primary truncate">
-                {filter.value}
+              <div class="text-sm font-medium text-text-primary truncate {filter.value === BLANK_FILTER_VALUE ? 'italic text-text-muted' : ''}">
+                {formatFilterValue(filter.key, filter.value)}
               </div>
             </div>
             <button

@@ -5,7 +5,10 @@
   import { scrollStore } from '$lib/data/scrollStore.svelte';
   import { sortStore } from '$lib/data/uiStore.svelte';
   import { setOpenPanel } from '$lib/utils/gridHelpers';
-  import { toggleFilter } from './headerMenu.svelte.ts';
+  import { toggleFilter, setDateFilter, clearDateFilter } from './headerMenu.svelte.ts';
+  import { NULLABLE_COLUMNS, DATE_COLUMNS, BLANK_FILTER_VALUE } from '$lib/grid/validation';
+  import { parseDateFilter, type DateOp } from '$lib/grid/dateFilter';
+  import DateSinglePicker from '$lib/utils/date-picker/DateSinglePicker.svelte';
   import CustomScrollbar from '$lib/utils/custom-scrollbar/CustomScrollbar.svelte';
   import { createScrollbarState } from '$lib/utils/custom-scrollbar/customScrollbar.svelte.ts';
 
@@ -42,6 +45,14 @@
     }
     setOpenPanel();
   }
+
+  const isDateColumn = $derived(DATE_COLUMNS.has(activeKey));
+
+  let activeDateFilter = $derived.by<{ op: DateOp; iso: string }>(() => {
+    if (!isDateColumn) return { op: '=', iso: '' };
+    const f = queryStore.filters.find(f => f.key === activeKey);
+    return (f && parseDateFilter(f.value)) ?? { op: '=', iso: '' };
+  });
 
   // Local rendering state
   let filterOpen = $state(false);
@@ -87,7 +98,11 @@
       const v = String(a[activeKey] ?? '');
       if (v) out.add(v);
     }
-    return [...out];
+    const items = [...out];
+    if (NULLABLE_COLUMNS.has(activeKey)) {
+      items.unshift(BLANK_FILTER_VALUE);
+    }
+    return items;
   });
 
   // Filter by the anchor (what the user typed), not the displayed tab-cycled value
@@ -250,7 +265,17 @@
         </span>
       </button>
 
-      {#if filterOpen}
+      {#if filterOpen && isDateColumn}
+        <div class="absolute z-50 top-0 {submenuDirection === 'left' ? 'right-full mr-0.5' : 'left-full ml-0.5'}">
+          <DateSinglePicker
+            value={activeDateFilter.iso}
+            op={activeDateFilter.op}
+            onApply={(op, iso) => { setDateFilter(activeKey, op, iso); }}
+            onClear={() => { clearDateFilter(activeKey); }}
+            onClose={() => setOpenPanel()}
+          />
+        </div>
+      {:else if filterOpen}
         {@const focusOnInit = (node: HTMLElement) => { node.focus(); }}
         <div
           {@attach closeOnEscape}
@@ -292,7 +317,7 @@
                     <div class="w-4 flex justify-center {idx === selectedIndex ? 'text-white' : 'text-blue-600 dark:text-blue-400'} font-bold">
                       {#if queryStore.filters.some(f => f.key === activeKey && f.value === item)}✓{/if}
                     </div>
-                    <div class="truncate">{item}</div>
+                    <div class="truncate {item === BLANK_FILTER_VALUE ? 'italic text-text-muted' : ''}">{item === BLANK_FILTER_VALUE ? '(Blanks)' : item}</div>
                   </button>
                 {/each}
               </div>

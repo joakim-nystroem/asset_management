@@ -48,6 +48,7 @@
   /* Background hovers */
   --color-bg-hover-button: var(--bg-hover-button);
   --color-bg-hover-item: var(--bg-hover-item);
+  --color-bg-hover-subtle: var(--bg-hover-subtle);
   --color-bg-hover-row: var(--bg-hover-row);
   --color-bg-hover-cell: var(--bg-hover-cell);
 
@@ -93,6 +94,7 @@
 
   --bg-hover-button: var(--color-blue-50);
   --bg-hover-item: var(--color-neutral-100);
+  --bg-hover-subtle: color-mix(in srgb, var(--bg-header) 60%, var(--color-neutral-200) 40%);
   --bg-hover-row: var(--color-blue-50);
   --bg-hover-cell: var(--color-blue-100);
 
@@ -137,6 +139,7 @@
 
   --bg-hover-button: var(--color-slate-700);
   --bg-hover-item: var(--color-slate-600);
+  --bg-hover-subtle: color-mix(in srgb, var(--color-slate-700) 65%, var(--color-slate-600) 35%);
   --bg-hover-row: color-mix(in srgb, var(--color-slate-700) 50%, transparent);
   --bg-hover-cell: var(--color-slate-600);
 
