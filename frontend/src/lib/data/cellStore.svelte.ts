@@ -26,6 +26,7 @@ export const editingStore = $state({
   isEditing: false,
   isUndoing: false,
   isRedoing: false,
+  isDeleting: false,
   editRow: -1,
   editCol: '',
   editValue: '',

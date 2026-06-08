@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { page } from '$app/state';
-  import { editingStore, pendingStore, historyStore, selectionStore } from '$lib/data/cellStore.svelte';
+  import { editingStore, pendingStore, historyStore, selectionStore, type HistoryAction } from '$lib/data/cellStore.svelte';
   import { resetEditing } from '$lib/utils/gridHelpers';
   import { columnWidthStore, uiStore } from '$lib/data/uiStore.svelte';
   import { enqueue } from '$lib/eventQueue/eventQueue';
@@ -154,6 +154,64 @@
       });
     }
   });
+
+  $effect(() => {
+    if (editingStore.isDeleting) {
+      untrack(() => {
+        handleDelete();
+        editingStore.isDeleting = false;
+      });
+    }
+  });
+
+  function handleDelete() {
+    if (selectionStore.selectionStart.row === -1) return;
+
+    const startIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionStart.row);
+    const endIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionEnd.row);
+    const startColIdx = keys.indexOf(selectionStore.selectionStart.col);
+    const endColIdx = keys.indexOf(selectionStore.selectionEnd.col);
+    if (startIdx === -1 || endIdx === -1 || startColIdx === -1 || endColIdx === -1) return;
+    const minRow = Math.min(startIdx, endIdx);
+    const maxRow = Math.max(startIdx, endIdx);
+    const minCol = Math.min(startColIdx, endColIdx);
+    const maxCol = Math.max(startColIdx, endColIdx);
+
+    const clearedKeys = new Set<string>();
+    const newEdits: typeof pendingStore.edits = [];
+    const historyBatch: HistoryAction[] = [];
+
+    for (let r = minRow; r <= maxRow; r++) {
+      const asset = assets[r];
+      for (let c = minCol; c <= maxCol; c++) {
+        const key = keys[c];
+        const oldValue = cellValue(asset.id, key);
+        if (oldValue === '') continue;
+        const original = String(asset[key] ?? '');
+        clearedKeys.add(`${asset.id}:${key}`);
+
+        if (original !== '') {
+          const { isValid, error } = validateCell(asset.id, key, '', pendingStore.edits);
+          newEdits.push({ row: asset.id, col: key, original, value: '', isValid, validationError: error });
+          enqueue({ type: 'CELL_PENDING', payload: { assetId: asset.id, key, value: '' } });
+        } else {
+          enqueue({ type: 'CELL_PENDING_CLEAR', payload: { assetId: asset.id, key } });
+        }
+
+        historyBatch.push({ id: asset.id, key, oldValue, newValue: '' });
+      }
+    }
+
+    if (historyBatch.length === 0) return;
+
+    pendingStore.edits = [
+      ...pendingStore.edits.filter((e) => !clearedKeys.has(`${e.row}:${e.col}`)),
+      ...newEdits,
+    ];
+    historyStore.undoStack = [...historyStore.undoStack, historyBatch];
+    historyStore.redoStack = [];
+    selectionStore.hideSelection = true;
+  }
 
   function handleUndo() {
     if (historyStore.undoStack.length === 0) return;

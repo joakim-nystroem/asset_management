@@ -37,27 +37,32 @@ export function clearClipboard() {
   clipboardStore.copyEnd = { row: -1, col: '' };
 }
 
-export function startCellEdit(row: number, col: string) {
+export function assertCellMutable(row: number, col: string): boolean {
   if (NON_EDITABLE_COLUMNS.has(col)) {
     const label = col.replaceAll('_', ' ');
     toastState.addToast(`${label.charAt(0).toUpperCase() + label.slice(1)} column cannot be edited.`, 'warning');
-    return;
+    return false;
   }
   const rowLock = presenceStore.rowLocks[String(row)];
   if (rowLock) {
     toastState.addToast(`Row is locked by ${rowLock.firstname} ${rowLock.lastname}`, 'warning');
-    return;
+    return false;
   }
   const lock = presenceStore.users.find(u => u.row === row && u.col === col && u.isLocked);
   if (lock) {
     toastState.addToast(`Cell is being edited by ${lock.firstname} ${lock.lastname}`.trim(), 'warning');
-    return;
+    return false;
   }
   const pending = presenceStore.pendingCells.find(p => p.assetId === row && p.key === col);
   if (pending) {
     toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
-    return;
+    return false;
   }
+  return true;
+}
+
+export function startCellEdit(row: number, col: string) {
+  if (!assertCellMutable(row, col)) return;
   setOpenPanel();
   const asset = assetStore.displayedAssets.find((a: Record<string, any>) => a.id === row);
   const pendingEdit = pendingStore.edits.find(e => e.row === row && e.col === col);
