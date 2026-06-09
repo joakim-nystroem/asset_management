@@ -35,6 +35,13 @@
     return Math.max(0, Math.min(trackPos / trackSpace, 1)) * maxScroll;
   }
 
+  // Stops the synthesized click that follows scrollbar mousedown from reaching
+  // the window-level outside-click handler (would otherwise close the editor's
+  // suggestion menu mid-drag).
+  function suppressNextClick(e: MouseEvent) {
+    e.stopPropagation();
+  }
+
   function onThumbDown(e: MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -43,6 +50,7 @@
     dragStartScroll = thumbPosition;
     window.addEventListener('mousemove', onDrag);
     window.addEventListener('mouseup', onDragEnd);
+    window.addEventListener('click', suppressNextClick, { capture: true, once: true });
   }
 
   function onDrag(e: MouseEvent) {
@@ -61,6 +69,7 @@
     const rect = track.getBoundingClientRect();
     const clickPos = (orientation === 'vertical' ? e.clientY - rect.top : e.clientX - rect.left) - thumbSize / 2;
     onscroll(trackToScroll(clickPos));
+    window.addEventListener('click', suppressNextClick, { capture: true, once: true });
   }
 </script>
 
