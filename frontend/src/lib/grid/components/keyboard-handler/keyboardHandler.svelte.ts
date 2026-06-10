@@ -20,16 +20,29 @@ export function selectCell(row: number, col: string) {
   selectionStore.pasteRange = null;
   selectionStore.selectionStart = { row, col };
   selectionStore.selectionEnd = { row, col };
-  selectionStore.isSelecting = false;
-  selectionStore.hideSelection = false;
+  selectionStore.isDragging = false;
+  selectionStore.isCellSelected = true;
+}
+
+/** Hide the selection overlay but keep the anchor so arrow keys can resume from it. */
+export function hideSelection() {
+  selectionStore.pasteRange = null;
+  selectionStore.isDragging = false;
+  selectionStore.isCellSelected = false;
+}
+
+/** Re-show the selection overlay at the preserved anchor (no-op without an anchor). */
+export function revealSelection() {
+  if (!selectionStore.hasAnchor) return;
+  selectionStore.isCellSelected = true;
 }
 
 export function resetSelection() {
   selectionStore.pasteRange = null;
   selectionStore.selectionStart = { row: -1, col: '' };
   selectionStore.selectionEnd = { row: -1, col: '' };
-  selectionStore.isSelecting = false;
-  selectionStore.hideSelection = false;
+  selectionStore.isDragging = false;
+  selectionStore.isCellSelected = false;
 }
 
 export function clearClipboard() {
@@ -70,6 +83,29 @@ export function startCellEdit(row: number, col: string) {
   editingStore.isEditing = true;
   editingStore.editRow = row;
   editingStore.editCol = col;
+}
+
+/** Edge-jump target for Ctrl+Arrow: first/last row or first/last column. Falls back to `current` on an empty grid. */
+export function getEdgeTarget(
+  key: string,
+  current: { row: number; col: string },
+): { row: number; col: string } {
+  const assets = assetStore.displayedAssets;
+  // Column keys from first asset
+  const keys = Object.keys(assets[0] ?? {});
+  switch (key) {
+    case 'ArrowUp':    return { row: assets[0]?.id ?? current.row, col: current.col };
+    case 'ArrowDown':  return { row: assets[assets.length - 1]?.id ?? current.row, col: current.col };
+    case 'ArrowLeft':  return { row: current.row, col: keys[0] ?? current.col };
+    case 'ArrowRight': return { row: current.row, col: keys[keys.length - 1] ?? current.col };
+    default:           return { row: current.row, col: current.col };
+  }
+}
+
+/** Extend the selection rectangle to `target`, keeping the anchor (selectionStart). */
+export function extendSelectionTo(target: { row: number; col: string }) {
+  selectionStore.pasteRange = null;
+  selectionStore.selectionEnd = { row: target.row, col: target.col };
 }
 
 export function getArrowTarget(

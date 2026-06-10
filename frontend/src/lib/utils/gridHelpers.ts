@@ -23,7 +23,7 @@ export function resetAfterCommit() {
   selectionStore.pasteRange = null;
   selectionStore.selectionStart = { row: -1, col: '' };
   selectionStore.selectionEnd = { row: -1, col: '' };
-  selectionStore.hideSelection = false;
+  selectionStore.isCellSelected = false;
   clipboardStore.copyStart = { row: -1, col: '' };
   clipboardStore.copyEnd = { row: -1, col: '' };
 }
@@ -35,7 +35,7 @@ export function resetEditState() {
   selectionStore.pasteRange = null;
   selectionStore.selectionStart = { row: -1, col: '' };
   selectionStore.selectionEnd = { row: -1, col: '' };
-  selectionStore.hideSelection = false;
+  selectionStore.isCellSelected = false;
   clipboardStore.copyStart = { row: -1, col: '' };
   clipboardStore.copyEnd = { row: -1, col: '' };
 }

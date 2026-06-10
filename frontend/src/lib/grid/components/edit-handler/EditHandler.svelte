@@ -119,13 +119,13 @@
 
   function handleWindowCopy(e: ClipboardEvent) {
     if (editingStore.isEditing || isInputTarget(e.target)) return;
-    if (selectionStore.selectionStart.row === -1) return;
+    if (!selectionStore.isCellSelected) return;
     doCopy(e);
   }
 
   function handleWindowPaste(e: ClipboardEvent) {
     if (editingStore.isEditing || isInputTarget(e.target)) return;
-    if (selectionStore.selectionStart.row === -1) return;
+    if (!selectionStore.isCellSelected) return;
     if (!page.data.user) {
       toastState.addToast('Log in to edit.', 'warning');
       return;
@@ -165,7 +165,7 @@
   });
 
   function handleDelete() {
-    if (selectionStore.selectionStart.row === -1) return;
+    if (!selectionStore.isCellSelected) return;
 
     const startIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionStart.row);
     const endIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionEnd.row);
@@ -210,7 +210,7 @@
     ];
     historyStore.undoStack = [...historyStore.undoStack, historyBatch];
     historyStore.redoStack = [];
-    selectionStore.hideSelection = true;
+    selectionStore.isCellSelected = false;
   }
 
   function handleUndo() {
@@ -284,7 +284,7 @@
     if (oldValue !== newValue) {
       historyStore.undoStack = [...historyStore.undoStack, [{ id: editingStore.editRow, key: editKey, oldValue, newValue }]];
       historyStore.redoStack = [];
-      selectionStore.hideSelection = true;
+      selectionStore.isCellSelected = false;
     }
     upsertPending(editingStore.editRow, editKey, newValue);
     cancelEdit();

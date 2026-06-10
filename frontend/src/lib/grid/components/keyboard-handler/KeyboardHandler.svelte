@@ -9,8 +9,11 @@
     startCellEdit,
     assertCellMutable,
     getArrowTarget,
+    getEdgeTarget,
+    extendSelectionTo,
     selectCell,
-    resetSelection,
+    hideSelection,
+    revealSelection,
     clearClipboard,
     colBounds,
   } from './keyboardHandler.svelte.ts';
@@ -24,7 +27,7 @@
 
   // ─── CLIENT_STATE provider for reconnect ─────────────────────────────────
   realtime.setLocalStateProvider(() => {
-    const position = selectionStore.selectionStart.row !== -1
+    const position = selectionStore.hasAnchor
       ? { row: selectionStore.selectionStart.row, col: selectionStore.selectionStart.col }
       : null;
     const lock = editingStore.isEditing && editingStore.editRow !== -1
@@ -43,7 +46,7 @@
     const row = selectionStore.selectionStart.row;
     const col = selectionStore.selectionStart.col;
 
-    if (row === -1 || col === '') {
+    if (!selectionStore.hasAnchor || col === '') {
       enqueue({ type: 'POSITION_DESELECT', payload: {} });
       return;
     }
@@ -73,8 +76,8 @@
         enqueue({ type: 'CELL_EDIT_END', payload: {} });
         return;
       }
-      if (selectionStore.selectionStart.row !== -1) {
-        resetSelection();
+      if (selectionStore.isCellSelected) {
+        hideSelection();
       }
       clearClipboard();
       setOpenPanel();
@@ -87,7 +90,7 @@
       // No UI panel open
       if(uiStore.contextMenu.visible || uiStore.filterPanel.visible || uiStore.headerMenu.visible || uiStore.suggestionMenu.visible) return;
       // No selection or invalid column
-      if (selectionStore.selectionStart.row === -1) return;
+      if (!selectionStore.isCellSelected) return;
       const row = selectionStore.selectionStart.row;
       const col = selectionStore.selectionStart.col;
       if (col === '' || col === 'id') return;
@@ -99,7 +102,7 @@
       e.preventDefault();
       if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
       if (uiStore.contextMenu.visible || uiStore.filterPanel.visible || uiStore.headerMenu.visible || uiStore.suggestionMenu.visible) return;
-      if (selectionStore.selectionStart.row === -1) return;
+      if (!selectionStore.isCellSelected) return;
 
       const startIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionStart.row);
       const endIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionEnd.row);
@@ -142,38 +145,31 @@
     // Arrow key navigation
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       e.preventDefault();
-      if (selectionStore.hideSelection) selectionStore.hideSelection = false;
       setOpenPanel();
       const anchor = selectionStore.selectionStart;
-      if (anchor.row === -1) return;
+      if (!selectionStore.hasAnchor) return;
+      revealSelection();
 
       if (e.metaKey || e.ctrlKey) {
-        let targetRow = selectionStore.selectionStart.row;
-        let targetCol = selectionStore.selectionStart.col;
-        switch (e.key) {
-          case 'ArrowUp':    targetRow = assets[0]?.id ?? targetRow; break;
-          case 'ArrowDown':  targetRow = assets[assets.length - 1]?.id ?? targetRow; break;
-          case 'ArrowLeft':  targetCol = keys[0]; break;
-          case 'ArrowRight': targetCol = keys[keys.length - 1]; break;
-        }
+        // Shift extends from the selection end so the perpendicular span is preserved
+        const base = e.shiftKey ? selectionStore.selectionEnd : selectionStore.selectionStart;
+        const target = getEdgeTarget(e.key, base);
         if (e.shiftKey) {
-          selectionStore.pasteRange = null;
-          selectionStore.selectionEnd = { row: targetRow, col: targetCol };
+          extendSelectionTo(target);
         } else {
-          selectCell(targetRow, targetCol);
+          selectCell(target.row, target.col);
         }
         // Find asset position by ID
-        const idx = assets.findIndex((a: Record<string, any>) => a.id === targetRow);
+        const idx = assets.findIndex((a: Record<string, any>) => a.id === target.row);
         if (idx !== -1) scrollStore.scrollToRow = idx;
-        scrollStore.scrollToCol = colBounds(targetCol);
+        scrollStore.scrollToCol = colBounds(target.col);
         return;
       }
 
       if (e.shiftKey) {
         const next = getArrowTarget(e.key, selectionStore.selectionEnd);
         if (next) {
-          selectionStore.pasteRange = null;
-          selectionStore.selectionEnd = next;
+          extendSelectionTo(next);
           // Find asset position by ID
           const idx = assets.findIndex((a: Record<string, any>) => a.id === next.row);
           if (idx !== -1) scrollStore.scrollToRow = idx;
@@ -202,7 +198,7 @@
     }
     handleKeyDown(e);
   }}
-  onmouseup={() => { selectionStore.isSelecting = false; }}
+  onmouseup={() => { selectionStore.isDragging = false; }}
   onclick={(e) => {
     const target = e.target as HTMLElement;
     if (target.closest('[data-panel]')) return;

@@ -20,7 +20,7 @@ function cellValue(assetId: number, colKey: string): string {
  * Otherwise writes via `navigator.clipboard.writeText` (e.g., context-menu invocation).
  */
 export function doCopy(e?: ClipboardEvent): void {
-  if (selectionStore.selectionStart.row === -1) return;
+  if (!selectionStore.isCellSelected) return;
 
   const assets = assetStore.displayedAssets;
   const keys = Object.keys(assets[0] ?? {});
@@ -46,7 +46,7 @@ export function doCopy(e?: ClipboardEvent): void {
   selectionStore.pasteRange = null;
   clipboardStore.copyStart = { ...selectionStore.selectionStart };
   clipboardStore.copyEnd = { ...selectionStore.selectionEnd };
-  selectionStore.hideSelection = true;
+  selectionStore.isCellSelected = false;
 
   const text = grid.map((row) => row.join('\t')).join('\n');
   if (e) {
@@ -64,7 +64,7 @@ export function doCopy(e?: ClipboardEvent): void {
  */
 export function doPaste(text: string): void {
   if (!text) return;
-  if (selectionStore.selectionStart.row === -1) return;
+  if (!selectionStore.isCellSelected) return;
   if (newRowStore.newRows.length > 0 && selectionStore.selectionStart.row > 0) {
     toastState.addToast('Commit or discard new rows before editing.', 'warning');
     return;
@@ -148,6 +148,6 @@ export function doPaste(text: string): void {
   const pasteEndCol = keys[minStartCol + maxCol - 1];
   selectionStore.selectionStart = { row: pasteStartId, col: pasteStartCol };
   selectionStore.selectionEnd = { row: pasteEndId, col: pasteEndCol };
-  selectionStore.hideSelection = true;
+  selectionStore.isCellSelected = false;
   selectionStore.pasteRange = { start: { row: pasteStartId, col: pasteStartCol }, end: { row: pasteEndId, col: pasteEndCol } };
 }

@@ -384,8 +384,8 @@ async function handleQuery(
   // Clear selection — the previously selected asset may not be in the new result set
   selectionStore.selectionStart = { row: -1, col: '' };
   selectionStore.selectionEnd = { row: -1, col: '' };
-  selectionStore.isSelecting = false;
-  selectionStore.hideSelection = false;
+  selectionStore.isDragging = false;
+  selectionStore.isCellSelected = false;
   selectionStore.pasteRange = null;
 
   if (!hasActiveQuery) {
@@ -426,8 +426,8 @@ async function handleViewChange(
   // Clear selection — the previously selected asset may not exist in the new view
   selectionStore.selectionStart = { row: -1, col: '' };
   selectionStore.selectionEnd = { row: -1, col: '' };
-  selectionStore.isSelecting = false;
-  selectionStore.hideSelection = false;
+  selectionStore.isDragging = false;
+  selectionStore.isCellSelected = false;
   selectionStore.pasteRange = null;
 
   queryStore.view = view;

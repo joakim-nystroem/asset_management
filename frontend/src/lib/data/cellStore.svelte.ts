@@ -44,9 +44,13 @@ export const historyStore = $state({
 export const selectionStore = $state({
   selectionStart: { row: -1, col: '' } as GridCell,
   selectionEnd: { row: -1, col: '' } as GridCell,
-  isSelecting: false,
-  hideSelection: false,
+  isDragging: false,
+  isCellSelected: false,
   pasteRange: null as { start: GridCell; end: GridCell } | null,
+  /** True when an anchor cell exists (selection may still be hidden — see isCellSelected). */
+  get hasAnchor() {
+    return this.selectionStart.row !== -1;
+  },
 });
 
 export const clipboardStore = $state({

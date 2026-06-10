@@ -54,17 +54,17 @@
       if (e.shiftKey) {
         selectionStore.pasteRange = null;
         selectionStore.selectionEnd = { row: asset.id, col: key };
-        selectionStore.hideSelection = false;
+        selectionStore.isCellSelected = true;
       } else {
         selectionStore.pasteRange = null;
         selectionStore.selectionStart = { row: asset.id, col: key };
         selectionStore.selectionEnd = { row: asset.id, col: key };
-        selectionStore.isSelecting = true;
-        selectionStore.hideSelection = false;
+        selectionStore.isDragging = true;
+        selectionStore.isCellSelected = true;
       }
     }}
     onmouseenter={() => {
-      if (selectionStore.isSelecting) {
+      if (selectionStore.isDragging) {
         selectionStore.selectionEnd = { row: asset.id, col: key };
       }
     }}
@@ -96,7 +96,7 @@
       selectionStore.pasteRange = null;
       selectionStore.selectionStart = { row: asset.id, col: key };
       selectionStore.selectionEnd = { row: asset.id, col: key };
-      selectionStore.hideSelection = false;
+      selectionStore.isCellSelected = true;
       const pendingEdit = pendingStore.edits.find(e => e.row === asset.id && e.col === key);
       editingStore.editValue = pendingEdit ? pendingEdit.value : String(asset[key] ?? '');
       editingStore.isEditing = true;
@@ -110,11 +110,11 @@
 
       const isSingleCell = selectionStore.selectionStart.row === selectionStore.selectionEnd.row
         && selectionStore.selectionStart.col === selectionStore.selectionEnd.col;
-      if (isSingleCell || selectionStore.selectionStart.row === -1) {
+      if (isSingleCell || !selectionStore.hasAnchor) {
         selectionStore.selectionStart = { row: asset.id, col: key };
         selectionStore.selectionEnd = { row: asset.id, col: key };
       }
-      selectionStore.hideSelection = false;
+      selectionStore.isCellSelected = true;
       // Open context menu
       const estimatedWidth = 150;
       const estimatedHeight = 200;

@@ -199,7 +199,7 @@
   {/each}
 
   <!-- Selection overlay -->
-  {#if selectionOverlay && selectionStore.selectionStart.row !== -1 && !selectionStore.hideSelection}
+  {#if selectionOverlay && selectionStore.isCellSelected}
     <div
       class="absolute pointer-events-none z-[31] border-blue-600 dark:border-blue-500 bg-blue-900/10"
       style="

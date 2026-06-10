@@ -33,14 +33,16 @@ docker-compose.yml
 # Dev-only scripts
 dev.sh
 
+# Unit tests (local only, not part of the deployed app)
+*.test.ts
+vitest.config.ts
+
 # Other
 .github
 metadata
 frontend/metadata
 .prettierrc
 .npmrc
-package-lock.json
-package.json
 .omc
 .claude
 deploy.sh
