@@ -1,5 +1,6 @@
-import { editingStore, selectionStore, clipboardStore, historyStore } from '$lib/data/cellStore.svelte';
+import { editingStore, historyStore } from '$lib/data/cellStore.svelte';
 import { uiStore } from '$lib/data/uiStore.svelte';
+import { resetSelection, clearClipboard } from '$lib/utils/selection';
 
 /** Reset editing state back to idle. */
 export function resetEditing() {
@@ -20,22 +21,14 @@ export function setOpenPanel(panel?: 'contextMenu' | 'headerMenu' | 'filterPanel
 
 /** Reset selection and clipboard after commit — keeps undo/redo history intact. */
 export function resetAfterCommit() {
-  selectionStore.pasteRange = null;
-  selectionStore.selectionStart = { row: -1, col: '' };
-  selectionStore.selectionEnd = { row: -1, col: '' };
-  selectionStore.isCellSelected = false;
-  clipboardStore.copyStart = { row: -1, col: '' };
-  clipboardStore.copyEnd = { row: -1, col: '' };
+  resetSelection();
+  clearClipboard();
 }
 
 /** Reset selection, clipboard, and history after commit or discard. */
 export function resetEditState() {
   historyStore.undoStack = [];
   historyStore.redoStack = [];
-  selectionStore.pasteRange = null;
-  selectionStore.selectionStart = { row: -1, col: '' };
-  selectionStore.selectionEnd = { row: -1, col: '' };
-  selectionStore.isCellSelected = false;
-  clipboardStore.copyStart = { row: -1, col: '' };
-  clipboardStore.copyEnd = { row: -1, col: '' };
+  resetSelection();
+  clearClipboard();
 }

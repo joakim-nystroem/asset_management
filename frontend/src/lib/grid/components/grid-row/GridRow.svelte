@@ -2,6 +2,7 @@
   import { page } from '$app/state';
   import { columnWidthStore, uiStore } from '$lib/data/uiStore.svelte';
   import { setOpenPanel } from '$lib/utils/gridHelpers';
+  import { selectCell, extendSelectionTo, revealSelection } from '$lib/utils/selection';
   import { selectionStore, editingStore, pendingStore } from '$lib/data/cellStore.svelte';
   import { presenceStore } from '$lib/data/presenceStore.svelte';
   import { toastState } from '$lib/toast/toastState.svelte';
@@ -52,15 +53,11 @@
       setOpenPanel();
 
       if (e.shiftKey) {
-        selectionStore.pasteRange = null;
-        selectionStore.selectionEnd = { row: asset.id, col: key };
-        selectionStore.isCellSelected = true;
+        extendSelectionTo({ row: asset.id, col: key });
+        revealSelection();
       } else {
-        selectionStore.pasteRange = null;
-        selectionStore.selectionStart = { row: asset.id, col: key };
-        selectionStore.selectionEnd = { row: asset.id, col: key };
+        selectCell(asset.id, key);
         selectionStore.isDragging = true;
-        selectionStore.isCellSelected = true;
       }
     }}
     onmouseenter={() => {
@@ -93,10 +90,7 @@
         toastState.addToast(`Cell has pending changes by ${pending.firstname} ${pending.lastname}`.trim(), 'warning');
         return;
       }
-      selectionStore.pasteRange = null;
-      selectionStore.selectionStart = { row: asset.id, col: key };
-      selectionStore.selectionEnd = { row: asset.id, col: key };
-      selectionStore.isCellSelected = true;
+      selectCell(asset.id, key);
       const pendingEdit = pendingStore.edits.find(e => e.row === asset.id && e.col === key);
       editingStore.editValue = pendingEdit ? pendingEdit.value : String(asset[key] ?? '');
       editingStore.isEditing = true;
@@ -111,10 +105,9 @@
       const isSingleCell = selectionStore.selectionStart.row === selectionStore.selectionEnd.row
         && selectionStore.selectionStart.col === selectionStore.selectionEnd.col;
       if (isSingleCell || !selectionStore.hasAnchor) {
-        selectionStore.selectionStart = { row: asset.id, col: key };
-        selectionStore.selectionEnd = { row: asset.id, col: key };
+        selectCell(asset.id, key);
       }
-      selectionStore.isCellSelected = true;
+      revealSelection();
       // Open context menu
       const estimatedWidth = 150;
       const estimatedHeight = 200;

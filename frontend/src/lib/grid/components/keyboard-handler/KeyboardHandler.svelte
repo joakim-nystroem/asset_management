@@ -10,13 +10,16 @@
     assertCellMutable,
     getArrowTarget,
     getEdgeTarget,
-    extendSelectionTo,
+    navKeyToArrow,
+    scrollToCell,
+  } from './keyboardHandler.svelte.ts';
+  import {
     selectCell,
     hideSelection,
     revealSelection,
+    extendSelectionTo,
     clearClipboard,
-    colBounds,
-  } from './keyboardHandler.svelte.ts';
+  } from '$lib/utils/selection';
   import { enqueue } from '$lib/eventQueue/eventQueue';
   import { toastState } from '$lib/toast/toastState.svelte';
   import { uiStore } from '$lib/data/uiStore.svelte.ts';
@@ -76,9 +79,7 @@
         enqueue({ type: 'CELL_EDIT_END', payload: {} });
         return;
       }
-      if (selectionStore.isCellSelected) {
-        hideSelection();
-      }
+      hideSelection();
       clearClipboard();
       setOpenPanel();
       return;
@@ -90,7 +91,7 @@
       // No UI panel open
       if(uiStore.contextMenu.visible || uiStore.filterPanel.visible || uiStore.headerMenu.visible || uiStore.suggestionMenu.visible) return;
       // No selection or invalid column
-      if (!selectionStore.isCellSelected) return;
+      if (!selectionStore.hasAnchor) return;
       const row = selectionStore.selectionStart.row;
       const col = selectionStore.selectionStart.col;
       if (col === '' || col === 'id') return;
@@ -102,7 +103,7 @@
       e.preventDefault();
       if (!user) { toastState.addToast('Log in to edit.', 'warning'); return; }
       if (uiStore.contextMenu.visible || uiStore.filterPanel.visible || uiStore.headerMenu.visible || uiStore.suggestionMenu.visible) return;
-      if (!selectionStore.isCellSelected) return;
+      if (!selectionStore.hasAnchor) return;
 
       const startIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionStart.row);
       const endIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionEnd.row);
@@ -121,6 +122,21 @@
       }
 
       editingStore.isDeleting = true;
+      return;
+    }
+
+    // Enter/Tab navigation: down/right, Shift reverses; clamps at grid edges
+    const navDirection = navKeyToArrow(e.key, e.shiftKey);
+    if (navDirection) {
+      e.preventDefault();
+      if (e.metaKey || e.ctrlKey) return;
+      if (uiStore.contextMenu.visible || uiStore.filterPanel.visible || uiStore.headerMenu.visible || uiStore.suggestionMenu.visible) return;
+      if (!selectionStore.hasAnchor) return;
+      const next = getArrowTarget(navDirection, selectionStore.selectionStart);
+      if (next) {
+        selectCell(next.row, next.col);
+        scrollToCell(next);
+      }
       return;
     }
 
@@ -159,10 +175,7 @@
         } else {
           selectCell(target.row, target.col);
         }
-        // Find asset position by ID
-        const idx = assets.findIndex((a: Record<string, any>) => a.id === target.row);
-        if (idx !== -1) scrollStore.scrollToRow = idx;
-        scrollStore.scrollToCol = colBounds(target.col);
+        scrollToCell(target);
         return;
       }
 
@@ -170,19 +183,13 @@
         const next = getArrowTarget(e.key, selectionStore.selectionEnd);
         if (next) {
           extendSelectionTo(next);
-          // Find asset position by ID
-          const idx = assets.findIndex((a: Record<string, any>) => a.id === next.row);
-          if (idx !== -1) scrollStore.scrollToRow = idx;
-          scrollStore.scrollToCol = colBounds(next.col);
+          scrollToCell(next);
         }
       } else {
         const next = getArrowTarget(e.key, anchor);
         if (next) {
           selectCell(next.row, next.col);
-          // Find asset position by ID
-          const idx = assets.findIndex((a: Record<string, any>) => a.id === next.row);
-          if (idx !== -1) scrollStore.scrollToRow = idx;
-          scrollStore.scrollToCol = colBounds(next.col);
+          scrollToCell(next);
         }
       }
     }

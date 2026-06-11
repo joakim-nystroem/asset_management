@@ -73,33 +73,27 @@
     }
   });
 
-  // Compute filtered items for keyboard navigation.
-  // Cascading: source = baseAssets narrowed by every filter EXCEPT the active column's own.
-  // (Using displayedAssets directly hides values of the active column when it is itself filtered.)
+  // Cascading: the first-filtered column is the anchor and always lists from
+  // baseAssets; every other column lists live from displayedAssets while a
+  // search/filter is active (the list follows each fetch).
   let allItems = $derived.by<string[]>(() => {
     if (metadataOptions[activeKey]) return metadataOptions[activeKey]();
 
-    const otherFilters = queryStore.filters.filter(f => f.key !== activeKey);
-    let source: Record<string, any>[] = assetStore.baseAssets;
+    const hasActiveQuery = !!queryStore.q || queryStore.filters.length > 0;
+    const anchorFilterKey = queryStore.filters[0]?.key;
+    const source: Record<string, any>[] = !hasActiveQuery || activeKey === anchorFilterKey
+      ? assetStore.baseAssets
+      : assetStore.displayedAssets;
 
-    if (otherFilters.length > 0) {
-      const byKey = new Map<string, Set<string>>();
-      for (const f of otherFilters) {
-        if (!byKey.has(f.key)) byKey.set(f.key, new Set());
-        byKey.get(f.key)!.add(f.value);
-      }
-      source = source.filter(asset =>
-        [...byKey.entries()].every(([key, values]) => values.has(String(asset[key] ?? '')))
-      );
+    const uniqueValues = new Set<string>();
+    let hasBlank = false;
+    for (const asset of source) {
+      const value = String(asset[activeKey] ?? '');
+      if (value) uniqueValues.add(value);
+      else hasBlank = true;
     }
-
-    const out = new Set<string>();
-    for (const a of source) {
-      const v = String(a[activeKey] ?? '');
-      if (v) out.add(v);
-    }
-    const items = [...out];
-    if (NULLABLE_COLUMNS.has(activeKey)) {
+    const items = [...uniqueValues];
+    if (hasBlank && NULLABLE_COLUMNS.has(activeKey)) {
       items.unshift(BLANK_FILTER_VALUE);
     }
     return items;

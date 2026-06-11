@@ -16,6 +16,7 @@
   import SuggestionMenu from '$lib/grid/components/suggestion-menu/suggestionMenu.svelte';
   import { computeEditorPosition, computeEditorDimensions } from './editHandler.svelte.ts';
   import { doCopy, doPaste } from '$lib/utils/clipboard';
+  import { hideSelection } from '$lib/utils/selection';
   import { DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
   const assets = $derived(assetStore.displayedAssets);
@@ -119,13 +120,13 @@
 
   function handleWindowCopy(e: ClipboardEvent) {
     if (editingStore.isEditing || isInputTarget(e.target)) return;
-    if (!selectionStore.isCellSelected) return;
+    if (!selectionStore.hasAnchor) return;
     doCopy(e);
   }
 
   function handleWindowPaste(e: ClipboardEvent) {
     if (editingStore.isEditing || isInputTarget(e.target)) return;
-    if (!selectionStore.isCellSelected) return;
+    if (!selectionStore.hasAnchor) return;
     if (!page.data.user) {
       toastState.addToast('Log in to edit.', 'warning');
       return;
@@ -165,7 +166,7 @@
   });
 
   function handleDelete() {
-    if (!selectionStore.isCellSelected) return;
+    if (!selectionStore.hasAnchor) return;
 
     const startIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionStart.row);
     const endIdx = assets.findIndex((a: Record<string, any>) => a.id === selectionStore.selectionEnd.row);
@@ -210,7 +211,7 @@
     ];
     historyStore.undoStack = [...historyStore.undoStack, historyBatch];
     historyStore.redoStack = [];
-    selectionStore.isCellSelected = false;
+    hideSelection();
   }
 
   function handleUndo() {
@@ -284,7 +285,7 @@
     if (oldValue !== newValue) {
       historyStore.undoStack = [...historyStore.undoStack, [{ id: editingStore.editRow, key: editKey, oldValue, newValue }]];
       historyStore.redoStack = [];
-      selectionStore.isCellSelected = false;
+      hideSelection();
     }
     upsertPending(editingStore.editRow, editKey, newValue);
     cancelEdit();

@@ -8,8 +8,9 @@ import { realtime } from '$lib/utils/realtimeManager.svelte';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
 import { urlStore } from '$lib/data/urlStore.svelte';
 import { scrollStore } from '$lib/data/scrollStore.svelte';
+import { resetSelection } from '$lib/utils/selection';
 
-import { pendingStore, selectionStore } from '$lib/data/cellStore.svelte';
+import { pendingStore } from '$lib/data/cellStore.svelte';
 import { newRowStore } from '$lib/data/newRowStore.svelte';
 import { auditStore, type AuditAssignment } from '$lib/data/auditStore.svelte';
 import { auditUiStore } from '$lib/data/auditUiStore.svelte';
@@ -382,11 +383,7 @@ async function handleQuery(
   const hasActiveQuery = q || (filters && filters.length > 0);
 
   // Clear selection — the previously selected asset may not be in the new result set
-  selectionStore.selectionStart = { row: -1, col: '' };
-  selectionStore.selectionEnd = { row: -1, col: '' };
-  selectionStore.isDragging = false;
-  selectionStore.isCellSelected = false;
-  selectionStore.pasteRange = null;
+  resetSelection();
 
   if (!hasActiveQuery) {
     assetStore.displayedAssets = assetStore.baseAssets;
@@ -424,11 +421,7 @@ async function handleViewChange(
   }
 
   // Clear selection — the previously selected asset may not exist in the new view
-  selectionStore.selectionStart = { row: -1, col: '' };
-  selectionStore.selectionEnd = { row: -1, col: '' };
-  selectionStore.isDragging = false;
-  selectionStore.isCellSelected = false;
-  selectionStore.pasteRange = null;
+  resetSelection();
 
   queryStore.view = view;
   assetStore.baseAssets = res.data.assets;
@@ -453,6 +446,9 @@ async function handleSettingsUpdate(
     toastState.addToast('Failed to apply settings.', 'error');
     return;
   }
+
+  // Clear selection — the previously selected asset may now be hidden
+  resetSelection();
 
   assetStore.baseAssets = res.data.assets;
   assetStore.displayedAssets = res.data.assets;

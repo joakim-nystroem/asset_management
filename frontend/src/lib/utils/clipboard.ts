@@ -5,6 +5,7 @@ import { validateCell } from '$lib/grid/validation';
 import { enqueue } from '$lib/eventQueue/eventQueue';
 import { toastState } from '$lib/toast/toastState.svelte';
 import { NON_EDITABLE_COLUMNS } from '$lib/grid/gridConfig';
+import { hideSelection } from '$lib/utils/selection';
 
 /** Resolve visible value for a cell — pending edit if any, else asset value. */
 function cellValue(assetId: number, colKey: string): string {
@@ -20,7 +21,7 @@ function cellValue(assetId: number, colKey: string): string {
  * Otherwise writes via `navigator.clipboard.writeText` (e.g., context-menu invocation).
  */
 export function doCopy(e?: ClipboardEvent): void {
-  if (!selectionStore.isCellSelected) return;
+  if (!selectionStore.hasAnchor) return;
 
   const assets = assetStore.displayedAssets;
   const keys = Object.keys(assets[0] ?? {});
@@ -43,10 +44,9 @@ export function doCopy(e?: ClipboardEvent): void {
     grid.push(colKeys.map((key) => cellValue(asset.id, key)));
   }
 
-  selectionStore.pasteRange = null;
+  hideSelection();
   clipboardStore.copyStart = { ...selectionStore.selectionStart };
   clipboardStore.copyEnd = { ...selectionStore.selectionEnd };
-  selectionStore.isCellSelected = false;
 
   const text = grid.map((row) => row.join('\t')).join('\n');
   if (e) {
@@ -64,7 +64,7 @@ export function doCopy(e?: ClipboardEvent): void {
  */
 export function doPaste(text: string): void {
   if (!text) return;
-  if (!selectionStore.isCellSelected) return;
+  if (!selectionStore.hasAnchor) return;
   if (newRowStore.newRows.length > 0 && selectionStore.selectionStart.row > 0) {
     toastState.addToast('Commit or discard new rows before editing.', 'warning');
     return;
@@ -146,8 +146,8 @@ export function doPaste(text: string): void {
   const pasteEndId = assets[minStartRow + maxRow - 1].id;
   const pasteStartCol = keys[minStartCol];
   const pasteEndCol = keys[minStartCol + maxCol - 1];
+  hideSelection();
   selectionStore.selectionStart = { row: pasteStartId, col: pasteStartCol };
   selectionStore.selectionEnd = { row: pasteEndId, col: pasteEndCol };
-  selectionStore.isCellSelected = false;
   selectionStore.pasteRange = { start: { row: pasteStartId, col: pasteStartCol }, end: { row: pasteEndId, col: pasteEndCol } };
 }

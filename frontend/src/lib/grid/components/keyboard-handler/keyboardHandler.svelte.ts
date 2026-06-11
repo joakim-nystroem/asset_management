@@ -1,4 +1,5 @@
-import { editingStore, pendingStore, selectionStore, clipboardStore } from '$lib/data/cellStore.svelte';
+import { editingStore, pendingStore } from '$lib/data/cellStore.svelte';
+import { scrollStore } from '$lib/data/scrollStore.svelte';
 import { uiStore, columnWidthStore } from '$lib/data/uiStore.svelte';
 import { setOpenPanel } from '$lib/utils/gridHelpers';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
@@ -14,40 +15,6 @@ export function colBounds(col: string): { left: number; right: number } {
   let left = 0;
   for (let c = 0; c < colIdx; c++) left += columnWidthStore.widths.get(keys[c]) ?? DEFAULT_WIDTH;
   return { left, right: left + (columnWidthStore.widths.get(col) ?? DEFAULT_WIDTH) };
-}
-
-export function selectCell(row: number, col: string) {
-  selectionStore.pasteRange = null;
-  selectionStore.selectionStart = { row, col };
-  selectionStore.selectionEnd = { row, col };
-  selectionStore.isDragging = false;
-  selectionStore.isCellSelected = true;
-}
-
-/** Hide the selection overlay but keep the anchor so arrow keys can resume from it. */
-export function hideSelection() {
-  selectionStore.pasteRange = null;
-  selectionStore.isDragging = false;
-  selectionStore.isCellSelected = false;
-}
-
-/** Re-show the selection overlay at the preserved anchor (no-op without an anchor). */
-export function revealSelection() {
-  if (!selectionStore.hasAnchor) return;
-  selectionStore.isCellSelected = true;
-}
-
-export function resetSelection() {
-  selectionStore.pasteRange = null;
-  selectionStore.selectionStart = { row: -1, col: '' };
-  selectionStore.selectionEnd = { row: -1, col: '' };
-  selectionStore.isDragging = false;
-  selectionStore.isCellSelected = false;
-}
-
-export function clearClipboard() {
-  clipboardStore.copyStart = { row: -1, col: '' };
-  clipboardStore.copyEnd = { row: -1, col: '' };
 }
 
 export function assertCellMutable(row: number, col: string): boolean {
@@ -89,42 +56,55 @@ export function startCellEdit(row: number, col: string) {
 export function getEdgeTarget(
   key: string,
   current: { row: number; col: string },
-): { row: number; col: string } {
+): ArrowTarget {
   const assets = assetStore.displayedAssets;
   // Column keys from first asset
   const keys = Object.keys(assets[0] ?? {});
+  const currentRowIdx = () => assets.findIndex((asset: Record<string, any>) => asset.id === current.row);
   switch (key) {
-    case 'ArrowUp':    return { row: assets[0]?.id ?? current.row, col: current.col };
-    case 'ArrowDown':  return { row: assets[assets.length - 1]?.id ?? current.row, col: current.col };
-    case 'ArrowLeft':  return { row: current.row, col: keys[0] ?? current.col };
-    case 'ArrowRight': return { row: current.row, col: keys[keys.length - 1] ?? current.col };
-    default:           return { row: current.row, col: current.col };
+    case 'ArrowUp':    return { row: assets[0]?.id ?? current.row, col: current.col, rowIdx: assets.length > 0 ? 0 : -1 };
+    case 'ArrowDown':  return { row: assets[assets.length - 1]?.id ?? current.row, col: current.col, rowIdx: assets.length - 1 };
+    case 'ArrowLeft':  return { row: current.row, col: keys[0] ?? current.col, rowIdx: currentRowIdx() };
+    case 'ArrowRight': return { row: current.row, col: keys[keys.length - 1] ?? current.col, rowIdx: currentRowIdx() };
+    default:           return { row: current.row, col: current.col, rowIdx: currentRowIdx() };
   }
 }
 
-/** Extend the selection rectangle to `target`, keeping the anchor (selectionStart). */
-export function extendSelectionTo(target: { row: number; col: string }) {
-  selectionStore.pasteRange = null;
-  selectionStore.selectionEnd = { row: target.row, col: target.col };
+/** A navigation target: cell coordinates plus its position in displayedAssets. */
+export type ArrowTarget = { row: number; col: string; rowIdx: number };
+
+/** Signal the virtual grid to bring the target cell into view.
+ * Uses the precomputed rowIdx when given, otherwise scans by id. */
+export function scrollToCell(target: { row: number; col: string; rowIdx?: number }) {
+  const rowIdx = target.rowIdx ?? assetStore.displayedAssets.findIndex((asset: Record<string, any>) => asset.id === target.row);
+  if (rowIdx !== -1) scrollStore.scrollToRow = rowIdx;
+  scrollStore.scrollToCol = colBounds(target.col);
+}
+
+/** Map Enter/Tab (+Shift) to the equivalent arrow direction; null for other keys. */
+export function navKeyToArrow(key: string, shiftKey: boolean): string | null {
+  if (key === 'Enter') return shiftKey ? 'ArrowUp' : 'ArrowDown';
+  if (key === 'Tab') return shiftKey ? 'ArrowLeft' : 'ArrowRight';
+  return null;
 }
 
 export function getArrowTarget(
   key: string,
   current: { row: number; col: string },
-): { row: number; col: string } | null {
+): ArrowTarget | null {
   const assets = assetStore.displayedAssets;
   // Column keys from first asset
   const keys = Object.keys(assets[0] ?? {});
   // Find asset position by ID
-  const idx = assets.findIndex((a: Record<string, any>) => a.id === current.row);
+  const idx = assets.findIndex((asset: Record<string, any>) => asset.id === current.row);
   if (idx === -1) return null;
   const colIdx = keys.indexOf(current.col);
   if (colIdx === -1) return null;
   switch (key) {
-    case 'ArrowUp':    return idx > 0 ? { row: assets[idx - 1].id, col: current.col } : null;
-    case 'ArrowDown':  return idx < assets.length - 1 ? { row: assets[idx + 1].id, col: current.col } : null;
-    case 'ArrowLeft':  return colIdx > 0 ? { row: current.row, col: keys[colIdx - 1] } : null;
-    case 'ArrowRight': return colIdx < keys.length - 1 ? { row: current.row, col: keys[colIdx + 1] } : null;
+    case 'ArrowUp':    return idx > 0 ? { row: assets[idx - 1].id, col: current.col, rowIdx: idx - 1 } : null;
+    case 'ArrowDown':  return idx < assets.length - 1 ? { row: assets[idx + 1].id, col: current.col, rowIdx: idx + 1 } : null;
+    case 'ArrowLeft':  return colIdx > 0 ? { row: current.row, col: keys[colIdx - 1], rowIdx: idx } : null;
+    case 'ArrowRight': return colIdx < keys.length - 1 ? { row: current.row, col: keys[colIdx + 1], rowIdx: idx } : null;
     default:           return null;
   }
 }
