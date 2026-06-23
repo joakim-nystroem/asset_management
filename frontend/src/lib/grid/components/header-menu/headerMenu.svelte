@@ -40,7 +40,9 @@
       sortStore.direction = direction;
       const d = direction === 'asc' ? 1 : -1;
       assetStore.displayedAssets = [...assetStore.displayedAssets].sort(
-        (a, b) => String(a[key]).localeCompare(String(b[key])) * d
+        key === 'id'
+          ? (a, b) => (Number(a.id) - Number(b.id)) * d
+          : (a, b) => String(a[key]).localeCompare(String(b[key])) * d
       );
     }
     setOpenPanel();

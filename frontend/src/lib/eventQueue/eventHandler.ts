@@ -7,6 +7,7 @@ import { queryStore } from '$lib/data/queryStore.svelte';
 import { realtime } from '$lib/utils/realtimeManager.svelte';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
 import { urlStore } from '$lib/data/urlStore.svelte';
+import { sortStore } from '$lib/data/uiStore.svelte';
 import { scrollStore } from '$lib/data/scrollStore.svelte';
 import { resetSelection } from '$lib/utils/selection';
 
@@ -384,6 +385,9 @@ async function handleQuery(
 
   // Clear selection — the previously selected asset may not be in the new result set
   resetSelection();
+
+  // Query results come back unsorted; drop the stale sort indicator
+  sortStore.key = null;
 
   if (!hasActiveQuery) {
     assetStore.displayedAssets = assetStore.baseAssets;
