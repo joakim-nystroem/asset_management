@@ -167,7 +167,7 @@
         <div class="flex gap-3 mt-2">
             <button
                 onclick={backToDetail}
-                class="flex-1 py-3 px-4 border border-border-strong rounded-lg font-medium text-text-secondary hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
+                class="flex-1 py-3 px-4 bg-bg-input border border-border-strong rounded-lg font-medium text-text-secondary hover:bg-neutral-50 dark:hover:bg-neutral-700 active:bg-neutral-100"
             >
                 Cancel
             </button>
