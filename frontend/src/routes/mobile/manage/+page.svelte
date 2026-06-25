@@ -142,14 +142,14 @@
 
 <!-- LIST VIEW -->
 <div class="flex flex-col gap-3 p-4 h-full">
-    <div class="flex items-center gap-2 mb-1">
-        <a href="{base}/mobile" class="flex items-center text-blue-600 dark:text-blue-400 font-medium text-sm">
+    <div class="relative flex items-center h-8 mb-1">
+        <a href="{base}/mobile" class="absolute left-0 flex items-center text-blue-600 dark:text-blue-400 font-medium text-sm">
             <svg class="w-5 h-5 mr-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
             </svg>
             Back
         </a>
-        <h1 class="text-xl font-bold flex-1 text-center pr-10">Manage Assets</h1>
+        <h1 class="w-full text-xl font-bold text-center">Manage Assets</h1>
     </div>
 
     <div class="flex flex-col gap-2">
