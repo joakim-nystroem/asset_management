@@ -25,7 +25,6 @@ const extensionTableMap: Record<string, { table: string; idColumn: string }> = {
 const galaxyExtensionMap: Record<string, { table: string; idColumn: string }> = {
     node_type: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
     node_number: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
-    environment: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
     hostname: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
     node_link: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
     license_number: { table: 'asset_galaxy_details', idColumn: 'asset_id' },
@@ -38,6 +37,22 @@ export async function updateAsset(id: number, key: string, value: any, username:
     // so the DB sets it automatically on every UPDATE. No explicit value needed.
 
     switch (key) {
+        case 'environment': {
+            const envToStatus: Record<string, string> = {
+                'PROD': 'In use - Prod',
+                'STAGE': 'In use - Stage/UAT',
+                'DEV': 'In use - Dev',
+            };
+            const statusName = envToStatus[value as string];
+            if (!statusName) return;
+            return await qb.updateTable('asset_inventory')
+                .set({
+                    status_id: qb.selectFrom('asset_status').select('id').where('status_name', '=', statusName),
+                    modified_by: username,
+                })
+                .where('id', '=', id)
+                .execute();
+        }
         case 'status':
             return await qb.updateTable('asset_inventory')
                 .set({

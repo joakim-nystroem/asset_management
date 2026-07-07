@@ -39,11 +39,11 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
       break;
     case 'galaxy':
       query = query
-        .innerJoin('asset_galaxy_details as agd', 'agd.asset_id', 'ai.id')
+        .leftJoin('asset_galaxy_details as agd', 'agd.asset_id', 'ai.id')
         .select([
           'ai.id',
           'ad.department_name as department',
-          'agd.environment',
+          sql<string>`CASE ast.status_name WHEN 'In use - Prod' THEN 'PROD' WHEN 'In use - Stage/UAT' THEN 'STAGE' WHEN 'In use - Dev' THEN 'DEV' ELSE '' END`.as('environment'),
           'ai.node',
           'agd.node_number',
           'agd.node_type',
@@ -53,7 +53,14 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
           'agd.galaxy_module',
           ...HISTORY_COLUMNS,
         ])
-        .where('ast.status_name', '!=', 'Retired');
+        .where('ast.status_name', 'in', ['In use - Prod', 'In use - Dev', 'In use - Stage/UAT'])
+        .where((eb: any) => eb.or([
+          eb.and([
+            eb('ai.asset_set_type', '=', 'Admission POS Set'),
+            eb('ai.asset_type', 'in', ['Laptop', 'POS']),
+          ]),
+          eb('ai.asset_type', '=', 'Virtual Machine'),
+        ]));
       break;
     default:
       query = query

@@ -56,6 +56,8 @@ export const BLANK_FILTER_VALUE = '__BLANK__';
 // Derived from DB schema: DESCRIBE asset_inventory
 
 export const columnConstraints: Record<string, ColumnConstraint> = {
+  // Galaxy derived column — editing environment updates status
+  environment:        { type: 'dropdown', options: () => ['PROD', 'STAGE', 'DEV'], required: false },
   // FK columns (resolved by name → id) — all NOT NULL
   location:           { type: 'dropdown', options: () => assetStore.locations.map((l: any) => l.location_name), required: true },
   status:             { type: 'dropdown', options: () => assetStore.statuses.map((s: any) => s.status_name), required: true },
@@ -151,11 +153,13 @@ export function validateCell(
 export function validateNewRow(
   row: Record<string, any>,
   pendingEdits: PendingEditValidation[],
+  skipFields: Set<string> = new Set(),
 ): { isValid: boolean; errors: string[] } {
   const rowErrors: string[] = [];
   const assetId = row.id as number;
 
   for (const [colKey, constraint] of Object.entries(columnConstraints)) {
+    if (skipFields.has(colKey)) continue;
     // Skip nullable text columns — they don't block commit
     if (constraint.type === 'text' && !constraint.required) continue;
     const value = String(row[colKey] ?? '');

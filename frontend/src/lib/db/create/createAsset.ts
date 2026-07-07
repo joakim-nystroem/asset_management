@@ -1,16 +1,31 @@
 import { db, type Database } from '$lib/db/conn';
+import { sql } from 'kysely';
 import type { Transaction } from 'kysely';
 
 export async function createAsset(row: any, username: string, trx?: Transaction<Database>): Promise<number> {
     const qb = trx ?? db;
+
+    // Auto-generate serial/wbd_tag for VMs if not provided
+    let serial = row.serial_number || '';
+    let wbdTag = row.wbd_tag || '';
+    if (row.asset_type === 'Virtual Machine' && !serial) {
+        const maxRow = await qb
+            .selectFrom('asset_inventory')
+            .select(sql<string>`MAX(CAST(SUBSTRING(serial_number, 3) AS UNSIGNED))`.as('max_serial'))
+            .where('serial_number', 'like', 'V_%')
+            .executeTakeFirst();
+        const next = (Number(maxRow?.max_serial) || 0) + 1;
+        serial = `V_${next}`;
+        wbdTag = `V_${next}`;
+    }
 
     // Build the insert values object
     const values: any = {
         asset_type: row.asset_type || '',
         manufacturer: row.manufacturer || '',
         model: row.model || '',
-        serial_number: row.serial_number || '',
-        wbd_tag: row.wbd_tag || '',
+        serial_number: serial,
+        wbd_tag: wbdTag,
         asset_set_type: row.asset_set_type || 'Unassigned',
         bu_estate: row.bu_estate || '',
         node: row.node || 'Unassigned',
@@ -32,25 +47,17 @@ export async function createAsset(row: any, username: string, trx?: Transaction<
         throw new Error('Location is required');
     }
 
-    // Resolve FK for status (default to status_id 2 if not provided)
-    if (row.status) {
-        values.status_id = qb
-            .selectFrom('asset_status')
-            .select('id')
-            .where('status_name', '=', row.status);
-    } else {
-        values.status_id = 2;
-    }
+    // Resolve FK for status
+    values.status_id = qb
+        .selectFrom('asset_status')
+        .select('id')
+        .where('status_name', '=', row.status || 'Stored');
 
-    // Resolve FK for condition (default to condition_id 2 if not provided)
-    if (row.condition) {
-        values.condition_id = qb
-            .selectFrom('asset_condition')
-            .select('id')
-            .where('condition_name', '=', row.condition);
-    } else {
-        values.condition_id = 2;
-    }
+    // Resolve FK for condition
+    values.condition_id = qb
+        .selectFrom('asset_condition')
+        .select('id')
+        .where('condition_name', '=', row.condition || 'Good');
 
     // Resolve FK for department
     if (row.department) {

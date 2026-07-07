@@ -130,10 +130,22 @@
     for (const key of keys) {
       if (key !== 'id') newRow[key] = '';
     }
+    if (queryStore.view === 'galaxy') {
+      newRow.asset_type = 'Virtual Machine';
+      newRow.asset_set_type = 'Virtual Machine';
+      newRow.manufacturer = 'Virtual Machine';
+      newRow.model = 'Virtual Machine';
+      newRow.bu_estate = 'TOUR TOKYO';
+      newRow.location = 'Virtual';
+      newRow.status = 'In use - Dev';
+      newRow.condition = 'Good';
+    }
     newRowStore.newRows = [...newRowStore.newRows, newRow];
     assetStore.displayedAssets = [...assetStore.displayedAssets, newRow];
     scrollStore.scrollToRow = assetStore.displayedAssets.length - 1;
   }
+
+  const VM_SKIP_FIELDS = new Set(['wbd_tag', 'serial_number', 'status', 'condition']);
 
   function handleDiscard() {
     enqueue(
@@ -237,13 +249,13 @@
             <FilterPanel />
           {/if}
         </div>
-        {#if user}
+        {#if user && queryStore.view !== 'ped'}
           <button
             onclick={addNewRow}
             class="flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-bg-card border border-border-strong hover:bg-bg-hover-button text-sm cursor-pointer"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6"></path></svg>
-            <span>New Row</span>
+            <span>{queryStore.view === 'galaxy' ? 'New VM' : 'New Row'}</span>
           </button>
         {/if}
         {#if newRowStore.newRows.length > 0 && user}
@@ -259,8 +271,9 @@
                   return merged;
                 });
                 // Validate each merged row before committing
+                const skipFields = queryStore.view === 'galaxy' ? VM_SKIP_FIELDS : new Set<string>();
                 for (const row of newRows) {
-                  const result = validateNewRow(row, pendingStore.edits);
+                  const result = validateNewRow(row, pendingStore.edits, skipFields);
                   if (!result.isValid) {
                     toastState.addToast(`Fix invalid cells before committing: ${result.errors[0]}`, 'warning');
                     return;
