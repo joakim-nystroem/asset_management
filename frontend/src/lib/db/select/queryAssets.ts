@@ -54,8 +54,10 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
           'agd.galaxy_module',
           ...HISTORY_COLUMNS,
         ])
-        // A galaxy item is defined solely by being tagged with the Galaxy application.
-        .where('app.application_name', '=', 'Galaxy');
+        // Galaxy application tag is the source of truth; type check excludes
+        // peripherals (keyboards, monitors, etc.) tagged Galaxy by mistake.
+        .where('app.application_name', '=', 'Galaxy')
+        .where('ai.asset_type', 'in', ['Laptop', 'POS', 'Virtual Machine']);
       break;
     default:
       query = query
