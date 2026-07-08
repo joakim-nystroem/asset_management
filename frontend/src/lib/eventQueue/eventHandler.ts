@@ -7,9 +7,10 @@ import { queryStore } from '$lib/data/queryStore.svelte';
 import { realtime } from '$lib/utils/realtimeManager.svelte';
 import { presenceStore } from '$lib/data/presenceStore.svelte';
 import { urlStore } from '$lib/data/urlStore.svelte';
-import { sortStore } from '$lib/data/uiStore.svelte';
+import { sortStore, columnWidthStore } from '$lib/data/uiStore.svelte';
 import { scrollStore } from '$lib/data/scrollStore.svelte';
 import { resetSelection } from '$lib/utils/selection';
+import { WIDE_DEFAULT_WIDTH } from '$lib/grid/gridConfig';
 
 import { pendingStore } from '$lib/data/cellStore.svelte';
 import { newRowStore } from '$lib/data/newRowStore.svelte';
@@ -433,6 +434,17 @@ async function handleViewChange(
   queryStore.q = '';
   queryStore.filters = [];
   scrollStore.scrollTop = 0;
+
+  // Column widths reset alongside the view/data swap — not before it, or the
+  // grid reflows on the old view while the fetch is still in flight.
+  columnWidthStore.widths.clear();
+  if (view === 'galaxy') {
+    const keys = Object.keys(res.data.assets[0] ?? {});
+    for (const key of keys) {
+      columnWidthStore.widths.set(key, WIDE_DEFAULT_WIDTH);
+    }
+  }
+
   urlStore.url = `?${buildQueryParams(view)}`;
 }
 

@@ -3,7 +3,7 @@
   import FilterPanel from "$lib/grid/components/filter-panel/filterPanel.svelte";
   import { assetStore } from '$lib/data/assetStore.svelte';
   import { queryStore } from '$lib/data/queryStore.svelte';
-  import { uiStore, columnWidthStore } from '$lib/data/uiStore.svelte';
+  import { uiStore } from '$lib/data/uiStore.svelte';
   import { setOpenPanel } from '$lib/utils/gridHelpers';
   import { pendingStore } from '$lib/data/cellStore.svelte';
   import { newRowStore } from '$lib/data/newRowStore.svelte';
@@ -14,7 +14,6 @@
   import { toastState } from '$lib/toast/toastState.svelte';
   import { validateNewRow } from '$lib/grid/validation';
   import { resetEditState, resetAfterCommit } from '$lib/utils/gridHelpers';
-  import { WIDE_DEFAULT_WIDTH } from '$lib/grid/gridConfig';
   import { gridPrefsStore, ROW_HEIGHT_PRESETS, type RowHeight } from '$lib/data/gridPrefsStore.svelte';
 
   const ROW_HEIGHT_LABELS: Record<RowHeight, string> = { 24: 'Compact', 32: 'Default', 40: 'Spacious' };
@@ -108,13 +107,6 @@
     searchInput = '';
     queryStore.q = '';
     queryStore.filters = [];
-    columnWidthStore.widths.clear();
-    if (viewName === 'galaxy') {
-      const keys = Object.keys(assetStore.displayedAssets[0] ?? {});
-      for (const key of keys) {
-        columnWidthStore.widths.set(key, WIDE_DEFAULT_WIDTH);
-      }
-    }
     enqueue(
       { type: 'VIEW_CHANGE', payload: { view: viewName } },
     );
