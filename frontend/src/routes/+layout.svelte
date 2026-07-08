@@ -34,6 +34,8 @@
   // svelte-ignore state_referenced_locally
   assetStore.departments = data.departments ?? [];
   // svelte-ignore state_referenced_locally
+  assetStore.applications = data.applications ?? [];
+  // svelte-ignore state_referenced_locally
   let darkMode = $state(data.theme === 'dark');
   let showUserMenu = $state(false);
   let sessionColor: string = $derived(data.session_color || '#6b7280');

@@ -5,6 +5,7 @@ import { findUserByUsername } from '$lib/db/auth/findUserByUsername';
 import bcrypt from 'bcrypt';
 import { logger } from '$lib/logger';
 import { validatePassword } from '$lib/utils/validatePassword';
+import { ROLE, isValidRole, canAssignRole } from '$lib/utils/roles';
 
 export const load = (async () => {
     return {};
@@ -19,9 +20,16 @@ export const actions = {
         const lastname = formData.get('lastname')?.toString();
         const password = formData.get('password')?.toString();
         const confirmPassword = formData.get('confirmPassword')?.toString();
-        const role = formData.get('role')?.toString();
-        // Only existing super-admins can mint super-admins.
-        const is_super_admin = role === 'super_admin' && !!locals.user.is_super_admin;
+        // Role is optional in the form (only shown to admins+); default to User.
+        const roleRaw = formData.get('role')?.toString();
+        let role: number = ROLE.USER;
+        if (roleRaw != null && roleRaw !== '') {
+            const requested = Number(roleRaw);
+            if (!isValidRole(requested) || !canAssignRole(locals.user.role, requested)) {
+                return fail(400, { username, firstname, lastname, message: 'Invalid role selection' });
+            }
+            role = requested;
+        }
 
         // Validation
         if (!username || !password || !firstname || !lastname) {
@@ -71,7 +79,7 @@ export const actions = {
             }
 
             const password_hash = await bcrypt.hash(password, 10);
-            await createUser({ username, firstname, lastname, password_hash, is_super_admin });
+            await createUser({ username, firstname, lastname, password_hash, role });
             return { success: true, message: 'User registered successfully!' }; 
         } catch (error) {
             logger.error({ err: error, username, endpoint: '/admin/register' }, 'User registration failed');

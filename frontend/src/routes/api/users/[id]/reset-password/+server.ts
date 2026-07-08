@@ -4,10 +4,11 @@ import bcrypt from 'bcrypt';
 import { setUserPassword } from '$lib/db/update/setUserPassword';
 import { validatePassword } from '$lib/utils/validatePassword';
 import { logger } from '$lib/logger';
+import { canAdmin } from '$lib/utils/roles';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
     if (!locals.user) return json({ error: 'Unauthorized' }, { status: 401 });
-    if (!locals.user.is_super_admin) return json({ error: 'Forbidden' }, { status: 403 });
+    if (!canAdmin(locals.user.role)) return json({ error: 'Forbidden' }, { status: 403 });
 
     const id = Number(params.id);
     if (!Number.isInteger(id) || id <= 0) return json({ error: 'Invalid user id' }, { status: 400 });

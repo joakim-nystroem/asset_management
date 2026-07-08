@@ -10,4 +10,5 @@ export const assetStore = $state({
   statuses: [] as any[],
   conditions: [] as any[],
   departments: [] as any[],
+  applications: [] as any[],
 });

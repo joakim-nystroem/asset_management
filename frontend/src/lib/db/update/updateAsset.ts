@@ -85,6 +85,16 @@ export async function updateAsset(id: number, key: string, value: any, username:
                 })
                 .where('id', '=', id)
                 .execute();
+        case 'application':
+            return await qb.updateTable('asset_inventory')
+                .set({
+                    application_id: value
+                        ? qb.selectFrom('asset_applications').select('id').where('application_name', '=', value as string)
+                        : null,
+                    modified_by: username,
+                })
+                .where('id', '=', id)
+                .execute();
     }
 
     if (assetInventoryCols.includes(key)) {

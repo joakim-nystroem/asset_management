@@ -69,6 +69,14 @@ export async function createAsset(row: any, username: string, trx?: Transaction<
         throw new Error('Department is required');
     }
 
+    // Resolve FK for application (nullable)
+    if (row.application) {
+        values.application_id = qb
+            .selectFrom('asset_applications')
+            .select('id')
+            .where('application_name', '=', row.application);
+    }
+
     // Insert the row
     const result = await qb
         .insertInto('asset_inventory')

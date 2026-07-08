@@ -8,6 +8,7 @@ import { logger } from '$lib/logger';
 const ALLOWED_COLUMNS = [
     'bu_estate',
     'department',
+    'application',
     'shelf_cabinet_table',
     'node',
     'asset_type',

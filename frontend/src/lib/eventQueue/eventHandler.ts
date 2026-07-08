@@ -935,8 +935,8 @@ function handleWsRowLockRejected(payload: Record<string, any>): void {
 // ─── Admin: user management ──────────────────────────────────────────────────
 
 async function handleUserUpdate(payload: Record<string, any>): Promise<void> {
-  const { id, username, firstname, lastname, is_super_admin } = payload;
-  const res = await apiPut(`/api/users/${id}`, { username, firstname, lastname, is_super_admin });
+  const { id, username, firstname, lastname, role } = payload;
+  const res = await apiPut(`/api/users/${id}`, { username, firstname, lastname, role });
   if (!res.success) {
     toastState.addToast(res.data?.error || 'Failed to update user.', 'error');
     return;
@@ -946,7 +946,7 @@ async function handleUserUpdate(payload: Record<string, any>): Promise<void> {
     u.username = username;
     u.firstname = firstname;
     u.lastname = lastname;
-    u.is_super_admin = is_super_admin;
+    u.role = role;
   }
   toastState.addToast('User updated.', 'success');
 }

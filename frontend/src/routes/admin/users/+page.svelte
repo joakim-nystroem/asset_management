@@ -4,6 +4,7 @@
   import { enqueue } from '$lib/eventQueue/eventQueue';
   import { usersAdminStore } from '$lib/data/usersAdminStore.svelte';
   import { validatePassword } from '$lib/utils/validatePassword';
+  import { ROLE, ROLE_LABELS, canAssignRole } from '$lib/utils/roles';
 
   let { data }: PageProps = $props();
 
@@ -12,12 +13,16 @@
   });
 
   let currentUserId = $derived(page.data.user?.id ?? null);
+  let myRole = $derived(page.data.user?.role ?? ROLE.USER);
+
+  const allRoles = [ROLE.AUDIT_ADMIN, ROLE.ADMIN, ROLE.USER];
+  let assignableRoles = $derived(allRoles.filter((r) => canAssignRole(myRole, r)));
 
   let editingId = $state<number | null>(null);
   let editUsername = $state('');
   let editFirstname = $state('');
   let editLastname = $state('');
-  let editIsSuper = $state(false);
+  let editRole = $state<number>(ROLE.USER);
 
   let deletingUser = $state<typeof usersAdminStore.users[number] | null>(null);
 
@@ -31,7 +36,7 @@
     editUsername = u.username;
     editFirstname = u.firstname;
     editLastname = u.lastname;
-    editIsSuper = !!u.is_super_admin;
+    editRole = u.role;
     deletingUser = null;
   }
 
@@ -51,7 +56,7 @@
       && orig.username === username
       && orig.firstname === firstname
       && orig.lastname === lastname
-      && !!orig.is_super_admin === editIsSuper;
+      && orig.role === editRole;
     if (unchanged) {
       editingId = null;
       return;
@@ -59,7 +64,7 @@
 
     enqueue({
       type: 'USER_UPDATE',
-      payload: { id: editingId, username, firstname, lastname, is_super_admin: editIsSuper },
+      payload: { id: editingId, username, firstname, lastname, role: editRole },
     });
     editingId = null;
   }
@@ -181,20 +186,23 @@
 
           <!-- Role -->
           <div class="relative">
-            {#if u.is_super_admin}
-              <span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400">Super Admin</span>
+            {#if u.role === ROLE.AUDIT_ADMIN}
+              <span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400">{ROLE_LABELS[ROLE.AUDIT_ADMIN]}</span>
+            {:else if u.role === ROLE.ADMIN}
+              <span class="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400">{ROLE_LABELS[ROLE.ADMIN]}</span>
             {:else}
-              <span class="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-bg-header text-text-muted">Admin</span>
+              <span class="inline-block px-2 py-0.5 rounded text-[11px] font-medium bg-bg-header text-text-muted">{ROLE_LABELS[ROLE.USER]}</span>
             {/if}
-            {#if isEditing && !isSelf}
+            {#if isEditing && !isSelf && canAssignRole(myRole, u.role)}
               <select
-                bind:value={editIsSuper}
+                bind:value={editRole}
                 onkeydown={handleKeydown}
                 class="{inputClass} cursor-pointer"
                 style={inputShadow}
               >
-                <option value={false}>Admin</option>
-                <option value={true}>Super Admin</option>
+                {#each assignableRoles as r}
+                  <option value={r}>{ROLE_LABELS[r]}</option>
+                {/each}
               </select>
             {/if}
           </div>

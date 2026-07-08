@@ -1,10 +1,11 @@
 <script lang="ts">
   import { page } from '$app/state';
   import UsersIcon from '$lib/icons/UsersIcon.svelte';
+  import { canAdmin } from '$lib/utils/roles';
 
   let { children } = $props();
 
-  let isSuperAdmin = $derived(!!page.data.user?.is_super_admin);
+  let isAdmin = $derived(canAdmin(page.data.user?.role));
 
   const metadataItems = [
     { href: '/admin/locations', label: 'Locations', icon: 'map-pin' },
@@ -68,7 +69,7 @@
         </svg>
         Register User
       </a>
-      {#if isSuperAdmin}
+      {#if isAdmin}
         <a
           href="/admin/users"
           class="flex items-center gap-2.5 px-3 py-2 text-sm {activePath.startsWith('/admin/users')
@@ -81,7 +82,7 @@
       {/if}
     </nav>
 
-    {#if isSuperAdmin}
+    {#if isAdmin}
       <!-- Divider -->
       <div class="border-t border-border-strong my-2 mx-4"></div>
 

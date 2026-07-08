@@ -14,6 +14,7 @@ export interface AssetTable {
     asset_set_type: string;
     bu_estate: string;
     department_id: number;
+    application_id: number | null;
     location_id: number;
     node: string;
     shelf_cabinet_table: string | null;
@@ -48,6 +49,11 @@ export interface DepartmentTable {
     department_name: string;
 }
 
+export interface ApplicationTable {
+    id: ColumnType<number, never, never>;
+    application_name: string;
+}
+
 // New interfaces for User and Session tables
 export interface UserTable {
     id: ColumnType<number, never, never>;
@@ -57,7 +63,10 @@ export interface UserTable {
     password_hash: string;
     created_at: ColumnType<Date, string | undefined, never>;
     last_login_at: ColumnType<Date | null, string | null, string | null>;
+    // Transitional: kept until Phase 3 drop. Code reads/writes `role`.
     is_super_admin: ColumnType<boolean, boolean | undefined, boolean>;
+    // Role level: 1 = Audit Admin, 2 = Admin, 3 = User. DB default 3.
+    role: ColumnType<number, number | undefined, number>;
     // Stored as JSON (MariaDB represents JSON as LONGTEXT). Reads return a raw
     // string from mysql2 — parse with JSON.parse in callers. Writes accept
     // either a pre-serialized string or a JSON_MERGE_PATCH sql fragment.
@@ -181,6 +190,7 @@ export interface Database {
     asset_status: StatusTable;
     asset_condition: ConditionTable;
     asset_departments: DepartmentTable;
+    asset_applications: ApplicationTable;
     asset_galaxy_details: GalaxyDetailsTable;
     users: UserTable;
     sessions: SessionTable;

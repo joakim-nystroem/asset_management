@@ -3,12 +3,13 @@ import type { RequestHandler } from './$types';
 import { db } from '$lib/db/conn';
 import { sql } from 'kysely';
 import { logger } from '$lib/logger';
+import { canManageAudit } from '$lib/utils/roles';
 
 export const POST: RequestHandler = async ({ locals }) => {
     if (!locals.user) {
         return json({ error: 'Unauthorized' }, { status: 401 });
     }
-    if (!locals.user.is_super_admin) {
+    if (!canManageAudit(locals.user.role)) {
         return json({ error: 'Forbidden' }, { status: 403 });
     }
 

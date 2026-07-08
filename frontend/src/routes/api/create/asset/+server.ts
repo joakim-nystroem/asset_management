@@ -27,7 +27,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
         await db.transaction().execute(async (trx) => {
             const fieldsToLog = [
                 'asset_type', 'manufacturer', 'model', 'serial_number', 'wbd_tag',
-                'asset_set_type', 'bu_estate', 'department', 'location', 'node',
+                'asset_set_type', 'bu_estate', 'department', 'application', 'location', 'node',
                 'shelf_cabinet_table', 'status', 'condition', 'comment',
                 'under_warranty_until', 'warranty_details'
             ];

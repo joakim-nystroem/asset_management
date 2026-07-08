@@ -63,6 +63,7 @@ export const columnConstraints: Record<string, ColumnConstraint> = {
   status:             { type: 'dropdown', options: () => assetStore.statuses.map((s: any) => s.status_name), required: true },
   condition:          { type: 'dropdown', options: () => assetStore.conditions.map((c: any) => c.condition_name), required: true },
   department:         { type: 'dropdown', options: () => assetStore.departments.map((d: any) => d.department_name), required: true },
+  application:        { type: 'dropdown', options: () => assetStore.applications.map((a: any) => a.application_name), required: false },
   // Unique columns — NOT NULL
   wbd_tag:            { type: 'unique', maxChars: 10 },
   serial_number:      { type: 'unique', maxChars: 30 },

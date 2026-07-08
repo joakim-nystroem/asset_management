@@ -2,8 +2,12 @@
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { toastState } from '$lib/toast/toastState.svelte';
+  import { ROLE, ROLE_LABELS, canAdmin, canAssignRole } from '$lib/utils/roles';
 
-  let isSuperAdmin = $derived(!!page.data.user?.is_super_admin);
+  let myRole = $derived(page.data.user?.role ?? ROLE.USER);
+  let canAssignRoles = $derived(canAdmin(myRole));
+  const allRoles = [ROLE.AUDIT_ADMIN, ROLE.ADMIN, ROLE.USER];
+  let assignableRoles = $derived(allRoles.filter((r) => canAssignRole(myRole, r)));
 </script>
 
 <div class="h-full flex flex-col items-center pt-12">
@@ -97,7 +101,7 @@
         />
       </div>
 
-      {#if isSuperAdmin}
+      {#if canAssignRoles}
         <div>
           <label for="role" class="block text-sm font-medium text-text-secondary mb-1">
             Role
@@ -107,8 +111,9 @@
             name="role"
             class="block w-full px-3 py-1.5 rounded-sm border border-border-strong bg-bg-input text-text-primary text-sm focus:outline-none focus:shadow-[0_0_0_1px_#3b82f6]"
           >
-            <option value="admin">Admin</option>
-            <option value="super_admin">Super Admin</option>
+            {#each assignableRoles as r}
+              <option value={r} selected={r === ROLE.USER}>{ROLE_LABELS[r]}</option>
+            {/each}
           </select>
         </div>
       {/if}

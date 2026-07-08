@@ -5,12 +5,13 @@ import {
     isValidSortKey,
     type ChangeLogFilters,
 } from '$lib/db/select/queryChangeLog';
+import { canAdmin } from '$lib/utils/roles';
 
 const PAGE_SIZE = 50;
 
 export const load: PageServerLoad = async ({ locals, url }) => {
     if (!locals.user) error(401, 'Unauthorized');
-    if (!locals.user.is_super_admin) error(403, 'Forbidden');
+    if (!canAdmin(locals.user.role)) error(403, 'Forbidden');
 
     const params = url.searchParams;
 

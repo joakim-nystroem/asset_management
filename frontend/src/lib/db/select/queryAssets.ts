@@ -2,7 +2,7 @@ import { db } from '$lib/db/conn';
 import { sql } from 'kysely';
 import {
     CORE_COLUMNS, WARRANTY_COLUMNS, HISTORY_COLUMNS,
-    PED_COLUMNS, NETWORK_COLUMNS, GALAXY_COLUMNS
+    PED_COLUMNS, NETWORK_COLUMNS
 } from './columnDefinitions';
 import { DATE_COLUMNS } from '$lib/grid/validation';
 import { parseDateFilter, nextDayIso } from '$lib/grid/dateFilter';
@@ -13,7 +13,8 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
     .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
     .leftJoin('asset_condition as ac', 'ai.condition_id', 'ac.id')
     .leftJoin('asset_locations as al', 'ai.location_id', 'al.id')
-    .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id') as any;
+    .leftJoin('asset_departments as ad', 'ai.department_id', 'ad.id')
+    .leftJoin('asset_applications as app', 'ai.application_id', 'app.id') as any;
 
   // Add view-specific joins and select columns
   switch (view) {
@@ -53,14 +54,8 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
           'agd.galaxy_module',
           ...HISTORY_COLUMNS,
         ])
-        .where('ast.status_name', 'in', ['In use - Prod', 'In use - Dev', 'In use - Stage/UAT'])
-        .where((eb: any) => eb.or([
-          eb.and([
-            eb('ai.asset_set_type', '=', 'Admission POS Set'),
-            eb('ai.asset_type', 'in', ['Laptop', 'POS']),
-          ]),
-          eb('ai.asset_type', '=', 'Virtual Machine'),
-        ]));
+        // A galaxy item is defined solely by being tagged with the Galaxy application.
+        .where('app.application_name', '=', 'Galaxy');
       break;
     default:
       query = query
@@ -95,6 +90,7 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
     'status': 'ast.status_name',
     'condition': 'ac.condition_name',
     'department': 'ad.department_name',
+    'application': 'app.application_name',
   };
 
   const directColumns = new Set([

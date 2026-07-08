@@ -12,7 +12,7 @@ export interface User {
     password_hash: string;
     created_at: Date;
     last_login_at: Date | null;
-    is_super_admin: boolean;
+    role: number;
     // Optional on the base type because some queries only select a subset of
     // columns (login flow, admin user listing). hooks.server.ts always
     // populates it on locals.user, so consumers reading via page.data.user

@@ -6,6 +6,7 @@
 	import { enqueue } from '$lib/eventQueue/eventQueue';
 	import { toastState } from '$lib/toast/toastState.svelte';
 	import AuditFilterPanel from '$lib/audit/components/audit-filter-panel/AuditFilterPanel.svelte';
+	import { canManageAudit } from '$lib/utils/roles';
 
 	function partitionByCompletion(checkedIds: number[], assignments: AuditAssignment[]) {
 		const byId = new Map<number, AuditAssignment>();
@@ -28,7 +29,7 @@
 		return { completed, eligible, byId };
 	}
 
-	let isSuperAdmin = $derived(!!page.data.user?.is_super_admin);
+	let canAudit = $derived(canManageAudit(page.data.user?.role));
 	let hasCycle = $derived(auditStore.cycle !== null);
 	let pending = $derived(auditStore.baseAssignments.filter(a => !a.completed_at).length);
 	let hasSelection = $derived(auditUiStore.checkedIds.length > 0);
@@ -218,8 +219,8 @@
 	<!-- Spacer -->
 	<div class="flex-1"></div>
 
-	<!-- Start / Close Audit (super-admin only) -->
-	{#if isSuperAdmin}
+	<!-- Start / Close Audit (Audit Admin only) -->
+	{#if canAudit}
 		{#if !hasCycle && auditStore.baseAssignments.length === 0}
 			<button
 				onclick={() => confirmAndEnqueue('start')}
