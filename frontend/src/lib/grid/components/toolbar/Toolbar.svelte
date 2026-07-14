@@ -15,6 +15,7 @@
   import { validateNewRow } from '$lib/grid/validation';
   import { resetEditState, resetAfterCommit } from '$lib/utils/gridHelpers';
   import { gridPrefsStore, ROW_HEIGHT_PRESETS, type RowHeight } from '$lib/data/gridPrefsStore.svelte';
+  import { splitPastedSearchTerms } from '$lib/utils/multiSearch';
 
   const ROW_HEIGHT_LABELS: Record<RowHeight, string> = { 24: 'Compact', 32: 'Default', 40: 'Spacious' };
 
@@ -193,6 +194,14 @@
             placeholder="Search..."
             onkeydown={(e) => {
               if (e.key === "Enter") handleSearch();
+            }}
+            onpaste={(e) => {
+              const pasted = e.clipboardData?.getData('text') ?? '';
+              const terms = splitPastedSearchTerms(pasted);
+              if (terms.length > 1) {
+                e.preventDefault();
+                searchInput = terms.join(', ');
+              }
             }}
           />
           {#if searchInput}

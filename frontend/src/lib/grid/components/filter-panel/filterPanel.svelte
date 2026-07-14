@@ -48,8 +48,8 @@
               <div class="text-xs text-text-muted uppercase tracking-wide">
                 {filter.key.replaceAll('_', ' ')}
               </div>
-              <div class="text-sm font-medium text-text-primary truncate {filter.value === BLANK_FILTER_VALUE ? 'italic text-text-muted' : ''}">
-                {formatFilterValue(filter.key, filter.value)}
+              <div class="text-sm font-medium truncate {filter.value === BLANK_FILTER_VALUE ? 'italic text-text-muted' : filter.mode === 'exclude' ? 'text-text-danger' : 'text-text-primary'}">
+                {filter.mode === 'exclude' ? 'Not: ' : ''}{formatFilterValue(filter.key, filter.value)}
               </div>
             </div>
             <button

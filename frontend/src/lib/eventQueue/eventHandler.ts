@@ -365,12 +365,14 @@ async function handleCommitCreate(
   toastState.addToast(`${rows.length} new rows saved successfully.`, 'success');
 }
 
-function buildQueryParams(view: string, q?: string, filters?: { key: string; value: string }[], hiddenStatuses?: string[]): URLSearchParams {
+function buildQueryParams(view: string, q?: string, filters?: { key: string; value: string; mode: 'include' | 'exclude' }[], hiddenStatuses?: string[]): URLSearchParams {
   const params = new URLSearchParams();
   params.set('view', view || 'default');
-  if (q) params.set('q', q);
+  if (q) {
+    for (const term of q.split(',').map(t => t.trim()).filter(Boolean)) params.append('q', term);
+  }
   if (filters) {
-    for (const f of filters) params.append('filter', `${f.key}:${f.value}`);
+    for (const f of filters) params.append(f.mode === 'exclude' ? 'filterExclude' : 'filter', `${f.key}:${f.value}`);
   }
   if (hiddenStatuses) {
     for (const s of hiddenStatuses) params.append('hidden_status', s);

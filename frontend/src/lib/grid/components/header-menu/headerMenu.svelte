@@ -304,14 +304,15 @@
             >
               <div style="height: {contentHeight}px; position: relative;">
                 {#each filteredItems as item, idx}
+                  {@const match = queryStore.filters.find(f => f.key === activeKey && f.value === item)}
                   <button
                     class="absolute left-0 right-0 px-3 py-1.5 text-left flex items-center gap-2 group {idx === selectedIndex ? 'bg-blue-500 text-white' : 'hover:bg-bg-hover-item'}"
                     style="top: {idx * ITEM_HEIGHT - filterScroll.scrollTop}px; height: {ITEM_HEIGHT}px;"
                     onclick={() => toggleFilter(activeKey, item)}
                     onmouseenter={() => { selectedIndex = idx; }}
                   >
-                    <div class="w-4 flex justify-center {idx === selectedIndex ? 'text-white' : 'text-blue-600 dark:text-blue-400'} font-bold">
-                      {#if queryStore.filters.some(f => f.key === activeKey && f.value === item)}✓{/if}
+                    <div class="w-4 flex justify-center {idx === selectedIndex ? 'text-white' : match?.mode === 'exclude' ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'} font-bold">
+                      {#if match?.mode === 'include'}✓{:else if match?.mode === 'exclude'}−{/if}
                     </div>
                     <div class="truncate {item === BLANK_FILTER_VALUE ? 'italic text-text-muted' : ''}">{item === BLANK_FILTER_VALUE ? '(Blanks)' : item}</div>
                   </button>

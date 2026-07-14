@@ -16,7 +16,7 @@ export function handleFilterByValue(
   }
   const alreadyExists = queryStore.filters.some(f => f.key === key && f.value === value);
   if (!alreadyExists) {
-    queryStore.filters.push({ key, value });
+    queryStore.filters.push({ key, value, mode: 'include' });
   }
   enqueue(
     { type: 'QUERY', payload: { view: queryStore.view, q: queryStore.q, filters: $state.snapshot(queryStore.filters) } },

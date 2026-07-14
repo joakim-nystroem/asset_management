@@ -7,7 +7,7 @@ import {
 import { DATE_COLUMNS } from '$lib/grid/validation';
 import { parseDateFilter, nextDayIso } from '$lib/grid/dateFilter';
 
-export async function queryAssets(searchTerm: string | null, filters: Record<string, string[]>, view: string = 'default', hiddenStatuses: string[] = []) {
+export async function queryAssets(searchTerms: string[], filters: Record<string, { include: string[]; exclude: string[] }>, view: string = 'default', hiddenStatuses: string[] = []) {
   // Start with base query — all views share these joins
   let query = db.selectFrom('asset_inventory as ai')
     .leftJoin('asset_status as ast', 'ai.status_id', 'ast.id')
@@ -70,20 +70,28 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
     query = query.where('ast.status_name', 'not in', hiddenStatuses);
   }
 
-  if (searchTerm) {
-    const escaped = searchTerm.replace(/[%_\\]/g, '\\$&');
-    const searchTermLike = `%${escaped}%`;
-    query = query.where((eb: any) => eb.or([
-      eb('ai.id', 'like', searchTermLike),
-      eb('ai.serial_number', 'like', searchTermLike),
-      eb('ai.wbd_tag', 'like', searchTermLike),
-      eb('ai.manufacturer', 'like', searchTermLike),
-      eb('ad.department_name', 'like', searchTermLike),
-      eb('ai.node', 'like', searchTermLike),
-      eb('ai.asset_type', 'like', searchTermLike),
-      eb('ai.model', 'like', searchTermLike),
-      eb('al.location_name', 'like', searchTermLike),
-    ]));
+  if (searchTerms.length > 0) {
+    // A pasted multi-item search (comma/tab/newline-separated values) arrives
+    // as repeated `q` params — see $lib/utils/multiSearch. Every term is OR'd
+    // across the same columns: a row matches if any term matches any column.
+    query = query.where((eb: any) => eb.or(
+      searchTerms.flatMap((term) => {
+        const escaped = term.replace(/[%_\\]/g, '\\$&');
+        const searchTermLike = `%${escaped}%`;
+        return [
+          eb('ai.id', 'like', searchTermLike),
+          eb('ai.serial_number', 'like', searchTermLike),
+          eb('ai.wbd_tag', 'like', searchTermLike),
+          eb('ai.manufacturer', 'like', searchTermLike),
+          eb('ad.department_name', 'like', searchTermLike),
+          eb('ai.node', 'like', searchTermLike),
+          eb('ai.asset_type', 'like', searchTermLike),
+          eb('ai.model', 'like', searchTermLike),
+          eb('al.location_name', 'like', searchTermLike),
+          eb('ai.shelf_cabinet_table', 'like', searchTermLike),
+        ];
+      }),
+    ));
   }
 
   // Map filter keys to actual database columns
@@ -104,13 +112,13 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
     'modified', 'created',
   ]);
 
-  for (const [key, values] of Object.entries(filters)) {
-    if (values.length === 0) continue;
+  for (const [key, { include, exclude }] of Object.entries(filters)) {
+    if (include.length === 0 && exclude.length === 0) continue;
     const columnName = filterColumnMap[key] ?? (directColumns.has(key) ? `ai.${key}` : null);
     if (!columnName) continue;
 
     if (DATE_COLUMNS.has(key)) {
-      const parsed = parseDateFilter(values[0]);
+      const parsed = parseDateFilter(include[0] ?? exclude[0]);
       if (!parsed) continue;
       // Half-open ranges keep the column unwrapped → index-friendly.
       // For DATETIME cols (`modified`, `created`), this also captures the
@@ -127,22 +135,42 @@ export async function queryAssets(searchTerm: string | null, filters: Record<str
       continue;
     }
 
-    const hasBlank = values.includes('__BLANK__');
-    const realValues = values.filter(v => v !== '__BLANK__');
+    if (include.length > 0) {
+      const hasBlank = include.includes('__BLANK__');
+      const realValues = include.filter(v => v !== '__BLANK__');
 
-    if (hasBlank) {
-      query = query.where((eb: any) => {
-        const branches = [
+      if (hasBlank) {
+        query = query.where((eb: any) => {
+          const branches = [
+            eb(columnName as any, 'is', null),
+            eb(columnName as any, '=', ''),
+          ];
+          if (realValues.length > 0) {
+            branches.push(eb(columnName as any, 'in', realValues));
+          }
+          return eb.or(branches);
+        });
+      } else {
+        query = query.where(columnName as any, 'in', realValues);
+      }
+    }
+
+    if (exclude.length > 0) {
+      const hasBlank = exclude.includes('__BLANK__');
+      const realValues = exclude.filter(v => v !== '__BLANK__');
+
+      if (realValues.length > 0) {
+        query = query.where((eb: any) => eb.or([
           eb(columnName as any, 'is', null),
-          eb(columnName as any, '=', ''),
-        ];
-        if (realValues.length > 0) {
-          branches.push(eb(columnName as any, 'in', realValues));
-        }
-        return eb.or(branches);
-      });
-    } else {
-      query = query.where(columnName as any, 'in', realValues);
+          eb(columnName as any, 'not in', realValues),
+        ]));
+      }
+      if (hasBlank) {
+        query = query.where((eb: any) => eb.and([
+          eb(columnName as any, 'is not', null),
+          eb(columnName as any, '!=', ''),
+        ]));
+      }
     }
   }
 

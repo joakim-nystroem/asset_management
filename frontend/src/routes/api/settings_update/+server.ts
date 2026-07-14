@@ -29,7 +29,7 @@ export async function GET({ url, locals }) {
     }
 
     try {
-        const assets = await queryAssets(null, {}, resolvedView, hiddenStatuses);
+        const assets = await queryAssets([], {}, resolvedView, hiddenStatuses);
         return json({ assets });
     } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Failed to fetch assets';

@@ -42,10 +42,16 @@
   // svelte-ignore state_referenced_locally
   queryStore.q = data.initialQ ?? '';
   // svelte-ignore state_referenced_locally
-  queryStore.filters = (data.initialFilters ?? []).flatMap((f: string) => {
-    const i = f.indexOf(':');
-    return i > 0 ? [{ key: f.slice(0, i), value: f.slice(i + 1) }] : [];
-  });
+  queryStore.filters = [
+    ...(data.initialFilters ?? []).flatMap((f: string) => {
+      const i = f.indexOf(':');
+      return i > 0 ? [{ key: f.slice(0, i), value: f.slice(i + 1), mode: 'include' as const }] : [];
+    }),
+    ...(data.initialFiltersExclude ?? []).flatMap((f: string) => {
+      const i = f.indexOf(':');
+      return i > 0 ? [{ key: f.slice(0, i), value: f.slice(i + 1), mode: 'exclude' as const }] : [];
+    }),
+  ];
   // svelte-ignore state_referenced_locally
   queryStore.hiddenStatuses = data.hiddenStatuses ?? ['Retired'];
 

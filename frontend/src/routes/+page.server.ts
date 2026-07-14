@@ -7,21 +7,23 @@ import { logger } from '$lib/logger';
 
 const MOBILE_UA_REGEX = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i;
 
-function parseFilters(filterParams: string[]): Record<string, string[]> {
-  const filterMap: Record<string, string[]> = {};
+function parseFilters(filterParams: string[], filterExcludeParams: string[]): Record<string, { include: string[]; exclude: string[] }> {
+  const filterMap: Record<string, { include: string[]; exclude: string[] }> = {};
 
-  for (const filter of filterParams) {
-    const colonIndex = filter.indexOf(':');
-    if (colonIndex === -1) continue;
+  const addFilter = (raw: string, mode: 'include' | 'exclude') => {
+    const colonIndex = raw.indexOf(':');
+    if (colonIndex === -1) return;
 
-    const key = filter.slice(0, colonIndex);
-    const value = filter.slice(colonIndex + 1);
+    const key = raw.slice(0, colonIndex);
+    const value = raw.slice(colonIndex + 1);
 
-    if (key && value) {
-      if (!filterMap[key]) filterMap[key] = [];
-      filterMap[key].push(value);
-    }
-  }
+    if (!key || !value) return;
+    if (!filterMap[key]) filterMap[key] = { include: [], exclude: [] };
+    filterMap[key][mode].push(value);
+  };
+
+  for (const filter of filterParams) addFilter(filter, 'include');
+  for (const filter of filterExcludeParams) addFilter(filter, 'exclude');
 
   return filterMap;
 }
@@ -50,25 +52,30 @@ export const load: PageServerLoad = async ({ request, url, locals }) => {
   }
 
   const viewParam = url.searchParams.get('view') || 'default';
-  const qParam = url.searchParams.get('q') || '';
+  const qParams = url.searchParams.getAll('q');
   const filterParams = url.searchParams.getAll('filter');
+  const filterExcludeParams = url.searchParams.getAll('filterExclude');
   const resolvedView = resolveView(viewParam);
 
   const hiddenStatuses = locals.user.settings?.hidden_statuses ?? [];
 
+  // For display in the client's search box — multi-item pastes arrive as
+  // repeated `q` params; join them back into a readable "A, B, C".
+  const initialQ = qParams.join(', ');
+
   try {
-    const hasSearch = qParam || filterParams.length > 0;
+    const hasSearch = qParams.length > 0 || filterParams.length > 0 || filterExcludeParams.length > 0;
 
     // Build filterMap before await
-    const filterMap = parseFilters(filterParams);
+    const filterMap = parseFilters(filterParams, filterExcludeParams);
 
     // Load assets in parallel — metadata comes from root layout
     const [assets, searchResults] = await Promise.all([
-      queryAssets(null, {}, resolvedView, hiddenStatuses),
-      hasSearch ? queryAssets(qParam || null, filterMap, resolvedView, hiddenStatuses) : null,
+      queryAssets([], {}, resolvedView, hiddenStatuses),
+      hasSearch ? queryAssets(qParams, filterMap, resolvedView, hiddenStatuses) : null,
     ]);
 
-    return { assets, initialView: resolvedView, initialQ: qParam, initialFilters: filterParams, searchResults, initialUrl: url.search, hiddenStatuses };
+    return { assets, initialView: resolvedView, initialQ, initialFilters: filterParams, initialFiltersExclude: filterExcludeParams, searchResults, initialUrl: url.search, hiddenStatuses };
 
   } catch (err: unknown) {
     const dbError = err instanceof Error ? err.message : 'An unknown error occurred.';
@@ -76,8 +83,8 @@ export const load: PageServerLoad = async ({ request, url, locals }) => {
 
     return {
       assets: [], dbError,
-      initialView: resolvedView, initialQ: qParam,
-      initialFilters: filterParams, searchResults: null,
+      initialView: resolvedView, initialQ,
+      initialFilters: filterParams, initialFiltersExclude: filterExcludeParams, searchResults: null,
       url: url.pathname, initialUrl: url.search,
     };
   }
